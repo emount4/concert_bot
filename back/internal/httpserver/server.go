@@ -7,17 +7,14 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/yourname/concert-reviews-backend/internal/handlers"
 )
 
-func Run(ctx context.Context, addr string) error {
+func Run(ctx context.Context, addr string, handler http.Handler) error {
 	// Задание: запуск HTTP сервера + graceful shutdown
-	router := handlers.NewRouter()
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           router,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

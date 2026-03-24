@@ -1,0 +1,372 @@
+Plan: Concert Reviews Telegram Mini App (MVP → Production)
+
+Цель
+Сделать Telegram Mini App + Go (Gin) backend + React frontend + Postgres так, чтобы:
+- MVP был достижим и закрывал весь основной UX.
+- Проект был “серьёзным”: не ложился в проде из‑за отсутствия таймаутов/миграций/наблюдаемости, и не запирался в Telegram-экосистеме.
+
+Ключевые решения
+- Авторизация: Telegram WebApp initData (автоматическая) с серверной валидацией подписи.
+- Пользовательская модель: отдельная сущность users + таблица привязок user_identities(provider=telegram).
+- Модерация: статусы рецензии pending/approved/rejected.
+- Рейтинг: 4 объективных параметра (1–10) + vibe (1–10) → vibeMultiplier 1..1.6072 → общий балл capped до 90.
+- Медиа в MVP: хранить URL в БД (самый практичный старт), но проектировать так, чтобы позже легко переехать на S3/R2 (без перелома схемы).
+
+============================================================
+Раздел 1 — Зафиксированное MVP (продукт)
+============================================================
+
+1) Авторизация
+- Пользователь открывает мини-апп → происходит автоматическая авторизация (без форм).
+- Авторизация реализуется через WebApp initData:
+	- фронт получает initData
+	- отправляет на backend
+	- backend валидирует подпись и создаёт/находит пользователя
+	- backend создаёт сессию
+
+2) Профиль
+- Отображается:
+	- дата регистрации
+	- описание (bio)
+	- количество рецензий
+	- список твоих рецензий (желательно со статусом модерации)
+
+3) Главная страница
+- Секция “последние рецензии” (горизонтальный скролл).
+- Секция “последние концерты” (горизонтальный скролл или сетка с горизонтальным скроллом).
+- При клике на концерт → открывается страница концерта.
+
+4) Страница концерта
+- Отображается:
+	- информация о концерте (артисты, площадка, дата)
+	- средняя оценка (только approved рецензии)
+	- количество рецензий (только approved)
+	- список рецензий
+- Если пользователь не писал рецензию — показывается форма создания.
+
+5) Рецензия
+- Текст: 300..8500 символов (валидировать на сервере).
+- Оценка по 5 параметрам (описано в Разделе 2).
+
+6) Админ
+- Новые концерты/артистов/площадки добавляет администратор.
+- Администратор модерирует рецензии.
+- Администратор может банить пользователей.
+- Это реализовано через отдельную админ-панель (UI) и admin API.
+- Нужны все CRUD операции.
+
+7) Сущности в БД
+- Artists, Venues, Concerts — отдельные сущности.
+- Концерт может иметь несколько артистов (many-to-many).
+
+============================================================
+Раздел 2 — Рейтинг (точная спецификация)
+============================================================
+
+Объективные параметры (1–10 каждый):
+1) Исполнение
+2) Динамика / трек‑лист
+3) Подача артиста, взаимодействие с аудиторией
+4) Работа звукаря (продакшн)
+
+Субъективный параметр:
+5) Вайб (1–10)
+
+Вайб → множитель:
+- vibeMultiplier ∈ [1, 1.6072]
+- Нужна детерминированная функция vibeMultiplier(vibe) (одинаковая на фронте и бэке).
+	Практично сделать её строго в backend (источник истины), а на фронте либо:
+	- повторить ту же функцию 1-в-1 для превью, либо
+	- запрашивать “превью overall” с сервера при изменении слайдера (можно позже).
+
+Итоговая формула:
+- objectiveSum = sum(4 объективных)
+- overallRaw = objectiveSum * 1.4 * vibeMultiplier
+- overallScore = min(90, overallRaw)
+
+Рекомендации хранения:
+- В БД хранить:
+	- все 4 объективных + vibe (как int)
+	- vibe_multiplier (numeric)
+	- overall_score (numeric)
+- overall_score пересчитывать на сервере при create/update рецензии.
+
+============================================================
+Фаза 0 — Договорённости (1–2 часа)
+============================================================
+
+0.1 Домены и окружения
+- Определить базовый домен для мини-аппа и API.
+- Рекомендация: один origin для фронта и API, чтобы cookie-сессии работали без CORS-сложностей.
+
+0.2 Модерация
+- Статусы: pending/approved/rejected.
+- Публично отображать только approved.
+- В профиле показывать все свои, со статусом.
+
+0.3 Редактирование рецензии
+- Рекомендация: если approved рецензия редактируется → статус возвращается в pending.
+
+============================================================
+Фаза 1 — Production foundation backend (1–2 дня)
+============================================================
+
+Цель: сервис не падает от базовых прод-проблем (таймауты, shutdown, логирование, readiness).
+
+1.1 Конфиг (env)
+Добавить в конфиг (и валидировать где нужно):
+- PORT
+- LOG_LEVEL
+- DATABASE_URL
+- TELEGRAM_BOT_TOKEN
+- ADMIN_TELEGRAM_IDS (csv)
+- SHUTDOWN_TIMEOUT (duration, напр. 10s)
+- HTTP_READ_HEADER_TIMEOUT (duration, напр. 10s)
+- HTTP_READ_TIMEOUT / HTTP_WRITE_TIMEOUT / HTTP_IDLE_TIMEOUT (рекомендуется для прод)
+- SESSION_SECRET (если cookie-сессии) или JWT_SECRET (если JWT)
+
+1.2 Логи и request_id
+- Оставить единый дефолтный slog (SetDefault) в main.
+- Добавить middleware request_id:
+	- брать X-Request-ID если пришёл
+	- иначе генерировать
+	- добавлять в ответ
+- Расширить access-logs:
+	- request_id
+	- user_agent
+	- ошибки из gin.Context.Errors (минимум количество/первая)
+
+1.3 Health/Readiness
+- /health: просто “жив”
+- /ready: проверка БД (ping) и базовой готовности
+
+1.4 Graceful shutdown
+- Таймауты сервера и shutdown брать из конфига.
+- На SIGTERM/CTRL+C корректно закрывать сервер.
+
+============================================================
+Фаза 2 — Postgres + миграции + схема (1–2 дня)
+============================================================
+
+2.1 Миграции
+- Выбрать инструмент: goose или golang-migrate.
+- Создать back/migrations.
+- Добавить команду запуска миграций (dev/prod).
+
+2.2 Таблицы (минимум MVP)
+users:
+- id
+- created_at
+- display_name
+- bio
+- is_banned, ban_reason, banned_until
+
+user_identities:
+- id
+- user_id FK
+- provider (telegram)
+- provider_user_id (telegram user id)
+- unique(provider, provider_user_id)
+
+artists:
+- id, name, description, image_url
+
+venues:
+- id, name, city, address, image_url
+
+concerts:
+- id, title(optional), date_time
+- venue_id FK
+- banner_image_url
+
+concert_artists:
+- concert_id, artist_id (many-to-many)
+- unique(concert_id, artist_id)
+
+reviews:
+- id
+- concert_id FK
+- user_id FK
+- unique(concert_id, user_id)
+- status: pending/approved/rejected
+- text (300..8500)
+- rating_performance (1..10)
+- rating_setlist (1..10)
+- rating_crowd (1..10)
+- rating_sound (1..10)
+- rating_vibe (1..10)
+- vibe_multiplier (numeric)
+- overall_score (numeric)
+- created_at, updated_at
+
+media_assets (задел под медиа):
+- id
+- owner_type (artist/venue/concert/review)
+- owner_id
+- kind (avatar/banner/photo)
+- url
+
+2.3 Индексы
+- reviews(status, created_at)
+- reviews(concert_id, status)
+- concerts(date_time desc)
+
+============================================================
+Фаза 3 — Telegram Mini App Auth (1–2 дня)
+============================================================
+
+3.1 Endpoint авторизации
+POST /api/auth/telegram
+- input: initData
+- сервер валидирует подпись initData
+- upsert user + identity
+- создаёт сессию:
+	- рекомендовано: httpOnly cookie (если один origin)
+	- альтернативно: JWT (быстрее, но чаще хуже по безопасности)
+
+3.2 Middleware
+- auth middleware: достаёт user_id
+- ban middleware: запрещает write-операции при активном бане
+- admin middleware: проверяет пользователя по ADMIN_TELEGRAM_IDS
+
+============================================================
+Фаза 4 — Public API под Mini App (3–6 дней)
+============================================================
+
+4.1 Профиль
+GET /api/me
+- created_at, display_name, bio, reviews_count
+
+GET /api/me/reviews?status=all|approved|pending|rejected
+- список рецензий пользователя (+ статус)
+
+4.2 Главная
+GET /api/feed
+- latest_reviews (approved, limit)
+- latest_concerts (limit)
+
+4.3 Концерты
+GET /api/concerts/:id
+- concert + venue + artists
+- avg_overall_score (только approved)
+- reviews_count (только approved)
+- has_my_review + my_review (если есть)
+
+GET /api/concerts/:id/reviews?limit&offset
+- только approved
+
+4.4 Рецензии
+POST /api/concerts/:id/reviews
+- валидировать текст 300..8500
+- валидировать рейтинги 1..10
+- рассчитать vibeMultiplier и overallScore по формуле
+- статус pending
+
+PUT /api/reviews/:id
+- только владелец
+- после изменения: pending (рекомендация)
+
+4.5 Агрегации
+- считать avg и count по status=approved.
+- сначала SQL агрегации, оптимизация позже.
+
+============================================================
+Фаза 5 — Admin API + Admin Panel (5–10 дней)
+============================================================
+
+5.1 Admin API (под /api/admin)
+Artists CRUD:
+- GET/POST/PUT/DELETE /api/admin/artists
+
+Venues CRUD:
+- GET/POST/PUT/DELETE /api/admin/venues
+
+Concerts CRUD:
+- GET/POST/PUT/DELETE /api/admin/concerts
+- управление артистами концерта:
+	- вариант: PUT /api/admin/concerts/:id/artists (список artist_id)
+
+Reviews moderation:
+- GET /api/admin/reviews?status=pending
+- POST /api/admin/reviews/:id/approve
+- POST /api/admin/reviews/:id/reject (+ reason)
+
+Users ban/unban:
+- GET /api/admin/users?query=
+- POST /api/admin/users/:id/ban (+ until, reason)
+- POST /api/admin/users/:id/unban
+
+5.2 Admin UI
+- отдельный раздел /admin
+- страницы:
+	- artists CRUD
+	- venues CRUD
+	- concerts CRUD (multi-select артистов)
+	- очередь модерации рецензий
+	- пользователи: бан/разбан
+
+============================================================
+Фаза 6 — Frontend Mini App (React) (5–12 дней)
+============================================================
+
+6.1 Bootstrap
+- На старте:
+	- взять Telegram initData
+	- POST /api/auth/telegram
+	- затем загружать /api/me и /api/feed
+
+6.2 Экраны
+- Главная: latest reviews + latest concerts (горизонтальные списки)
+- Страница концерта: avg+count, список рецензий, форма если нет своей
+- Форма рецензии:
+	- текст 300..8500
+	- 4 объективных + vibe (1–10)
+	- показать превью overallScore (сервер считает итог)
+- Профиль: created_at, bio, count, список рецензий (со статусами)
+
+6.3 Изображения
+- В MVP просто URL из БД.
+- Проектировать UI так, чтобы позже заменить хранение на S3/R2.
+
+============================================================
+Фаза 7 — Bot (1–2 дня)
+============================================================
+
+- /start → кнопка WebApp на мини-апп URL.
+- Прод: webhook endpoint.
+- Локально: polling опционально.
+
+============================================================
+Фаза 8 — Деплой и эксплуатация (2–5 дней)
+============================================================
+
+- Docker + reverse proxy + HTTPS.
+- Миграции при деплое.
+- Бэкапы Postgres.
+- Логи в stdout (структурные).
+- Опционально: /metrics (Prometheus) позже.
+
+============================================================
+Верификация на каждом шаге
+============================================================
+
+1) Backend сборка/тесты:
+- go test ./...
+
+2) Smoke:
+- GET /health -> ok
+- GET /ready -> ok (после внедрения)
+
+3) Логи:
+- access logs содержат request_id
+
+4) Auth:
+- успешный /api/auth/telegram -> /api/me
+
+============================================================
+Границы MVP (явно исключено)
+============================================================
+
+- Полноценная загрузка медиа пользователями (кроме url картинок сущностей).
+- Комментарии/лайки/подписки/уведомления.
+- Автоматическая модерация (только ручная).

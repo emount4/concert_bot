@@ -1,0 +1,48 @@
+# Environment
+.env
+.env.*
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/back/bin/
+
+# Go workspace / tool caches
+/tmp/
+
+# Coverage
+coverage.out
+*.coverprofile
+
+# Logs
+*.log
+
+# Frontend (React)
+node_modules/
+front/node_modules/
+
+# Build outputs
+build/
+dist/
+front/build/
+front/dist/
+
+# Vite/Next caches (safe to ignore if used later)
+.frontend-cache/
+front/.vite/
+front/.next/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
