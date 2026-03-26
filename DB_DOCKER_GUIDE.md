@@ -74,6 +74,14 @@
 - `curl http://localhost:8080/health`
 - `curl http://localhost:8080/ready`
 
+### Миграции (рекомендуемый способ фиксировать схему)
+
+В репозитории есть миграции и встроенная команда для их применения:
+
+- `cd back`
+- `go run ./cmd/migrate status`
+- `go run ./cmd/migrate up`
+
 Ожидания:
 
 - `/health` → `ok`
@@ -117,3 +125,15 @@
 - базу (`POSTGRES_DB`)
 
 Но таблицы проекта Docker не создаёт. Таблицы появятся после того, как ты добавишь миграции и начнёшь их запускать.
+
+## 8) Как в pgAdmin посмотреть схему
+
+1) Открой pgAdmin → подключись к серверу.
+2) Дерево слева: `Servers` → твой сервер → `Databases` → `concert_bot` → `Schemas` → `public` → `Tables`.
+3) Для таблицы: правый клик → `Properties` / `Columns`.
+4) Быстро через Query Tool:
+
+- Список таблиц:
+	- `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY 1;`
+- Колонки таблицы:
+	- `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='reviews' ORDER BY ordinal_position;`

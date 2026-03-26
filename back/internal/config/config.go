@@ -27,6 +27,16 @@ type Config struct {
 	HTTPIdleTimeout       time.Duration
 }
 
+// Задание: проверка прав администратора по Telegram user_id.
+func (c *Config) IsAdminTelegramID(telegramID int64) bool {
+	for _, id := range c.AdminTelegramIDs {
+		if id == telegramID {
+			return true
+		}
+	}
+	return false
+}
+
 func Load() (*Config, error) {
 	adminIDs, err := getInt64SliceEnv("ADMIN_TELEGRAM_IDS")
 	if err != nil {
