@@ -25,6 +25,7 @@ func NewRouter(cfg *config.Config, db *repository.DB) *gin.Engine {
 	registerSystemRoutes(r, db)
 	registerFeedRoutes(r, deps)
 	registerReviewRoutes(r, deps)
+	registerAdminRoutes(r, deps)
 
 	return r
 }
