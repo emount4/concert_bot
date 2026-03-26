@@ -8,15 +8,11 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"github.com/yourname/concert-reviews-backend/internal/repository/models"
 )
 
-// Задание: подключение к БД (Gorm)
-//
-// Зачем это нужно:
-// - мы хотим иметь единое место, где настраивается подключение к Postgres;
-// - хотим уметь проверять готовность сервиса (readiness) через Ping к БД;
-// - хотим корректно закрывать пул соединений при shutdown.
-//
+// подключение к БД (Gorm)
 // Важно: Gorm поверх использует database/sql, поэтому "пул" фактически находится в *sql.DB.
 // Мы достаём его через gormDB.DB().
 
@@ -47,6 +43,22 @@ func OpenPostgres(databaseURL string) (*DB, error) {
 
 func (d *DB) Gorm() *gorm.DB {
 	return d.gormDB
+}
+
+// AutoMigrate создаёт/обновляет таблицы под Gorm-модели.
+// Задание: подготовка схемы БД через Gorm.
+//
+// Важно: не вызывай это автоматически в проде без контроля версий.
+// Для продовых окружений лучше иметь отдельный шаг миграций.
+func (d *DB) AutoMigrate() error {
+	return d.gormDB.AutoMigrate(
+		&models.User{},
+		&models.Artist{},
+		&models.Venue{},
+		&models.Concert{},
+		&models.ConcertArtist{},
+		&models.Review{},
+	)
 }
 
 // Ready проверяет доступность БД.

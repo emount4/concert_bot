@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/joho/godotenv"
@@ -29,10 +30,6 @@ func Run() error {
 	}
 
 	// Задание: инициализация подключения к БД (Gorm).
-	//
-	// Зачем:
-	// - /ready должен уметь проверять доступность Postgres;
-	// - дальше репозитории/сервисы будут использовать это подключение.
 	db, err := repository.OpenPostgres(cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("db init: %w", err)
@@ -42,6 +39,15 @@ func Run() error {
 			logger.Warn("db close failed", slog.String("err", err.Error()))
 		}
 	}()
+
+	// Задание: применение схемы через Gorm (только по явному флагу в env).
+	// По умолчанию выключено, чтобы не делать неожиданных изменений схемы в проде.
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("DB_AUTO_MIGRATE")), "true") || strings.TrimSpace(os.Getenv("DB_AUTO_MIGRATE")) == "1" {
+		logger.Info("db automigrate enabled")
+		if err := db.AutoMigrate(); err != nil {
+			return fmt.Errorf("db automigrate: %w", err)
+		}
+	}
 
 	router := handlers.NewRouter(db)
 
