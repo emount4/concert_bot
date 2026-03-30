@@ -1,0 +1,32 @@
+:root {
+  /* Задание: минималистичная тёмно-синяя гамма */
+  --bg: #071225;
+  --panel: #0b1a33;
+  --fg: #eaf1ff;
+  --muted: #a9b8d6;
+  --border: #1a2c52;
+  --hover: #122a52;
+
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  color-scheme: dark;
+  color: var(--fg);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+}

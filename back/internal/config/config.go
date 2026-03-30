@@ -15,6 +15,12 @@ type Config struct {
 	BotToken    string
 	LogLevel    string
 
+	// Задание: dev-only write эндпоинты для локального наполнения каталога.
+	// APP_ENV: dev|prod (по умолчанию dev).
+	// ENABLE_DEV_WRITE: явное включение/выключение (по умолчанию включено в dev, выключено в prod).
+	AppEnv         string
+	EnableDevWrite bool
+
 	// Список Telegram user_id, которым разрешён доступ к admin API/UI.
 	AdminTelegramIDs []int64
 
@@ -43,11 +49,17 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	appEnv := strings.ToLower(strings.TrimSpace(getEnv("APP_ENV", "dev")))
+	defaultEnableDevWrite := appEnv != "prod" && appEnv != "production"
+
 	cfg := &Config{
 		Port:        getEnv("PORT", ":8080"),
 		DatabaseURL: strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		BotToken:    strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
 		LogLevel:    strings.TrimSpace(getEnv("LOG_LEVEL", "info")),
+
+		AppEnv:         appEnv,
+		EnableDevWrite: getBoolEnv("ENABLE_DEV_WRITE", defaultEnableDevWrite),
 
 		AdminTelegramIDs: adminIDs,
 
@@ -63,6 +75,11 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+// Задание: удобный хелпер, чтобы в коде не размазывать проверки env.
+func (c *Config) IsProd() bool {
+	return c.AppEnv == "prod" || c.AppEnv == "production"
+}
+
 func (c *Config) Validate() error {
 	var err error
 	if strings.TrimSpace(c.Port) == "" {
@@ -71,7 +88,7 @@ func (c *Config) Validate() error {
 	if c.DatabaseURL == "" {
 		err = errors.Join(err, errors.New("DATABASE_URL is required"))
 	}
-	if c.BotToken == "" {
+	if c.IsProd() && c.BotToken == "" {
 		err = errors.Join(err, errors.New("TELEGRAM_BOT_TOKEN is required"))
 	}
 	if c.ShutdownTimeout <= 0 {
@@ -114,6 +131,21 @@ func getDurationEnv(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return d
+}
+
+func getBoolEnv(key string, fallback bool) bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	if value == "" {
+		return fallback
+	}
+	switch value {
+	case "1", "true", "t", "yes", "y", "on":
+		return true
+	case "0", "false", "f", "no", "n", "off":
+		return false
+	default:
+		return fallback
+	}
 }
 
 func getInt64SliceEnv(key string) ([]int64, error) {

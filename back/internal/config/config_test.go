@@ -51,6 +51,7 @@ func TestLoad_OK(t *testing.T) {
 
 func TestLoad_RequiredEnvValidation(t *testing.T) {
 	// Задание: проверка, что обязательные поля валидируются
+	t.Setenv("APP_ENV", "prod")
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("TELEGRAM_BOT_TOKEN", "")
 
@@ -64,6 +65,18 @@ func TestLoad_RequiredEnvValidation(t *testing.T) {
 	}
 	if !strings.Contains(msg, "TELEGRAM_BOT_TOKEN is required") {
 		t.Fatalf("expected TELEGRAM_BOT_TOKEN error, got: %s", msg)
+	}
+}
+
+func TestLoad_TelegramTokenOptionalInDev(t *testing.T) {
+	// Задание: в dev TELEGRAM_BOT_TOKEN может быть пустым (чтобы локально подняться без Telegram).
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db")
+	t.Setenv("TELEGRAM_BOT_TOKEN", "")
+
+	_, err := Load()
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
 	}
 }
 

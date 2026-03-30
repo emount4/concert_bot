@@ -16,8 +16,11 @@ import (
 
 func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 	admin := r.Group("/admin")
-	admin.Use(middleware.TelegramAuth(deps.Config, deps.DB))
-	admin.Use(middleware.AdminOnly())
+	// Задание: в DEV админку можно тестировать без Telegram (включается флагом EnableDevWrite).
+	if deps.Config == nil || !deps.Config.EnableDevWrite {
+		admin.Use(middleware.TelegramAuth(deps.Config, deps.DB))
+		admin.Use(middleware.AdminOnly())
+	}
 
 	// Pagination helpers
 	parseLimitOffset := func(c *gin.Context) (int, int) {

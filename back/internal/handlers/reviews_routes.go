@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,32 @@ func registerReviewRoutes(r *gin.Engine, cfg *RouterDeps) {
 	// Write endpoints — только с Telegram auth.
 	auth := r.Group("/")
 	auth.Use(middleware.TelegramAuth(cfg.Config, cfg.DB))
+
+	// Задание: проверить, писал ли пользователь рецензию на концерт.
+	// GET /reviews/my?concert_id=123
+	auth.GET("/reviews/my", func(c *gin.Context) {
+		user, ok := middleware.GetUser(c)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		concertID, err := strconv.ParseUint(c.Query("concert_id"), 10, 64)
+		if err != nil || concertID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "concert_id is required"})
+			return
+		}
+
+		review, exists, err := repository.GetMyReviewByConcert(c.Request.Context(), cfg.DB.Gorm(), user.ID, concertID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "get my review failed"})
+			return
+		}
+		if !exists {
+			c.JSON(http.StatusOK, gin.H{"exists": false})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"exists": true, "review": review})
+	})
 
 	auth.POST("/reviews", func(c *gin.Context) {
 		user, ok := middleware.GetUser(c)
