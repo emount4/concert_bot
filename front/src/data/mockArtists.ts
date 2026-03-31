@@ -26,4 +26,28 @@ export const MOCK_ARTISTS: ArtistCardItem[] = [
     imageUrl: null,
     avgConcertScore: 78.3,
   },
+  {
+    id: 105,
+    nickname: 'Лунный Канал',
+    imageUrl: null,
+    avgConcertScore: 83.1,
+  },
+  {
+    id: 106,
+    nickname: 'Стерео Линия',
+    imageUrl: null,
+    avgConcertScore: 80.4,
+  },
+  {
+    id: 107,
+    nickname: 'Портовый Шум',
+    imageUrl: null,
+    avgConcertScore: 86.9,
+  },
+  {
+    id: 108,
+    nickname: 'Медленный Свет',
+    imageUrl: null,
+    avgConcertScore: 77.5,
+  },
 ]

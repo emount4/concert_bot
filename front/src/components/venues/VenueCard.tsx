@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { VenueCardItem } from '../../types/venue'
 
 type VenueCardProps = {
@@ -38,29 +39,31 @@ export function VenueCard({ venue }: VenueCardProps) {
   const roundedScore = venue.avgVenueScore === null ? null : Math.round(venue.avgVenueScore)
 
   return (
-    <article className="venueCard">
-      <div className="venuePhoto" aria-label="Фото площадки" />
+    <Link to={`/venues?venueId=${venue.id}`} className="venueCardLink">
+      <article className="venueCard">
+        <div className="venuePhoto" aria-label="Фото площадки" />
 
-      <div className="venueBottom">
-        <div className="venueInfo">
-          <p className="venueMeta venueMetaName">
-            <VenueIcon kind="name" />
-            <span className="metaText">{venue.name}</span>
-          </p>
+        <div className="venueBottom">
+          <div className="venueInfo">
+            <p className="venueMeta venueMetaName">
+              <VenueIcon kind="name" />
+              <span className="metaText">{venue.name}</span>
+            </p>
 
-          <p className="venueMeta">
-            <VenueIcon kind="city" />
-            <span className="metaText">{venue.city}</span>
-          </p>
+            <p className="venueMeta">
+              <VenueIcon kind="city" />
+              <span className="metaText">{venue.city}</span>
+            </p>
 
-          <p className="venueMeta">
-            <VenueIcon kind="capacity" />
-            <span className="metaText">{formatCapacity(venue.capacity)} чел</span>
-          </p>
+            <p className="venueMeta">
+              <VenueIcon kind="capacity" />
+              <span className="metaText">{formatCapacity(venue.capacity)} чел</span>
+            </p>
+          </div>
+
+          {roundedScore !== null && <div className="ratingCircle">{roundedScore}</div>}
         </div>
-
-        {roundedScore !== null && <div className="ratingCircle">{roundedScore}</div>}
-      </div>
-    </article>
+      </article>
+    </Link>
   )
 }

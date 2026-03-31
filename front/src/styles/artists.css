@@ -14,6 +14,23 @@
   flex-direction: column;
 }
 
+.artistCardLink {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+}
+
+.artistCardLink .artistCard {
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease;
+}
+
+.artistCardLink:hover .artistCard {
+  transform: translateY(-2px);
+  border-color: #2a3d68;
+}
+
 .artistPhoto {
   aspect-ratio: 1 / 1;
   border-bottom: 1px solid var(--border);
@@ -34,6 +51,7 @@
   display: grid;
   justify-items: center;
   gap: 10px;
+  grid-template-rows: auto 1fr;
 }
 
 .artistNickname {
@@ -44,4 +62,128 @@
 
 .artistRatingCircle {
   align-self: center;
+}
+
+.artistRatingSlot {
+  min-height: 64px;
+  display: grid;
+  align-items: end;
+}
+
+.detailHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detailBackLink {
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: var(--fg);
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.detailBackLink:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.detailHero {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--panel);
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.detailHeroMedia {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.detailHeroBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detailHeroTitle {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.detailStatsRow {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detailStatItem {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.detailRatingCircle {
+  margin-top: auto;
+}
+
+.detailSection {
+  margin-top: 14px;
+  padding: 0;
+}
+
+.detailSection > .placeholder {
+  margin-top: 10px;
+}
+
+.detailConcertScroll {
+  margin-top: 10px;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.detailConcertItem {
+  flex: 0 0 min(250px, 72vw);
+  display: flex;
+}
+
+.detailConcertItem .concertCard {
+  height: 100%;
+  min-height: 320px;
+}
+
+.detailConcertItem .concertBottom {
+  padding: 10px;
+}
+
+.detailReviewScroll {
+  margin-top: 10px;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.detailReviewItem {
+  flex: 0 0 calc((100% - 24px) / 3);
+  min-width: 320px;
+}
+
+.detailReviewItem .reviewCard {
+  height: 100%;
 }

@@ -1,4 +1,24 @@
+@media (max-width: 960px) {
+  .venueGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
+  .main {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .topBar {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .profile {
+    display: none;
+  }
+
   .concertSearch,
   .concertSelect {
     width: 100%;
@@ -64,7 +84,102 @@
     grid-template-columns: 1fr;
   }
 
+  .detailHeaderRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .detailHero {
+    grid-template-columns: 1fr;
+  }
+
+  .detailHeroTitle {
+    font-size: 22px;
+  }
+
+  .detailConcertCard {
+    flex-basis: min(80vw, 220px);
+  }
+
+  .detailConcertItem {
+    flex-basis: min(86vw, 250px);
+  }
+
+  .detailReviewItem {
+    flex-basis: min(88vw, 420px);
+    min-width: min(88vw, 420px);
+  }
+
   .venueGrid {
     grid-template-columns: 1fr;
+  }
+
+  .rateHeroTitle {
+    font-size: 20px;
+  }
+
+  .rateHeroMain {
+    grid-template-columns: 1fr;
+  }
+
+  .rateHeroPosterWrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .rateHeroPoster {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    min-height: 180px;
+  }
+
+  .rateHeroInfoRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .rateSliderTopRow {
+    grid-template-columns: 1fr;
+  }
+
+  .rateScoreBottom {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .rateVibeRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .rateVibeValue,
+  .rateSliderValue {
+    text-align: left;
+  }
+
+  .rateUtilityRow {
+    flex-wrap: wrap;
+  }
+
+  .rateCharCount {
+    margin-left: 0;
+  }
+
+  .rateActions {
+    justify-content: space-between;
+  }
+
+  .rateOverallValue {
+    font-size: 38px;
+  }
+
+  .rateOverallLimit {
+    font-size: 22px;
+    margin-top: 6px;
+  }
+
+  .rateDraftToast {
+    right: 8px;
+    bottom: 8px;
+    max-width: calc(100vw - 16px);
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import type { ReviewCardItem } from '../../types/review'
 
 type ReviewCardProps = {
@@ -37,16 +38,22 @@ function ExpandIcon({ expanded }: { expanded: boolean }) {
 }
 
 export function ReviewCard({ review }: ReviewCardProps) {
-  // Задание 5.4: сворачивание/разворачивание текста рецензии внутри карточки.
+  // Задание 10.2: сворачивание текста и просмотр прикрепленных медиа в карточке рецензии.
   const [expanded, setExpanded] = useState(false)
+  const [isMediaOpen, setIsMediaOpen] = useState(false)
+  // Задание 10.3: просмотр вложений по одному с переключением стрелками.
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
+  const media = review.media ?? []
+  const currentMedia = media[currentMediaIndex] ?? null
+  const navigate = useNavigate()
 
   return (
     <article className="reviewCard">
       <header className="reviewHeader">
-        <div className="reviewAuthor">
+        <Link to={`/users/${encodeURIComponent(review.authorName)}`} className="reviewAuthor reviewAuthorLink">
           <div className="reviewAvatar" aria-hidden="true" />
           <p className="reviewAuthorName">{review.authorName}</p>
-        </div>
+        </Link>
 
         <div className="reviewScoreWrap">
           <div className="ratingCircle reviewRatingCircle">{review.overallScore}</div>
@@ -61,7 +68,12 @@ export function ReviewCard({ review }: ReviewCardProps) {
           </div>
         </div>
 
-        <div className="reviewConcertPosterWrap" aria-hidden="true">
+        <button
+          type="button"
+          className="reviewConcertPosterWrap reviewPosterBtn"
+          aria-label="Открыть страницу оценивания концерта"
+          onClick={() => navigate(`/concerts/${review.concertId}/rate`)}
+        >
           <div className="reviewConcertPosterMedia">
             {review.concertPosterUrl ? (
               <img className="reviewConcertPosterImg" src={review.concertPosterUrl} alt="" />
@@ -74,7 +86,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
             <p className="reviewPosterTooltipTitle">{review.concertTitle}</p>
             <p className="reviewPosterTooltipArtist">{review.concertArtist}</p>
           </div>
-        </div>
+        </button>
       </header>
 
       <div className="reviewBody">
@@ -83,6 +95,20 @@ export function ReviewCard({ review }: ReviewCardProps) {
         <p className={expanded ? 'reviewText expanded' : 'reviewText'}>{review.text}</p>
 
         <div className="reviewFooter">
+          {media.length > 0 && (
+            <button
+              type="button"
+              className="reviewMediaBtn"
+              onClick={() => {
+                setCurrentMediaIndex(0)
+                setIsMediaOpen(true)
+              }}
+              aria-label={`Открыть вложения рецензии (${media.length})`}
+            >
+              Медиа ({media.length})
+            </button>
+          )}
+
           <button
             type="button"
             className="reviewExpandBtn"
@@ -93,6 +119,57 @@ export function ReviewCard({ review }: ReviewCardProps) {
           </button>
         </div>
       </div>
+
+      {isMediaOpen && (
+        <div className="reviewMediaBackdrop" onClick={() => setIsMediaOpen(false)}>
+          <article className="reviewMediaCard" onClick={(event) => event.stopPropagation()}>
+            <div className="reviewMediaHeader">
+              <h3 className="reviewMediaTitle">Вложения рецензии</h3>
+              <button type="button" className="reviewMediaClose" onClick={() => setIsMediaOpen(false)}>
+                Закрыть
+              </button>
+            </div>
+
+            {currentMedia && (
+              <>
+                <div className="reviewMediaStage">
+                  <button
+                    type="button"
+                    className="reviewMediaArrow"
+                    aria-label="Предыдущее вложение"
+                    onClick={() => setCurrentMediaIndex((prev) => Math.max(0, prev - 1))}
+                    disabled={currentMediaIndex === 0}
+                  >
+                    ←
+                  </button>
+
+                  <div className="reviewMediaItem">
+                    {currentMedia.type === 'video' ? (
+                      <video className="reviewMediaAsset" src={currentMedia.url} controls preload="metadata" />
+                    ) : (
+                      <img className="reviewMediaAsset" src={currentMedia.url} alt="Вложение рецензии" />
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="reviewMediaArrow"
+                    aria-label="Следующее вложение"
+                    onClick={() => setCurrentMediaIndex((prev) => Math.min(media.length - 1, prev + 1))}
+                    disabled={currentMediaIndex === media.length - 1}
+                  >
+                    →
+                  </button>
+                </div>
+
+                <p className="reviewMediaCounter">
+                  {currentMediaIndex + 1} / {media.length}
+                </p>
+              </>
+            )}
+          </article>
+        </div>
+      )}
     </article>
   )
 }

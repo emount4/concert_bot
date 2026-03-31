@@ -2,6 +2,12 @@
 
 export type AdminReviewStatus = 'pending' | 'approved' | 'rejected'
 
+export type AdminReviewAttachment = {
+  id: string
+  type: 'image' | 'video'
+  url: string
+}
+
 export type AdminReviewModerationItem = {
   id: number
   authorName: string
@@ -10,6 +16,7 @@ export type AdminReviewModerationItem = {
   overallScore: number
   status: AdminReviewStatus
   text: string
+  media?: AdminReviewAttachment[]
 }
 
 export type AdminArtist = {
@@ -35,4 +42,15 @@ export type AdminConcert = {
   venueId: number
   artistIds: number[]
   bannerImageUrl: string | null
+}
+
+export type AdminAccountRole = 'user' | 'admin' | 'super-admin'
+
+export type AdminAccount = {
+  id: number
+  displayName: string
+  handle: string
+  role: AdminAccountRole
+  isBanned: boolean
+  isCurrent: boolean
 }

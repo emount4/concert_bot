@@ -95,6 +95,25 @@
   flex-direction: column;
 }
 
+.concertCardLink {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+  height: 100%;
+}
+
+.concertCardLink .concertCard {
+  height: 100%;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease;
+}
+
+.concertCardLink:hover .concertCard {
+  transform: translateY(-2px);
+  border-color: #2a3d68;
+}
+
 .concertPoster {
   aspect-ratio: 4 / 5;
   border-bottom: 1px solid var(--border);
@@ -162,15 +181,17 @@
   gap: 8px;
 }
 
-.ratingCircle {
+.ratingCircle:not(.reviewRatingCircle) {
   width: 64px;
   height: 64px;
   border-radius: 999px;
-  border: 1px solid var(--fg);
+  border: 2px solid #fff;
+  background: var(--panel);
+  color: #fff;
   display: grid;
   place-items: center;
   font-size: 21px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
   align-self: flex-end;
   flex: 0 0 64px;

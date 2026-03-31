@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 
@@ -137,7 +138,9 @@ export function ConcertsPage() {
       {filteredConcerts.length > 0 ? (
         <div className="concertGrid">
           {filteredConcerts.map((concert) => (
-            <ConcertCard key={concert.id} concert={concert} />
+            <Link key={concert.id} to={`/concerts/${concert.id}/rate`} className="concertCardLink">
+              <ConcertCard concert={concert} />
+            </Link>
           ))}
         </div>
       ) : (

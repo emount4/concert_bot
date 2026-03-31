@@ -1,6 +1,6 @@
 .venueGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -9,9 +9,25 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
-  min-height: 340px;
   display: flex;
   flex-direction: column;
+}
+
+.venueCardLink {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+}
+
+.venueCardLink .venueCard {
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease;
+}
+
+.venueCardLink:hover .venueCard {
+  transform: translateY(-2px);
+  border-color: #2a3d68;
 }
 
 .venuePhoto {
@@ -58,4 +74,9 @@
   font-size: 18px;
   line-height: 1.2;
   font-weight: 700;
+}
+
+.detailHero .venuePhoto,
+.detailHero .artistPhoto {
+  border-bottom: none;
 }

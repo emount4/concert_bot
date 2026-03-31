@@ -1,5 +1,7 @@
+import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import {
+  MOCK_ADMIN_ACCOUNTS,
   MOCK_ADMIN_ARTISTS,
   MOCK_ADMIN_CONCERTS,
   MOCK_ADMIN_REVIEWS,
@@ -7,6 +9,8 @@ import {
 } from '../data/mockAdmin'
 import { setDevAdmin } from '../utils/adminAccess'
 import type {
+  AdminAccount,
+  AdminAccountRole,
   AdminArtist,
   AdminConcert,
   AdminReviewModerationItem,
@@ -18,8 +22,14 @@ type AdminPageProps = {
   isAdmin: boolean
 }
 
-type AdminTab = 'moderation' | 'artists' | 'venues' | 'concerts'
+type AdminTab = 'moderation' | 'artists' | 'venues' | 'concerts' | 'accounts'
 type ModerationStream = 'pending' | 'approved' | 'rejected'
+
+function roleLabel(role: AdminAccountRole): string {
+  if (role === 'super-admin') return 'Главный админ'
+  if (role === 'admin') return 'Админ'
+  return 'Пользователь'
+}
 
 function formatDateTime(value: string): string {
   const date = new Date(value)
@@ -49,6 +59,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
   const [artists, setArtists] = useState<AdminArtist[]>(MOCK_ADMIN_ARTISTS)
   const [venues, setVenues] = useState<AdminVenue[]>(MOCK_ADMIN_VENUES)
   const [concerts, setConcerts] = useState<AdminConcert[]>(MOCK_ADMIN_CONCERTS)
+  const [accounts, setAccounts] = useState<AdminAccount[]>(MOCK_ADMIN_ACCOUNTS)
 
   const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', imageUrl: '' })
   const [venueForm, setVenueForm] = useState({
@@ -71,6 +82,13 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
   const [isArtistsModalOpen, setIsArtistsModalOpen] = useState(false)
   const [venueSearchQuery, setVenueSearchQuery] = useState('')
   const [artistSearchQuery, setArtistSearchQuery] = useState('')
+  const [artistListQuery, setArtistListQuery] = useState('')
+  const [venueListQuery, setVenueListQuery] = useState('')
+  const [concertListQuery, setConcertListQuery] = useState('')
+  const [accountListQuery, setAccountListQuery] = useState('')
+  const [activeModerationMedia, setActiveModerationMedia] = useState<AdminReviewModerationItem | null>(null)
+  // Задание 10.4: просмотр медиа в модерации по одному элементу.
+  const [activeModerationMediaIndex, setActiveModerationMediaIndex] = useState(0)
 
   const pendingCount = useMemo(
     () => reviews.filter((review) => review.status === 'pending').length,
@@ -108,6 +126,47 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
 
     return artists.filter((artist) => artist.name.toLowerCase().includes(normalizedQuery))
   }, [artistSearchQuery, artists])
+  const filteredAdminArtists = useMemo(() => {
+    const normalizedQuery = artistListQuery.trim().toLowerCase()
+    if (!normalizedQuery) return artists
+
+    return artists.filter((artist) => `${artist.name} ${artist.description}`.toLowerCase().includes(normalizedQuery))
+  }, [artistListQuery, artists])
+  const filteredAdminVenues = useMemo(() => {
+    const normalizedQuery = venueListQuery.trim().toLowerCase()
+    if (!normalizedQuery) return venues
+
+    return venues.filter((venue) =>
+      `${venue.name} ${venue.city} ${venue.address} ${venue.capacity}`.toLowerCase().includes(normalizedQuery),
+    )
+  }, [venueListQuery, venues])
+  const filteredAdminConcerts = useMemo(() => {
+    const normalizedQuery = concertListQuery.trim().toLowerCase()
+    if (!normalizedQuery) return concerts
+
+    return concerts.filter((concert) => {
+      const venueName = venues.find((venue) => venue.id === concert.venueId)?.name ?? ''
+      const artistNames = concert.artistIds
+        .map((artistId) => artists.find((artist) => artist.id === artistId)?.name ?? '')
+        .join(' ')
+
+      return `${concert.title} ${concert.dateTime} ${venueName} ${artistNames}`
+        .toLowerCase()
+        .includes(normalizedQuery)
+    })
+  }, [artists, concertListQuery, concerts, venues])
+  const activeModerationAttachments = activeModerationMedia?.media ?? []
+  const activeModerationAttachment = activeModerationAttachments[activeModerationMediaIndex] ?? null
+  const currentAdminAccount = useMemo(() => accounts.find((account) => account.isCurrent) ?? null, [accounts])
+  const canGrantAdmins = currentAdminAccount?.role === 'super-admin'
+  const filteredAdminAccounts = useMemo(() => {
+    const normalizedQuery = accountListQuery.trim().toLowerCase()
+    if (!normalizedQuery) return accounts
+
+    return accounts.filter((account) =>
+      `${account.displayName} ${account.handle} ${account.role}`.toLowerCase().includes(normalizedQuery),
+    )
+  }, [accountListQuery, accounts])
 
   function markReview(id: number, status: AdminReviewStatus) {
     setReviews((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)))
@@ -234,6 +293,39 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
     setConcerts((prev) => prev.filter((x) => x.id !== id))
   }
 
+  function setAccountBanState(id: number, isBanned: boolean) {
+    setAccounts((prev) =>
+      prev.map((account) => {
+        if (account.id !== id || account.isCurrent) return account
+        return { ...account, isBanned }
+      }),
+    )
+  }
+
+  function promoteAccountToAdmin(id: number) {
+    if (!canGrantAdmins) return
+
+    setAccounts((prev) =>
+      prev.map((account) => {
+        if (account.id !== id) return account
+        if (account.role !== 'user') return account
+        return { ...account, role: 'admin' }
+      }),
+    )
+  }
+
+  function demoteAccountToUser(id: number) {
+    if (!canGrantAdmins) return
+
+    setAccounts((prev) =>
+      prev.map((account) => {
+        if (account.id !== id) return account
+        if (account.role !== 'admin') return account
+        return { ...account, role: 'user' }
+      }),
+    )
+  }
+
   function onMediaPick(event: React.ChangeEvent<HTMLInputElement>, onSet: (value: string) => void) {
     const file = event.target.files?.[0]
     if (!file) return
@@ -331,6 +423,13 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
         >
           Концерты
         </button>
+        <button
+          type="button"
+          className={tab === 'accounts' ? 'adminTab active' : 'adminTab'}
+          onClick={() => setTab('accounts')}
+        >
+          Аккаунты
+        </button>
       </div>
 
       {tab === 'moderation' && (
@@ -368,11 +467,24 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                 </div>
 
                 <p className="adminItemMeta">
-                  {review.authorName} • {formatDateTime(review.createdAt)} • {review.overallScore}
+                  <Link to={`/users/${encodeURIComponent(review.authorName)}`}>{review.authorName}</Link> • {formatDateTime(review.createdAt)} • {review.overallScore}
                 </p>
                 <p className="adminItemPreview">{review.text}</p>
 
                 <div className="adminItemActions">
+                  {review.media && review.media.length > 0 && (
+                    <button
+                      type="button"
+                      className="settingsBtn ghost"
+                      onClick={() => {
+                        setActiveModerationMediaIndex(0)
+                        setActiveModerationMedia(review)
+                      }}
+                    >
+                      Медиа ({review.media.length})
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     className="settingsBtn primary"
@@ -399,6 +511,74 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
             ))
           ) : (
             <div className="adminEmpty">В этом потоке сейчас нет рецензий.</div>
+          )}
+
+          {activeModerationMedia && (
+            <div
+              className="adminModalBackdrop"
+              onClick={() => {
+                setActiveModerationMedia(null)
+                setActiveModerationMediaIndex(0)
+              }}
+            >
+              <article className="adminModalCard adminMediaModalCard" onClick={(event) => event.stopPropagation()}>
+                <div className="adminModalHeader">
+                  <h3 className="adminModalTitle">Медиа рецензии</h3>
+                  <button
+                    type="button"
+                    className="settingsBtn ghost"
+                    onClick={() => {
+                      setActiveModerationMedia(null)
+                      setActiveModerationMediaIndex(0)
+                    }}
+                  >
+                    Закрыть
+                  </button>
+                </div>
+
+                <p className="adminListMeta">{activeModerationMedia.concertTitle}</p>
+
+                {activeModerationAttachment && (
+                  <>
+                    <div className="adminMediaStage">
+                      <button
+                        type="button"
+                        className="adminMediaArrow"
+                        aria-label="Предыдущее вложение"
+                        onClick={() => setActiveModerationMediaIndex((prev) => Math.max(0, prev - 1))}
+                        disabled={activeModerationMediaIndex === 0}
+                      >
+                        ←
+                      </button>
+
+                      <div className="adminMediaItem">
+                        {activeModerationAttachment.type === 'video' ? (
+                          <video className="adminMediaAsset" src={activeModerationAttachment.url} controls preload="metadata" />
+                        ) : (
+                          <img className="adminMediaAsset" src={activeModerationAttachment.url} alt="Вложение рецензии" />
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="adminMediaArrow"
+                        aria-label="Следующее вложение"
+                        onClick={() =>
+                          setActiveModerationMediaIndex((prev) => Math.min(activeModerationAttachments.length - 1, prev + 1))
+                        }
+                        disabled={activeModerationMediaIndex === activeModerationAttachments.length - 1}
+                      >
+                        →
+                      </button>
+                    </div>
+
+                    <p className="adminMediaCounter">
+                      {activeModerationMediaIndex + 1} / {activeModerationAttachments.length}
+                    </p>
+                  </>
+                )}
+              </article>
+            </div>
           )}
         </section>
       )}
@@ -442,34 +622,47 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
             </div>
           </article>
 
-          <article className="adminListCard">
-            {artists.map((artist) => (
-              <div key={artist.id} className="adminListRow">
-                <div>
-                  <p className="adminListTitle">{artist.name}</p>
-                  <p className="adminListMeta">{artist.description}</p>
-                </div>
-                <div className="adminRowActions">
-                  <button
-                    type="button"
-                    className="settingsBtn ghost"
-                    onClick={() =>
-                      setArtistForm({
-                        id: artist.id,
-                        name: artist.name,
-                        description: artist.description,
-                        imageUrl: artist.imageUrl ?? '',
-                      })
-                    }
-                  >
-                    Изменить
-                  </button>
-                  <button type="button" className="settingsBtn ghost" onClick={() => removeArtist(artist.id)}>
-                    Удалить
-                  </button>
-                </div>
-              </div>
-            ))}
+          <article className="adminListCard adminListCardScrollable">
+            <input
+              className="adminInput adminListSearch"
+              placeholder="Поиск артистов"
+              value={artistListQuery}
+              onChange={(e) => setArtistListQuery(e.target.value)}
+            />
+
+            <div className="adminScrollableList">
+              {filteredAdminArtists.length > 0 ? (
+                filteredAdminArtists.map((artist) => (
+                  <div key={artist.id} className="adminListRow">
+                    <div>
+                      <p className="adminListTitle">{artist.name}</p>
+                      <p className="adminListMeta">{artist.description}</p>
+                    </div>
+                    <div className="adminRowActions">
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        onClick={() =>
+                          setArtistForm({
+                            id: artist.id,
+                            name: artist.name,
+                            description: artist.description,
+                            imageUrl: artist.imageUrl ?? '',
+                          })
+                        }
+                      >
+                        Изменить
+                      </button>
+                      <button type="button" className="settingsBtn ghost" onClick={() => removeArtist(artist.id)}>
+                        Удалить
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="adminEmpty">Артисты не найдены.</div>
+              )}
+            </div>
           </article>
         </section>
       )}
@@ -526,38 +719,51 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
             </div>
           </article>
 
-          <article className="adminListCard">
-            {venues.map((venue) => (
-              <div key={venue.id} className="adminListRow">
-                <div>
-                  <p className="adminListTitle">{venue.name}</p>
-                  <p className="adminListMeta">
-                    {venue.city} • {venue.capacity} чел
-                  </p>
-                </div>
-                <div className="adminRowActions">
-                  <button
-                    type="button"
-                    className="settingsBtn ghost"
-                    onClick={() =>
-                      setVenueForm({
-                        id: venue.id,
-                        name: venue.name,
-                        city: venue.city,
-                        address: venue.address,
-                        capacity: String(venue.capacity),
-                        imageUrl: venue.imageUrl ?? '',
-                      })
-                    }
-                  >
-                    Изменить
-                  </button>
-                  <button type="button" className="settingsBtn ghost" onClick={() => removeVenue(venue.id)}>
-                    Удалить
-                  </button>
-                </div>
-              </div>
-            ))}
+          <article className="adminListCard adminListCardScrollable">
+            <input
+              className="adminInput adminListSearch"
+              placeholder="Поиск площадок"
+              value={venueListQuery}
+              onChange={(e) => setVenueListQuery(e.target.value)}
+            />
+
+            <div className="adminScrollableList">
+              {filteredAdminVenues.length > 0 ? (
+                filteredAdminVenues.map((venue) => (
+                  <div key={venue.id} className="adminListRow">
+                    <div>
+                      <p className="adminListTitle">{venue.name}</p>
+                      <p className="adminListMeta">
+                        {venue.city} • {venue.capacity} чел
+                      </p>
+                    </div>
+                    <div className="adminRowActions">
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        onClick={() =>
+                          setVenueForm({
+                            id: venue.id,
+                            name: venue.name,
+                            city: venue.city,
+                            address: venue.address,
+                            capacity: String(venue.capacity),
+                            imageUrl: venue.imageUrl ?? '',
+                          })
+                        }
+                      >
+                        Изменить
+                      </button>
+                      <button type="button" className="settingsBtn ghost" onClick={() => removeVenue(venue.id)}>
+                        Удалить
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="adminEmpty">Площадки не найдены.</div>
+              )}
+            </div>
           </article>
         </section>
       )}
@@ -683,47 +889,60 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
             </div>
           </article>
 
-          <article className="adminListCard">
-            {concerts.map((concert) => {
-              const venueName = venues.find((venue) => venue.id === concert.venueId)?.name ?? 'Без площадки'
-              const artistNames = concert.artistIds
-                .map((artistId) => artists.find((artist) => artist.id === artistId)?.name)
-                .filter(Boolean)
-                .join(', ')
+          <article className="adminListCard adminListCardScrollable">
+            <input
+              className="adminInput adminListSearch"
+              placeholder="Поиск концертов"
+              value={concertListQuery}
+              onChange={(e) => setConcertListQuery(e.target.value)}
+            />
 
-              return (
-                <div key={concert.id} className="adminListRow">
-                  <div>
-                    <p className="adminListTitle">{concert.title}</p>
-                    <p className="adminListMeta">
-                      {formatDateTime(concert.dateTime)} • {venueName}
-                    </p>
-                    <p className="adminListMeta">{artistNames || 'Артисты не выбраны'}</p>
-                  </div>
-                  <div className="adminRowActions">
-                    <button
-                      type="button"
-                      className="settingsBtn ghost"
-                      onClick={() =>
-                        setConcertForm({
-                          id: concert.id,
-                          title: concert.title,
-                          dateTime: concert.dateTime,
-                          venueId: String(concert.venueId),
-                          artistIds: concert.artistIds,
-                          bannerImageUrl: concert.bannerImageUrl ?? '',
-                        })
-                      }
-                    >
-                      Изменить
-                    </button>
-                    <button type="button" className="settingsBtn ghost" onClick={() => removeConcert(concert.id)}>
-                      Удалить
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
+            <div className="adminScrollableList">
+              {filteredAdminConcerts.length > 0 ? (
+                filteredAdminConcerts.map((concert) => {
+                  const venueName = venues.find((venue) => venue.id === concert.venueId)?.name ?? 'Без площадки'
+                  const artistNames = concert.artistIds
+                    .map((artistId) => artists.find((artist) => artist.id === artistId)?.name)
+                    .filter(Boolean)
+                    .join(', ')
+
+                  return (
+                    <div key={concert.id} className="adminListRow">
+                      <div>
+                        <p className="adminListTitle">{concert.title}</p>
+                        <p className="adminListMeta">
+                          {formatDateTime(concert.dateTime)} • {venueName}
+                        </p>
+                        <p className="adminListMeta">{artistNames || 'Артисты не выбраны'}</p>
+                      </div>
+                      <div className="adminRowActions">
+                        <button
+                          type="button"
+                          className="settingsBtn ghost"
+                          onClick={() =>
+                            setConcertForm({
+                              id: concert.id,
+                              title: concert.title,
+                              dateTime: concert.dateTime,
+                              venueId: String(concert.venueId),
+                              artistIds: concert.artistIds,
+                              bannerImageUrl: concert.bannerImageUrl ?? '',
+                            })
+                          }
+                        >
+                          Изменить
+                        </button>
+                        <button type="button" className="settingsBtn ghost" onClick={() => removeConcert(concert.id)}>
+                          Удалить
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="adminEmpty">Концерты не найдены.</div>
+              )}
+            </div>
           </article>
 
           {isVenueModalOpen && (
@@ -814,6 +1033,87 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
           )}
         </section>
       )}
+
+      {tab === 'accounts' && (
+        <section className="adminSection">
+          <article className="adminListCard adminListCardScrollable">
+            <div className="adminAccountsHead">
+              <input
+                className="adminInput adminListSearch"
+                placeholder="Поиск аккаунтов"
+                value={accountListQuery}
+                onChange={(e) => setAccountListQuery(e.target.value)}
+              />
+              {currentAdminAccount && (
+                <p className="adminListMeta">
+                  Вы: {currentAdminAccount.displayName} ({roleLabel(currentAdminAccount.role)})
+                </p>
+              )}
+              {!canGrantAdmins && (
+                <p className="adminWarningText">
+                  Только главный админ может назначать новых админов.
+                </p>
+              )}
+            </div>
+
+            <div className="adminScrollableList">
+              {filteredAdminAccounts.length > 0 ? (
+                filteredAdminAccounts.map((account) => (
+                  <div key={account.id} className="adminListRow">
+                    <div>
+                      <p className="adminListTitle">{account.displayName}</p>
+                      <p className="adminListMeta">{account.handle}</p>
+                      <div className="adminAccountMetaRow">
+                        <span className="adminStatus">{roleLabel(account.role)}</span>
+                        {account.isBanned && <span className="adminStatus adminStatus-rejected">Заблокирован</span>}
+                        {account.isCurrent && <span className="adminStatus adminStatus-approved">Текущий аккаунт</span>}
+                      </div>
+                    </div>
+
+                    <div className="adminRowActions">
+                      {!account.isCurrent && (
+                        <button
+                          type="button"
+                          className="settingsBtn ghost"
+                          onClick={() => setAccountBanState(account.id, !account.isBanned)}
+                        >
+                          {account.isBanned ? 'Разбанить' : 'Забанить'}
+                        </button>
+                      )}
+
+                      {account.role === 'user' && (
+                        <button
+                          type="button"
+                          className="settingsBtn primary"
+                          disabled={!canGrantAdmins}
+                          onClick={() => promoteAccountToAdmin(account.id)}
+                        >
+                          Сделать админом
+                        </button>
+                      )}
+
+                      {account.role === 'admin' && !account.isCurrent && (
+                        <button
+                          type="button"
+                          className="settingsBtn ghost"
+                          disabled={!canGrantAdmins}
+                          onClick={() => demoteAccountToUser(account.id)}
+                        >
+                          Понизить до пользователя
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="adminEmpty">Аккаунты не найдены.</div>
+              )}
+            </div>
+          </article>
+        </section>
+      )}
     </section>
   )
 }
+
+export default AdminPage

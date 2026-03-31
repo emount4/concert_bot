@@ -120,6 +120,64 @@
   padding: 12px;
 }
 
+.adminListCardScrollable {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 420px;
+}
+
+.adminListSearch {
+  margin-top: 0;
+}
+
+.adminScrollableList {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: auto;
+  max-height: min(60vh, 640px);
+  padding: 0 10px;
+}
+
+/* Задание 9.2: единый стиль скроллбаров в админке. */
+.adminTabs,
+.adminScrollableList,
+.adminModalList {
+  scrollbar-width: thin;
+  scrollbar-color: #3e4f76 rgba(255, 255, 255, 0.04);
+}
+
+.adminTabs::-webkit-scrollbar,
+.adminScrollableList::-webkit-scrollbar,
+.adminModalList::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.adminTabs::-webkit-scrollbar-track,
+.adminScrollableList::-webkit-scrollbar-track,
+.adminModalList::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.adminTabs::-webkit-scrollbar-thumb,
+.adminScrollableList::-webkit-scrollbar-thumb,
+.adminModalList::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4f6393 0%, #3b4b70 100%);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+
+.adminTabs::-webkit-scrollbar-thumb:hover,
+.adminScrollableList::-webkit-scrollbar-thumb:hover,
+.adminModalList::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #5f76ad 0%, #475b86 100%);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
 .adminItemTop {
   display: flex;
   justify-content: space-between;
@@ -160,11 +218,15 @@
   font-size: 12px;
 }
 
+.adminItemMeta a {
+  color: inherit;
+}
+
 .adminItemPreview {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.35;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .adminItemActions {
@@ -197,6 +259,49 @@
   gap: 6px;
   font-size: 13px;
   color: var(--muted);
+}
+
+/* Задание 9.3: кастомные стили для кнопки "Выберите файл". */
+.adminFileLabel input[type='file'] {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.adminFileLabel input[type='file']::file-selector-button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  margin-right: 10px;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.adminFileLabel input[type='file']::file-selector-button:hover {
+  background: var(--hover);
+  border-color: #2a3d68;
+}
+
+.adminFileLabel input[type='file']::file-selector-button:active {
+  transform: translateY(1px);
+}
+
+.adminFileLabel input[type='file']::-webkit-file-upload-button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  margin-right: 10px;
+  cursor: pointer;
 }
 
 .adminPreviewImage {
@@ -234,6 +339,24 @@
 .adminRowActions {
   display: flex;
   gap: 6px;
+}
+
+.adminAccountsHead {
+  display: grid;
+  gap: 6px;
+}
+
+.adminAccountMetaRow {
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.adminWarningText {
+  margin: 0;
+  color: #fde68a;
+  font-size: 12px;
 }
 
 .adminInlineLabel {
@@ -362,4 +485,57 @@
 .adminModalOptionMeta {
   font-size: 12px;
   color: var(--muted);
+}
+
+.adminMediaModalCard {
+  width: min(760px, 100%);
+}
+
+.adminMediaStage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.adminMediaArrow {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.adminMediaArrow:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.adminMediaArrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.adminMediaItem {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.adminMediaAsset {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  display: block;
+}
+
+.adminMediaCounter {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
 }

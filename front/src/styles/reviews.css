@@ -28,6 +28,15 @@
   min-width: 0;
 }
 
+.reviewAuthorLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.reviewAuthorLink:hover .reviewAuthorName {
+  text-decoration: underline;
+}
+
 .reviewAvatar {
   width: 36px;
   height: 36px;
@@ -132,6 +141,19 @@
   z-index: 1;
 }
 
+.reviewPosterBtn {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.reviewPosterBtn:focus-visible {
+  outline: 2px solid #4a6fb8;
+  outline-offset: 2px;
+}
+
 .reviewConcertPosterMedia {
   width: 100%;
   height: 100%;
@@ -220,8 +242,9 @@
 .reviewText {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 15px;
+  line-height: 1.55;
+  line-clamp: 5;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 5;
@@ -230,6 +253,7 @@
 
 .reviewText.expanded {
   display: block;
+  line-clamp: initial;
   -webkit-line-clamp: initial;
   overflow: visible;
 }
@@ -237,10 +261,27 @@
 .reviewFooter {
   margin-top: 8px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+
+.reviewMediaBtn {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.reviewMediaBtn:hover {
+  background: var(--hover);
 }
 
 .reviewExpandBtn {
+  margin-left: auto;
   width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -259,4 +300,103 @@
 .reviewExpandBtn svg {
   width: 18px;
   height: 18px;
+}
+
+.reviewMediaBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 18, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 120;
+}
+
+.reviewMediaCard {
+  width: min(760px, 100%);
+  max-height: min(80vh, 760px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.reviewMediaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reviewMediaTitle {
+  margin: 0;
+  font-size: 16px;
+}
+
+.reviewMediaClose {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.reviewMediaClose:hover {
+  background: var(--hover);
+}
+
+
+.reviewMediaStage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.reviewMediaArrow {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.reviewMediaArrow:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.reviewMediaArrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.reviewMediaItem {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.reviewMediaCounter {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reviewMediaAsset {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  display: block;
 }

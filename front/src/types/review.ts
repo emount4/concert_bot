@@ -7,8 +7,15 @@ export type ReviewScores = {
   vibe: number
 }
 
+export type ReviewMediaAttachment = {
+  id: string
+  type: 'image' | 'video'
+  url: string
+}
+
 export type ReviewCardItem = {
   id: number
+  concertId: number
   authorName: string
   authorAvatarUrl: string | null
   concertTitle: string
@@ -17,4 +24,5 @@ export type ReviewCardItem = {
   overallScore: number
   scores: ReviewScores
   text: string
+  media?: ReviewMediaAttachment[]
 }

@@ -1,4 +1,5 @@
 import type {
+  AdminAccount,
   AdminArtist,
   AdminConcert,
   AdminReviewModerationItem,
@@ -16,6 +17,18 @@ export const MOCK_ADMIN_REVIEWS: AdminReviewModerationItem[] = [
     status: 'pending',
     text:
       'Сильный старт и мощный финал, но середина показалась чуть ровной. В отдельных треках ощущалась усталость по подаче, зато публика компенсировала это энергией. По звуку были небольшие перекосы по низким частотам рядом со сценой. В целом хороший живой опыт, на который можно смело идти снова.',
+    media: [
+      {
+        id: 'm901-1',
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=1200&q=80',
+      },
+      {
+        id: 'm901-2',
+        type: 'video',
+        url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+      },
+    ],
   },
   {
     id: 902,
@@ -69,5 +82,48 @@ export const MOCK_ADMIN_CONCERTS: AdminConcert[] = [
     venueId: 202,
     artistIds: [102],
     bannerImageUrl: null,
+  },
+]
+
+export const MOCK_ADMIN_ACCOUNTS: AdminAccount[] = [
+  {
+    id: 1,
+    displayName: 'Марк Колосов',
+    handle: '@mark_reviews',
+    role: 'super-admin',
+    isBanned: false,
+    isCurrent: true,
+  },
+  {
+    id: 2,
+    displayName: 'Игорь Туманов',
+    handle: '@igor_live',
+    role: 'user',
+    isBanned: false,
+    isCurrent: false,
+  },
+  {
+    id: 3,
+    displayName: 'Анна Соколова',
+    handle: '@anna_music',
+    role: 'admin',
+    isBanned: false,
+    isCurrent: false,
+  },
+  {
+    id: 4,
+    displayName: 'Лина Орлова',
+    handle: '@lina_reviews',
+    role: 'user',
+    isBanned: true,
+    isCurrent: false,
+  },
+  {
+    id: 5,
+    displayName: 'Ника Тихая',
+    handle: '@nika_wave',
+    role: 'user',
+    isBanned: false,
+    isCurrent: false,
   },
 ]
