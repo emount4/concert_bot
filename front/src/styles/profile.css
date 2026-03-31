@@ -1,0 +1,115 @@
+.profileLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.profileHero,
+.profileStats {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.profileHero {
+  padding: 16px;
+}
+
+.profileHeroHead {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.profileAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    var(--hover);
+  flex: 0 0 64px;
+}
+
+.profileIdentity {
+  min-width: 0;
+}
+
+.profileName {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.profileHandle,
+.profileSince {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.profileBio {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.profileStats {
+  padding: 16px;
+}
+
+.profileBlockTitle {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.profileStatGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.profileStatCard {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.profileStatValue {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.profileStatLabel {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.profileReviews {
+  margin-top: 16px;
+  padding: 16px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.profileReviewList {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reviewColumn {
+  width: 100%;
+}

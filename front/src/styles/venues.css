@@ -1,0 +1,61 @@
+.venueGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.venueCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  min-height: 340px;
+  display: flex;
+  flex-direction: column;
+}
+
+.venuePhoto {
+  aspect-ratio: 16 / 10;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 10px,
+      transparent 10px,
+      transparent 20px
+    );
+}
+
+.venueBottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+}
+
+.venueInfo {
+  min-width: 0;
+  flex: 1;
+}
+
+.venueMeta {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.venueMeta + .venueMeta {
+  margin-top: 8px;
+}
+
+.venueMetaName {
+  color: var(--fg);
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 700;
+}

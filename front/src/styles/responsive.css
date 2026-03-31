@@ -1,0 +1,70 @@
+@media (max-width: 640px) {
+  .concertSearch,
+  .concertSelect {
+    width: 100%;
+  }
+
+  .adminHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .adminSectionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .adminListRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .adminDeniedActions {
+    flex-direction: column;
+  }
+
+  .settingsLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settingsActions {
+    justify-content: flex-end;
+  }
+
+  .selectWrap {
+    flex: 1;
+  }
+
+  .profileLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .profileStatGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .profileReviewItem {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .concertGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .reviewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .artistGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .venueGrid {
+    grid-template-columns: 1fr;
+  }
+}

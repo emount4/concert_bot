@@ -1,0 +1,262 @@
+.reviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.reviewCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reviewHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.reviewAuthor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.reviewAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    var(--hover);
+  flex: 0 0 36px;
+}
+
+.reviewAuthorName {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.reviewScoreWrap {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.reviewRatingCircle {
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 0;
+  display: block;
+  place-items: initial;
+  font-size: 18px;
+  line-height: 1;
+  align-self: end;
+}
+
+.reviewParamRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reviewParamItem {
+  position: relative;
+  min-height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.reviewParamValue {
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.reviewParamTooltip {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  max-width: 180px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--fg);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 140ms ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.reviewParamItem:hover .reviewParamTooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.reviewConcertPosterWrap {
+  position: relative;
+  width: 30px;
+  height: 42px;
+  flex: 0 0 30px;
+  z-index: 1;
+}
+
+.reviewConcertPosterMedia {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.reviewConcertPosterImg,
+.reviewConcertPosterFallback {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.reviewConcertPosterFallback {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 6px,
+      transparent 6px,
+      transparent 12px
+    );
+}
+
+.reviewPosterTooltip {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 150px;
+  max-width: 220px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 140ms ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.reviewConcertPosterWrap:hover .reviewPosterTooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.reviewPosterTooltipTitle,
+.reviewPosterTooltipArtist {
+  margin: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.reviewPosterTooltipTitle {
+  font-size: 12px;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.reviewPosterTooltipArtist {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.reviewBody {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.reviewConcertTitle {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.reviewText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+}
+
+.reviewText.expanded {
+  display: block;
+  -webkit-line-clamp: initial;
+  overflow: visible;
+}
+
+.reviewFooter {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.reviewExpandBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.reviewExpandBtn:hover {
+  background: var(--hover);
+}
+
+.reviewExpandBtn svg {
+  width: 18px;
+  height: 18px;
+}

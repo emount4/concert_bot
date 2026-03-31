@@ -1,0 +1,29 @@
+.appRoot {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+.page {
+  text-align: left;
+}
+
+.pageTitle {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.placeholder {
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  font-size: 14px;
+}

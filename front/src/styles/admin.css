@@ -1,0 +1,365 @@
+.adminDenied {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.adminDeniedTitle {
+  margin: 0;
+  font-size: 18px;
+}
+
+.adminDeniedText {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.adminDeniedActions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+}
+
+.adminHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.adminIntro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.adminBadge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.adminTabs {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.adminTab {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.adminTab.active {
+  background: var(--hover);
+}
+
+.adminSection {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.adminSubTabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.adminSubTab {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.adminSubTab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fg);
+}
+
+.adminSubTab.active {
+  background: var(--hover);
+  color: var(--fg);
+  border-color: #2a3d68;
+}
+
+.adminEmpty {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.adminSectionGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 16px;
+}
+
+.adminItemCard,
+.adminFormCard,
+.adminListCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.adminItemTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.adminItemTitle {
+  margin: 0;
+  font-size: 16px;
+}
+
+.adminStatus {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.adminStatus-approved {
+  color: #a7f3d0;
+  border-color: #1d6b4a;
+}
+
+.adminStatus-pending {
+  color: #fde68a;
+  border-color: #6d5a1d;
+}
+
+.adminStatus-rejected {
+  color: #fecaca;
+  border-color: #7b2b2b;
+}
+
+.adminItemMeta {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.adminItemPreview {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.adminItemActions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.adminInput,
+.adminTextarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--fg);
+  padding: 8px 10px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.adminTextarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.adminFileLabel {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.adminPreviewImage {
+  margin-top: 8px;
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.adminListRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.adminListRow + .adminListRow {
+  border-top: 1px solid var(--border);
+}
+
+.adminListTitle {
+  margin: 0;
+  font-size: 14px;
+}
+
+.adminListMeta {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.adminRowActions {
+  display: flex;
+  gap: 6px;
+}
+
+.adminInlineLabel {
+  display: block;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.adminChipWrap {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.adminChip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.adminChip.active {
+  background: var(--hover);
+}
+
+.adminPickerRow {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.adminPickerValue {
+  margin: 0;
+  font-size: 13px;
+}
+
+.adminPickerActions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.adminModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 18, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+
+.adminModalCard {
+  width: min(560px, 100%);
+  max-height: min(78vh, 680px);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.adminModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.adminModalTitle {
+  margin: 0;
+  font-size: 16px;
+}
+
+.adminModalList {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 46vh;
+  display: grid;
+}
+
+.adminModalOption {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.adminModalOption:last-child {
+  border-bottom: 0;
+}
+
+.adminModalOption:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.adminModalOption.active {
+  background: var(--hover);
+}
+
+.adminModalOptionTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.adminModalOptionMeta {
+  font-size: 12px;
+  color: var(--muted);
+}
