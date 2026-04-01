@@ -5,9 +5,9 @@
 }
 
 .main {
-  width: min(1100px, 100%);
+  width: min(1200px, 100%);
   margin: 0 auto;
-  padding: 20px 1px;
+  padding: 20px 12px;
 }
 
 .page {

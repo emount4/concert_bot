@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { ReviewCard } from '../components/reviews/ReviewCard'
@@ -7,8 +7,9 @@ import { MOCK_REVIEWS } from '../data/mockReviews'
 import { VenueCard } from '../components/venues/VenueCard'
 import { MOCK_VENUES } from '../data/mockVenues'
 
-type VenueSort = 'rating_desc' | 'reviews_desc' | 'concerts_desc' | 'capacity_desc' | 'name_asc'
-type VenueRatingFilter = 'all' | 'rated' | 'unrated'
+type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
+type SortDirection = 'desc' | 'asc'
+const VENUES_PAGE_SIZE = 12
 
 function formatCapacity(value: number): string {
   return new Intl.NumberFormat('ru-RU').format(value)
@@ -18,35 +19,17 @@ export function VenuesPage() {
   // Задание 12.3: поиск, фильтрация и сортировка списка площадок как в концертах.
   const [search, setSearch] = useState('')
   const [cityFilter, setCityFilter] = useState('all')
-  const [ratingFilter, setRatingFilter] = useState<VenueRatingFilter>('all')
-  const [sort, setSort] = useState<VenueSort>('rating_desc')
+  const [capacityFrom, setCapacityFrom] = useState('')
+  const [capacityTo, setCapacityTo] = useState('')
+  const [sortBy, setSortBy] = useState<VenueSortBy>('rating')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const [searchParams] = useSearchParams()
   const venueId = Number(searchParams.get('venueId'))
   const selectedVenue = Number.isFinite(venueId)
     ? MOCK_VENUES.find((item) => item.id === venueId) ?? null
     : null
-
-  const venueStats = useMemo(() => {
-    const reviewsByConcertId = new Map<number, number>()
-    for (const review of MOCK_REVIEWS) {
-      reviewsByConcertId.set(review.concertId, (reviewsByConcertId.get(review.concertId) ?? 0) + 1)
-    }
-
-    const out = new Map<number, { concertsCount: number; reviewsCount: number }>()
-    for (const venue of MOCK_VENUES) {
-      const concerts = MOCK_CONCERTS.filter(
-        (concert) => concert.venue.name === venue.name && concert.venue.city === venue.city,
-      )
-      const reviewsCount = concerts.reduce(
-        (sum, concert) => sum + (reviewsByConcertId.get(concert.id) ?? 0),
-        0,
-      )
-      out.set(venue.id, { concertsCount: concerts.length, reviewsCount })
-    }
-
-    return out
-  }, [])
 
   const availableCities = useMemo(() => {
     return Array.from(new Set(MOCK_VENUES.map((venue) => venue.city))).sort((a, b) =>
@@ -62,11 +45,13 @@ export function VenuesPage() {
         return false
       }
 
-      if (ratingFilter === 'rated' && venue.avgVenueScore === null) {
+      const fromValue = Number(capacityFrom)
+      if (capacityFrom && !Number.isNaN(fromValue) && venue.capacity < fromValue) {
         return false
       }
 
-      if (ratingFilter === 'unrated' && venue.avgVenueScore !== null) {
+      const toValue = Number(capacityTo)
+      if (capacityTo && !Number.isNaN(toValue) && venue.capacity > toValue) {
         return false
       }
 
@@ -79,28 +64,26 @@ export function VenuesPage() {
     })
 
     return filtered.sort((a, b) => {
-      const aStats = venueStats.get(a.id) ?? { concertsCount: 0, reviewsCount: 0 }
-      const bStats = venueStats.get(b.id) ?? { concertsCount: 0, reviewsCount: 0 }
+      const base =
+        sortBy === 'capacity'
+          ? b.capacity - a.capacity
+          : sortBy === 'rating'
+            ? (b.avgVenueScore ?? -1) - (a.avgVenueScore ?? -1)
+            : b.name.localeCompare(a.name, 'ru-RU')
 
-      if (sort === 'rating_desc') {
-        return (b.avgVenueScore ?? -1) - (a.avgVenueScore ?? -1)
-      }
-
-      if (sort === 'reviews_desc') {
-        return bStats.reviewsCount - aStats.reviewsCount
-      }
-
-      if (sort === 'concerts_desc') {
-        return bStats.concertsCount - aStats.concertsCount
-      }
-
-      if (sort === 'capacity_desc') {
-        return b.capacity - a.capacity
-      }
-
-      return a.name.localeCompare(b.name, 'ru-RU')
+      return sortDirection === 'desc' ? base : -base
     })
-  }, [cityFilter, ratingFilter, search, sort, venueStats])
+  }, [capacityFrom, capacityTo, cityFilter, search, sortBy, sortDirection])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, cityFilter, capacityFrom, capacityTo, sortBy, sortDirection])
+
+  const pageCount = Math.ceil(filteredVenues.length / VENUES_PAGE_SIZE)
+  const pagedVenues = useMemo(() => {
+    const start = (currentPage - 1) * VENUES_PAGE_SIZE
+    return filteredVenues.slice(start, start + VENUES_PAGE_SIZE)
+  }, [currentPage, filteredVenues])
 
   if (selectedVenue) {
     const venueConcerts = MOCK_CONCERTS
@@ -212,27 +195,47 @@ export function VenuesPage() {
             ))}
           </select>
 
-          <select
-            className="concertSelect"
-            value={ratingFilter}
-            onChange={(e) => setRatingFilter(e.target.value as VenueRatingFilter)}
-          >
-            <option value="all">Все рейтинги</option>
-            <option value="rated">Только с оценкой</option>
-            <option value="unrated">Без оценки</option>
-          </select>
+          <input
+            className="concertSelect concertRangeInput"
+            type="number"
+            min={0}
+            placeholder="Вместимость от"
+            value={capacityFrom}
+            onChange={(e) => setCapacityFrom(e.target.value)}
+          />
+
+          <input
+            className="concertSelect concertRangeInput"
+            type="number"
+            min={0}
+            placeholder="Вместимость до"
+            value={capacityTo}
+            onChange={(e) => setCapacityTo(e.target.value)}
+          />
 
           <select
             className="concertSelect"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as VenueSort)}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as VenueSortBy)}
           >
-            <option value="rating_desc">По оценке</option>
-            <option value="reviews_desc">По числу рецензий</option>
-            <option value="concerts_desc">По числу концертов</option>
-            <option value="capacity_desc">По вместимости</option>
-            <option value="name_asc">По названию</option>
+            <option value="capacity">Сортировка: вместимость</option>
+            <option value="rating">Сортировка: оценка</option>
+            <option value="alphabet">Сортировка: алфавит</option>
           </select>
+
+          <button
+            type="button"
+            className="settingsBtn ghost sortDirectionBtn"
+            onClick={() => setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+            aria-label={
+              sortDirection === 'desc'
+                ? 'Сортировка по убыванию, нажмите для возрастания'
+                : 'Сортировка по возрастанию, нажмите для убывания'
+            }
+            title={sortDirection === 'desc' ? 'По убыванию' : 'По возрастанию'}
+          >
+            {sortDirection === 'desc' ? '↓' : '↑'}
+          </button>
         </div>
 
         <div className="concertControlsRow">
@@ -242,8 +245,10 @@ export function VenuesPage() {
             onClick={() => {
               setSearch('')
               setCityFilter('all')
-              setRatingFilter('all')
-              setSort('rating_desc')
+              setCapacityFrom('')
+              setCapacityTo('')
+              setSortBy('rating')
+              setSortDirection('desc')
             }}
           >
             Сбросить фильтры
@@ -253,11 +258,37 @@ export function VenuesPage() {
 
       {/* Задание 4.4: карточки площадок с фото, мета-данными и рейтингом справа. */}
       {filteredVenues.length > 0 ? (
-        <div className="venueGrid">
-          {filteredVenues.map((venue) => (
-            <VenueCard key={venue.id} venue={venue} />
-          ))}
-        </div>
+        <>
+          <div className="venueGrid">
+            {pagedVenues.map((venue) => (
+              <VenueCard key={venue.id} venue={venue} />
+            ))}
+          </div>
+
+          {pageCount > 1 && (
+            <div className="pagination" role="navigation" aria-label="Пагинация площадок">
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Назад
+              </button>
+              <span className="paginationInfo">
+                Страница {currentPage} из {pageCount}
+              </span>
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={() => setCurrentPage((prev) => Math.min(pageCount, prev + 1))}
+                disabled={currentPage === pageCount}
+              >
+                Вперед
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="placeholder">По выбранным фильтрам площадки не найдены</div>
       )}

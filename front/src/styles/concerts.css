@@ -64,6 +64,24 @@
   min-width: 220px;
 }
 
+.concertRangeInput {
+  min-width: 150px;
+  padding-right: 10px;
+  background-image: none;
+}
+
+.concertRangeInput::-webkit-outer-spin-button,
+.concertRangeInput::-webkit-inner-spin-button {
+  margin: 0;
+}
+
+.sortDirectionBtn {
+  min-width: 38px;
+  padding: 8px 10px;
+  font-size: 16px;
+  line-height: 1;
+}
+
 .concertToggle {
   display: inline-flex;
   align-items: center;

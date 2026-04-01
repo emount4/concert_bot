@@ -1,6 +1,62 @@
+@media (max-width: 1200px) {
+  .main,
+  .topBar {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .concertGrid,
+  .artistGrid,
+  .reviewGrid {
+    gap: 14px;
+  }
+
+  .detailReviewItem {
+    flex-basis: calc((100% - 12px) / 2);
+    min-width: 300px;
+  }
+}
+
 @media (max-width: 960px) {
+  .main,
+  .topBar {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .concertGrid,
+  .artistGrid,
+  .reviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .venueGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .concertCard {
+    min-height: 340px;
+  }
+
+  .detailHero {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+
+  .detailConcertItem {
+    width: min(72vw, 240px);
+  }
+
+  .detailConcertScroll {
+    grid-auto-columns: min(72vw, 240px);
+  }
+
+  .detailReviewItem {
+    flex-basis: min(78vw, 420px);
+    min-width: min(78vw, 420px);
+  }
+
+  .profileStatGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -64,7 +120,7 @@
   }
 
   .profileStatGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .profileReviewItem {
@@ -97,17 +153,17 @@
     font-size: 22px;
   }
 
-  .detailConcertCard {
-    flex-basis: min(80vw, 220px);
+  .detailConcertItem {
+    width: min(86vw, 240px);
   }
 
-  .detailConcertItem {
-    flex-basis: min(86vw, 250px);
+  .detailConcertScroll {
+    grid-auto-columns: min(86vw, 240px);
   }
 
   .detailReviewItem {
-    flex-basis: min(88vw, 420px);
-    min-width: min(88vw, 420px);
+    flex-basis: min(88vw, 360px);
+    min-width: min(88vw, 360px);
   }
 
   .venueGrid {
@@ -160,6 +216,16 @@
     flex-wrap: wrap;
   }
 
+  .rateUtilityRight {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+
+  .rateMediaBtn {
+    flex: 1;
+  }
+
   .rateCharCount {
     margin-left: 0;
   }
@@ -181,5 +247,22 @@
     right: 8px;
     bottom: 8px;
     max-width: calc(100vw - 16px);
+  }
+}
+
+@media (max-width: 460px) {
+  .profileStatGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .concertTitle,
+  .venueMetaName,
+  .artistNickname {
+    font-size: 17px;
+  }
+
+  .detailReviewItem {
+    flex-basis: min(92vw, 340px);
+    min-width: min(92vw, 340px);
   }
 }

@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 
-type ConcertSort = 'date_desc' | 'date_asc' | 'rating_desc' | 'reviews_desc' | 'title_asc'
+type ConcertSortBy = 'date' | 'rating' | 'reviews' | 'title'
+type SortDirection = 'desc' | 'asc'
 
 export function ConcertsPage() {
   // Задание 9.1: фильтрация и сортировка списка концертов на фронтенде.
@@ -11,7 +12,9 @@ export function ConcertsPage() {
   const [cityFilter, setCityFilter] = useState('all')
   const [onlyRated, setOnlyRated] = useState(false)
   const [upcomingOnly, setUpcomingOnly] = useState(false)
-  const [sort, setSort] = useState<ConcertSort>('date_asc')
+  // Задание 12.4: единый контрол сортировки (поле + стрелка направления).
+  const [sortBy, setSortBy] = useState<ConcertSortBy>('date')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   const availableCities = useMemo(() => {
     return Array.from(new Set(MOCK_CONCERTS.map((concert) => concert.venue.city))).sort((a, b) =>
@@ -56,25 +59,21 @@ export function ConcertsPage() {
     })
 
     return filtered.sort((a, b) => {
-      if (sort === 'date_desc') {
-        return new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+      let base = 0
+
+      if (sortBy === 'date') {
+        base = new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+      } else if (sortBy === 'rating') {
+        base = (b.stats.avgOverallScore ?? -1) - (a.stats.avgOverallScore ?? -1)
+      } else if (sortBy === 'reviews') {
+        base = b.stats.reviewsCount - a.stats.reviewsCount
+      } else {
+        base = (b.title ?? '').localeCompare(a.title ?? '', 'ru-RU')
       }
 
-      if (sort === 'date_asc') {
-        return new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
-      }
-
-      if (sort === 'rating_desc') {
-        return (b.stats.avgOverallScore ?? -1) - (a.stats.avgOverallScore ?? -1)
-      }
-
-      if (sort === 'reviews_desc') {
-        return b.stats.reviewsCount - a.stats.reviewsCount
-      }
-
-      return (a.title ?? '').localeCompare(b.title ?? '', 'ru-RU')
+      return sortDirection === 'desc' ? base : -base
     })
-  }, [cityFilter, onlyRated, search, sort, upcomingOnly])
+  }, [cityFilter, onlyRated, search, sortBy, sortDirection, upcomingOnly])
 
   return (
     <section className="page">
@@ -105,15 +104,28 @@ export function ConcertsPage() {
 
           <select
             className="concertSelect"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as ConcertSort)}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as ConcertSortBy)}
           >
-            <option value="date_asc">Сначала ближайшие</option>
-            <option value="date_desc">Сначала поздние</option>
-            <option value="rating_desc">По оценке</option>
-            <option value="reviews_desc">По числу рецензий</option>
-            <option value="title_asc">По названию</option>
+            <option value="date">Сортировка: дата</option>
+            <option value="rating">Сортировка: оценка</option>
+            <option value="reviews">Сортировка: число рецензий</option>
+            <option value="title">Сортировка: название</option>
           </select>
+
+          <button
+            type="button"
+            className="settingsBtn ghost sortDirectionBtn"
+            onClick={() => setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+            aria-label={
+              sortDirection === 'desc'
+                ? 'Сортировка по убыванию, нажмите для возрастания'
+                : 'Сортировка по возрастанию, нажмите для убывания'
+            }
+            title={sortDirection === 'desc' ? 'По убыванию' : 'По возрастанию'}
+          >
+            {sortDirection === 'desc' ? '↓' : '↑'}
+          </button>
         </div>
 
         <div className="concertControlsRow">
@@ -126,7 +138,8 @@ export function ConcertsPage() {
               setCityFilter('all')
               setOnlyRated(false)
               setUpcomingOnly(false)
-              setSort('date_asc')
+              setSortBy('date')
+              setSortDirection('asc')
             }}
           >
             Сбросить фильтры

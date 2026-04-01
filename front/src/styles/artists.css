@@ -150,7 +150,9 @@
 
 .detailConcertScroll {
   margin-top: 10px;
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(250px, 72vw);
   align-items: stretch;
   gap: 12px;
   overflow-x: auto;
@@ -158,13 +160,14 @@
 }
 
 .detailConcertItem {
-  flex: 0 0 min(250px, 72vw);
-  display: flex;
+  width: 100%;
+  min-width: 0;
+  display: block;
 }
 
 .detailConcertItem .concertCard {
   height: 100%;
-  min-height: 320px;
+  min-height: 340px;
 }
 
 .detailConcertItem .concertBottom {

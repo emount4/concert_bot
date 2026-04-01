@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArtistCard } from '../components/artists/ArtistCard'
 import { ConcertCard } from '../components/concerts/ConcertCard'
@@ -7,16 +7,18 @@ import { MOCK_ARTISTS } from '../data/mockArtists'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_REVIEWS } from '../data/mockReviews'
 
-type ArtistSort = 'rating_desc' | 'reviews_desc' | 'concerts_desc' | 'name_asc'
-type ArtistRatingFilter = 'all' | 'rated' | 'unrated'
-type ArtistActivityFilter = 'all' | 'with_concerts' | 'with_reviews'
+type SortDirection = 'desc' | 'asc'
+type ArtistSortBy = 'rating' | 'alphabet'
+type ArtistReviewsFilter = 'all' | 'with_reviews' | 'without_reviews'
+const ARTISTS_PAGE_SIZE = 12
 
 export function ArtistsPage() {
   // Задание 12.2: поиск, фильтрация и сортировка списка артистов как в концертах.
   const [search, setSearch] = useState('')
-  const [ratingFilter, setRatingFilter] = useState<ArtistRatingFilter>('all')
-  const [activityFilter, setActivityFilter] = useState<ArtistActivityFilter>('all')
-  const [sort, setSort] = useState<ArtistSort>('rating_desc')
+  const [reviewsFilter, setReviewsFilter] = useState<ArtistReviewsFilter>('all')
+  const [sortBy, setSortBy] = useState<ArtistSortBy>('rating')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const [searchParams] = useSearchParams()
   const artistId = Number(searchParams.get('artistId'))
@@ -51,19 +53,11 @@ export function ArtistsPage() {
     const filtered = MOCK_ARTISTS.filter((artist) => {
       const stats = artistStats.get(artist.id) ?? { concertsCount: 0, reviewsCount: 0 }
 
-      if (ratingFilter === 'rated' && artist.avgConcertScore === null) {
+      if (reviewsFilter === 'with_reviews' && stats.reviewsCount === 0) {
         return false
       }
 
-      if (ratingFilter === 'unrated' && artist.avgConcertScore !== null) {
-        return false
-      }
-
-      if (activityFilter === 'with_concerts' && stats.concertsCount === 0) {
-        return false
-      }
-
-      if (activityFilter === 'with_reviews' && stats.reviewsCount === 0) {
+      if (reviewsFilter === 'without_reviews' && stats.reviewsCount > 0) {
         return false
       }
 
@@ -75,24 +69,23 @@ export function ArtistsPage() {
     })
 
     return filtered.sort((a, b) => {
-      const aStats = artistStats.get(a.id) ?? { concertsCount: 0, reviewsCount: 0 }
-      const bStats = artistStats.get(b.id) ?? { concertsCount: 0, reviewsCount: 0 }
-
-      if (sort === 'rating_desc') {
-        return (b.avgConcertScore ?? -1) - (a.avgConcertScore ?? -1)
-      }
-
-      if (sort === 'reviews_desc') {
-        return bStats.reviewsCount - aStats.reviewsCount
-      }
-
-      if (sort === 'concerts_desc') {
-        return bStats.concertsCount - aStats.concertsCount
-      }
-
-      return a.nickname.localeCompare(b.nickname, 'ru-RU')
+      const base =
+        sortBy === 'rating'
+          ? (b.avgConcertScore ?? -1) - (a.avgConcertScore ?? -1)
+          : b.nickname.localeCompare(a.nickname, 'ru-RU')
+      return sortDirection === 'desc' ? base : -base
     })
-  }, [activityFilter, artistStats, ratingFilter, search, sort])
+  }, [artistStats, reviewsFilter, search, sortBy, sortDirection])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, reviewsFilter, sortBy, sortDirection])
+
+  const pageCount = Math.ceil(filteredArtists.length / ARTISTS_PAGE_SIZE)
+  const pagedArtists = useMemo(() => {
+    const start = (currentPage - 1) * ARTISTS_PAGE_SIZE
+    return filteredArtists.slice(start, start + ARTISTS_PAGE_SIZE)
+  }, [currentPage, filteredArtists])
 
   if (selectedArtist) {
     const artistConcerts = MOCK_CONCERTS
@@ -184,34 +177,36 @@ export function ArtistsPage() {
 
           <select
             className="concertSelect"
-            value={ratingFilter}
-            onChange={(e) => setRatingFilter(e.target.value as ArtistRatingFilter)}
+            value={reviewsFilter}
+            onChange={(e) => setReviewsFilter(e.target.value as ArtistReviewsFilter)}
           >
-            <option value="all">Все рейтинги</option>
-            <option value="rated">Только с оценкой</option>
-            <option value="unrated">Без оценки</option>
+            <option value="all">Рецензии: любые</option>
+            <option value="with_reviews">Есть рецензии</option>
+            <option value="without_reviews">Нет рецензий</option>
           </select>
 
           <select
             className="concertSelect"
-            value={activityFilter}
-            onChange={(e) => setActivityFilter(e.target.value as ArtistActivityFilter)}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as ArtistSortBy)}
           >
-            <option value="all">Любая активность</option>
-            <option value="with_concerts">Только с концертами</option>
-            <option value="with_reviews">Только с рецензиями</option>
+            <option value="rating">Сортировка: оценка</option>
+            <option value="alphabet">Сортировка: алфавит</option>
           </select>
 
-          <select
-            className="concertSelect"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as ArtistSort)}
+          <button
+            type="button"
+            className="settingsBtn ghost sortDirectionBtn"
+            onClick={() => setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+            aria-label={
+              sortDirection === 'desc'
+                ? 'Сортировка по убыванию, нажмите для возрастания'
+                : 'Сортировка по возрастанию, нажмите для убывания'
+            }
+            title={sortDirection === 'desc' ? 'По убыванию' : 'По возрастанию'}
           >
-            <option value="rating_desc">По оценке</option>
-            <option value="reviews_desc">По числу рецензий</option>
-            <option value="concerts_desc">По числу концертов</option>
-            <option value="name_asc">По имени</option>
-          </select>
+            {sortDirection === 'desc' ? '↓' : '↑'}
+          </button>
         </div>
 
         <div className="concertControlsRow">
@@ -220,9 +215,9 @@ export function ArtistsPage() {
             className="settingsBtn ghost"
             onClick={() => {
               setSearch('')
-              setRatingFilter('all')
-              setActivityFilter('all')
-              setSort('rating_desc')
+              setReviewsFilter('all')
+              setSortBy('rating')
+              setSortDirection('desc')
             }}
           >
             Сбросить фильтры
@@ -232,11 +227,37 @@ export function ArtistsPage() {
 
       {/* Задание 3.4: карточки артистов с фото-заглушкой, ником и средней оценкой. */}
       {filteredArtists.length > 0 ? (
-        <div className="artistGrid">
-          {filteredArtists.map((artist) => (
-            <ArtistCard key={artist.id} artist={artist} />
-          ))}
-        </div>
+        <>
+          <div className="artistGrid">
+            {pagedArtists.map((artist) => (
+              <ArtistCard key={artist.id} artist={artist} />
+            ))}
+          </div>
+
+          {pageCount > 1 && (
+            <div className="pagination" role="navigation" aria-label="Пагинация артистов">
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Назад
+              </button>
+              <span className="paginationInfo">
+                Страница {currentPage} из {pageCount}
+              </span>
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={() => setCurrentPage((prev) => Math.min(pageCount, prev + 1))}
+                disabled={currentPage === pageCount}
+              >
+                Вперед
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="placeholder">По выбранным фильтрам артисты не найдены</div>
       )}
