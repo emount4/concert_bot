@@ -31,15 +31,15 @@ type ReviewCreateParams struct {
 }
 
 type ReviewView struct {
-	ID               uint64    `json:"id"`
-	UserID           uint64    `json:"user_id"`
-	ConcertID        uint64    `json:"concert_id"`
-	Title            string    `json:"title"`
-	Text             string    `json:"text"`
-	MediaURLs        []string  `json:"media_urls"`
-	Score            int       `json:"score"`
-	ModerationStatus string    `json:"moderation_status"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID               uint64
+	UserID           uint64
+	ConcertID        uint64
+	Title            string
+	Text             string
+	MediaURLs        []string
+	Score            int
+	ModerationStatus string
+	CreatedAt        time.Time
 }
 
 func CreateReview(ctx context.Context, db *gorm.DB, userID uint64, p ReviewCreateParams) (*ReviewView, error) {
@@ -100,17 +100,17 @@ func CreateReview(ctx context.Context, db *gorm.DB, userID uint64, p ReviewCreat
 }
 
 type FeedItem struct {
-	ID        uint64    `json:"id"`
-	Score     int       `json:"score"`
-	Title     string    `json:"title"`
-	Text      string    `json:"text"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uint64
+	Score     int
+	Title     string
+	Text      string
+	CreatedAt time.Time
 
-	User    UserView `json:"user"`
+	User    UserView
 	Concert struct {
-		ID    uint64  `json:"id"`
-		Title *string `json:"title"`
-	} `json:"concert"`
+		ID    uint64
+		Title *string
+	}
 }
 
 func ListFeed(ctx context.Context, db *gorm.DB, limit int, offset int) ([]FeedItem, error) {

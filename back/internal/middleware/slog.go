@@ -7,12 +7,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Задание: slog request logging middleware
+// slog request logging middleware
 func Slog() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
 		rawQuery := c.Request.URL.RawQuery
+
+		//defer на случай паники в хендлере
+		defer func() {
+			if r := recover(); r != nil {
+				slog.ErrorContext(
+					c.Request.Context(),
+					"http request panic",
+					slog.Any("panic", r),
+					slog.String("method", c.Request.Method),
+					slog.String("path", path),
+				)
+				panic(r)
+			}
+		}()
 
 		c.Next()
 

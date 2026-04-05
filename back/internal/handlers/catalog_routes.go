@@ -13,6 +13,11 @@ import (
 // Задание: публичные read-эндпоинты для каталога (venues/artists/concerts).
 
 func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
+	if deps.Catalog == nil {
+		// Это ошибка wiring'а, не пользовательская.
+		panic("catalog service not configured")
+	}
+
 	parseLimitOffset := func(c *gin.Context) (int, int) {
 		limit := 20
 		offset := 0
@@ -40,32 +45,32 @@ func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
 
 	r.GET("/venues", func(c *gin.Context) {
 		limit, offset := parseLimitOffset(c)
-		items, err := repository.ListVenuesPublic(c.Request.Context(), deps.DB.Gorm(), limit, offset)
+		items, err := deps.Catalog.ListVenuesPublic(c.Request.Context(), limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "list venues failed"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": toDTOVenueViews(items)})
 	})
 
 	r.GET("/artists", func(c *gin.Context) {
 		limit, offset := parseLimitOffset(c)
-		items, err := repository.ListArtistsPublic(c.Request.Context(), deps.DB.Gorm(), limit, offset)
+		items, err := deps.Catalog.ListArtistsPublic(c.Request.Context(), limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "list artists failed"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": toDTOArtistViews(items)})
 	})
 
 	r.GET("/concerts", func(c *gin.Context) {
 		limit, offset := parseLimitOffset(c)
-		items, err := repository.ListConcertsPublic(c.Request.Context(), deps.DB.Gorm(), limit, offset)
+		items, err := deps.Catalog.ListConcertsPublic(c.Request.Context(), limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "list concerts failed"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": toDTOConcertPublicViews(items)})
 	})
 
 	r.GET("/concerts/:id", func(c *gin.Context) {
@@ -73,7 +78,7 @@ func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
 		if !ok {
 			return
 		}
-		item, err := repository.GetConcertPublic(c.Request.Context(), deps.DB.Gorm(), id)
+		item, err := deps.Catalog.GetConcertPublic(c.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, repository.ErrConcertNotFoundPublic) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "concert not found"})
@@ -82,7 +87,7 @@ func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "get concert failed"})
 			return
 		}
-		c.JSON(http.StatusOK, item)
+		c.JSON(http.StatusOK, toDTOConcertPublicView(*item))
 	})
 
 	// Artist detail: artist + его концерты.
@@ -92,7 +97,7 @@ func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
 			return
 		}
 		limit, offset := parseLimitOffset(c)
-		item, err := repository.GetArtistPublic(c.Request.Context(), deps.DB.Gorm(), id, limit, offset)
+		item, err := deps.Catalog.GetArtistPublic(c.Request.Context(), id, limit, offset)
 		if err != nil {
 			if errors.Is(err, repository.ErrArtistNotFoundPublic) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "artist not found"})
@@ -101,7 +106,7 @@ func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "get artist failed"})
 			return
 		}
-		c.JSON(http.StatusOK, item)
+		c.JSON(http.StatusOK, toDTOArtistPublicView(item))
 	})
 
 	// Venue detail: площадка + её концерты.
@@ -111,7 +116,7 @@ func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
 			return
 		}
 		limit, offset := parseLimitOffset(c)
-		item, err := repository.GetVenuePublic(c.Request.Context(), deps.DB.Gorm(), id, limit, offset)
+		item, err := deps.Catalog.GetVenuePublic(c.Request.Context(), id, limit, offset)
 		if err != nil {
 			if errors.Is(err, repository.ErrVenueNotFoundPublic) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "venue not found"})
@@ -120,7 +125,7 @@ func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "get venue failed"})
 			return
 		}
-		c.JSON(http.StatusOK, item)
+		c.JSON(http.StatusOK, toDTOVenuePublicView(item))
 	})
 
 	// Рецензии концерта (публично: только approved).
@@ -130,11 +135,11 @@ func registerCatalogRoutes(r *gin.Engine, deps *RouterDeps) {
 			return
 		}
 		limit, offset := parseLimitOffset(c)
-		items, err := repository.ListConcertReviewsApproved(c.Request.Context(), deps.DB.Gorm(), id, limit, offset)
+		items, err := deps.Catalog.ListConcertReviewsApproved(c.Request.Context(), id, limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "list concert reviews failed"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": toDTOConcertReviewItems(items)})
 	})
 }

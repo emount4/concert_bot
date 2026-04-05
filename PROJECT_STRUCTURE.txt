@@ -1,0 +1,240 @@
+Concert Bot — структура проекта и взаимодействие слоёв
+
+Дата: 2026-04-05
+
+Коротко: репозиторий состоит из двух независимых частей:
+- back/ — Go backend (HTTP API + Postgres + MinIO)
+- front/ — React + TypeScript (Vite) frontend
+
+Также в корне лежит инфраструктура и документация (docker-compose.yml, README.md, DB_DOCKER_GUIDE.md).
+
+
+1) Дерево верхнего уровня
+
+- docker-compose.yml
+  Запускает инфраструктуру для разработки. Сейчас описан Postgres (порт 5433 на хосте → 5432 в контейнере).
+
+- DB_DOCKER_GUIDE.md
+  Краткий гайд как поднять/подключиться к БД.
+
+- README.md
+  Быстрый старт, как запускать back и front.
+
+- back/
+  Backend на Go.
+
+- front/
+  Frontend на React/Vite.
+
+
+2) Backend: back/
+
+2.1. Точки входа (cmd)
+
+- back/cmd/server/main.go
+  Старт приложения (вызывает internal/app).
+
+- back/cmd/migrate/main.go
+  Миграции/технические задачи (если используются).
+
+2.2. Composition root: internal/app
+
+- back/internal/app/app.go
+  Главная сборка приложения:
+  1) грузит .env (godotenv)
+  2) загружает конфиг (internal/config)
+  3) открывает БД (internal/repository)
+  4) инициализирует MinIO клиент (pkg/minio)
+  5) собирает сервисы (internal/services/*)
+  6) собирает HTTP-роутер (internal/handlers)
+  7) запускает HTTP сервер (internal/httpserver)
+  8) делает graceful shutdown по сигналу
+
+- back/internal/app/wiring.go
+  Детали инициализации зависимостей (DI): initMinio, initAuthService, initFeedService, initCatalogService, initAdminService, initReviewsService.
+
+Важно: конфиг читается один раз и дальше зависимости прокидываются вниз (без глобальных переменных).
+
+2.3. HTTP сервер: internal/httpserver
+
+- back/internal/httpserver/server.go
+  Обёртка над net/http:
+  - запускает ListenAndServe
+  - ждёт ctx.Done() или ошибку
+  - вызывает Shutdown() с таймаутом
+
+2.4. Роутинг/HTTP слой: internal/handlers
+
+- back/internal/handlers/router.go
+  Собирает gin.Engine, подключает middleware и регистрирует роуты.
+  Использует структуру RouterDeps, в которую передаются:
+  - Config, DB
+  - Minio client
+  - Authenticator
+  - сервисы Feed/Catalog/Reviews/Admin
+
+- back/internal/handlers/*_routes.go
+  Набор файлов по доменам/разделам API:
+  - system_routes.go — health/ready (системные ручки)
+  - feed_routes.go — лента
+  - catalog_routes.go — публичный каталог
+  - reviews_routes.go — создание/проверка рецензий
+  - admin_routes.go — админка (CRUD справочников, модерация, баны)
+
+- back/internal/handlers/types.go
+  Контракты (интерфейсы) сервисов, на которые опираются handlers.
+
+- back/internal/handlers/dto_map.go
+  Маппинг доменных структур (repository) ↔ DTO (internal/dto).
+  Идея: repository остаётся чистым от HTTP/JSON, а JSON-контракт сосредоточен в internal/dto.
+
+2.5. Middleware: internal/middleware
+
+- back/internal/middleware/slog.go
+  Логирование запросов.
+
+- back/internal/middleware/telegram_auth.go
+  Telegram initData auth.
+  Важно: middleware не тянет БД напрямую — он зависит от интерфейса TelegramAuthenticator.
+
+- back/internal/middleware/admin_only.go
+  Проверка, что пользователь админ.
+
+2.6. DTO (HTTP-контракт): internal/dto
+
+- back/internal/dto/api.go
+  DTO для HTTP API: структуры с json-тегами.
+
+Зачем так:
+- repository (слой данных) не должен определять формат HTTP-ответов
+- handlers отвечают DTO, чтобы стабильно контролировать JSON
+
+2.7. Auth контракт + сервис: internal/auth и internal/services/auth
+
+- back/internal/auth/auth.go
+  Контракт TelegramAuthenticator + типовые ошибки.
+
+- back/internal/services/auth/service.go
+  Реализация:
+  - валидирует и парсит Telegram initData
+  - upsert пользователя через repository
+
+2.8. Сервисы (use-cases): internal/services/*
+
+- back/internal/services/feed
+- back/internal/services/catalog
+- back/internal/services/admin
+- back/internal/services/reviews
+
+Назначение:
+- прячут детали работы с БД/репозиторием
+- дают интерфейсы, которые удобно мокать в unit-тестах handlers
+
+2.9. Доступ к данным: internal/repository
+
+- back/internal/repository/db.go
+  Обёртка над Gorm: OpenPostgres, Close, (внутренний доступ к *gorm.DB).
+
+- back/internal/repository/models
+  Модели Gorm.
+
+- back/internal/repository/*.go
+  Функции запросов к БД (CRUD, выборки, доменные выборки).
+
+Важно: структуры в repository не являются HTTP-DTO и не обязаны иметь json-теги.
+
+2.10. MinIO (инфраструктура)
+
+- back/pkg/minio
+  Клиент и сервис-обёртки для MinIO.
+  Инициализируется в internal/app/wiring.go и прокидывается в handlers/services через DI.
+
+
+3) Основной поток выполнения (request flow)
+
+Ниже — как проходит типичный HTTP-запрос.
+
+1) Старт приложения:
+   cmd/server → internal/app.Run()
+
+2) Сборка зависимостей:
+   - config.Load()
+   - repository.OpenPostgres()
+   - initMinio()
+   - init*Service() (feed/catalog/admin/reviews/auth)
+
+3) Сборка роутера:
+   handlers.NewRouter(...) → register*Routes
+
+4) Приход запроса:
+   gin middleware (Recovery, slog, telegram_auth/admin_only при необходимости)
+
+5) Handler:
+   - читает query/path/body
+   - (если write) валидирует вход
+   - вызывает соответствующий сервис (интерфейс)
+
+6) Service:
+   - реализует бизнес-логику/оркестрацию
+   - вызывает repository для БД
+
+7) Repository:
+   - выполняет запросы через Gorm
+   - возвращает доменные структуры/View-структуры
+
+8) Handler формирует ответ:
+   - маппит domain → dto (internal/handlers/dto_map.go)
+   - отдаёт JSON
+
+
+4) Frontend: front/
+
+- front/package.json
+  Скрипты:
+  - dev: vite
+  - build: tsc -b && vite build
+  - lint: eslint .
+
+- front/src/main.tsx
+  Инициализация React приложения.
+
+- front/src/App.tsx
+  Роутинг/композиция страниц.
+
+- front/src/pages/*
+  Страницы (ArtistsPage, ConcertsPage, ReviewsPage, AdminPage и т.д.).
+
+- front/src/components/*
+  UI-компоненты по доменам (artists/concerts/reviews/venues/layout).
+
+- front/src/types/*
+  TypeScript типы (concert, review, venue, artist и т.д.).
+
+- front/src/data/*
+  Моки данных (похоже на dev-заглушки).
+
+- front/src/styles/*
+  CSS по разделам.
+
+
+5) Инфраструктура и запуск
+
+- DB:
+  docker-compose.yml поднимает Postgres.
+  Порт для подключения с хоста: 5433.
+
+- Backend:
+  запускается из папки back/ (go test ./..., go run ./cmd/server).
+
+- Frontend:
+  запускается из папки front/ (npm run dev)
+  или из корня через npm --prefix front run dev.
+
+
+6) Принципы и договорённости (как сейчас устроено)
+
+- DI и композиция в internal/app (без глобальных переменных для конфига/MinIO/БД)
+- handlers зависят от интерфейсов сервисов, что упрощает unit-тесты
+- middleware авторизации зависит от интерфейса TelegramAuthenticator, не от БД
+- HTTP-DTO и json-теги находятся в internal/dto, а не в repository
+- repository отвечает только за слой данных (Gorm + модели)

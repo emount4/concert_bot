@@ -12,14 +12,14 @@ import (
 // Задание: публичные рецензии конкретного концерта (approved) + проверка "моя рецензия".
 
 type ConcertReviewItem struct {
-	ID        uint64    `json:"id"`
-	ConcertID uint64    `json:"concert_id"`
-	Title     string    `json:"title"`
-	Text      string    `json:"text"`
-	Score     int       `json:"score"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uint64
+	ConcertID uint64
+	Title     string
+	Text      string
+	Score     int
+	CreatedAt time.Time
 
-	User UserView `json:"user"`
+	User UserView
 }
 
 func ListConcertReviewsApproved(ctx context.Context, db *gorm.DB, concertID uint64, limit, offset int) ([]ConcertReviewItem, error) {
@@ -62,11 +62,11 @@ func ListConcertReviewsApproved(ctx context.Context, db *gorm.DB, concertID uint
 }
 
 type MyReviewView struct {
-	ID               uint64    `json:"id"`
-	ConcertID        uint64    `json:"concert_id"`
-	Score            int       `json:"score"`
-	ModerationStatus string    `json:"moderation_status"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID               uint64
+	ConcertID        uint64
+	Score            int
+	ModerationStatus string
+	CreatedAt        time.Time
 }
 
 func GetMyReviewByConcert(ctx context.Context, db *gorm.DB, userID uint64, concertID uint64) (*MyReviewView, bool, error) {

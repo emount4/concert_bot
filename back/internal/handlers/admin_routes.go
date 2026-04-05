@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/yourname/concert-reviews-backend/internal/dto"
 	"github.com/yourname/concert-reviews-backend/internal/middleware"
 	"github.com/yourname/concert-reviews-backend/internal/repository"
 )
@@ -15,10 +16,15 @@ import (
 // Задание: admin API (CRUD справочников, модерация, баны).
 
 func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
+	if deps.Admin == nil {
+		// Это ошибка wiring'а, не пользовательская.
+		panic("admin service not configured")
+	}
+
 	admin := r.Group("/admin")
 	// Задание: в DEV админку можно тестировать без Telegram (включается флагом EnableDevWrite).
 	if deps.Config == nil || !deps.Config.EnableDevWrite {
-		admin.Use(middleware.TelegramAuth(deps.Config, deps.DB))
+		admin.Use(middleware.TelegramAuth(deps.Auth))
 		admin.Use(middleware.AdminOnly())
 	}
 
@@ -42,15 +48,15 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 	// Venues
 	admin.GET("/venues", func(c *gin.Context) {
 		limit, offset := parseLimitOffset(c)
-		items, err := repository.ListVenues(c.Request.Context(), deps.DB.Gorm(), limit, offset)
+		items, err := deps.Admin.ListVenues(c.Request.Context(), limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "list venues failed"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": toDTOVenueViews(items)})
 	})
 	admin.POST("/venues", func(c *gin.Context) {
-		var req repository.VenueUpsert
+		var req dto.VenueUpsert
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 			return
@@ -61,12 +67,12 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "name and city are required"})
 			return
 		}
-		created, err := repository.CreateVenue(c.Request.Context(), deps.DB.Gorm(), req)
+		created, err := deps.Admin.CreateVenue(c.Request.Context(), toRepoVenueUpsert(req))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "create venue failed"})
 			return
 		}
-		c.JSON(http.StatusCreated, created)
+		c.JSON(http.StatusCreated, toDTOVenueView(*created))
 	})
 	admin.PATCH("/venues/:id", func(c *gin.Context) {
 		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -74,7 +80,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		var req repository.VenueUpsert
+		var req dto.VenueUpsert
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 			return
@@ -85,7 +91,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "name and city are required"})
 			return
 		}
-		updated, err := repository.UpdateVenue(c.Request.Context(), deps.DB.Gorm(), id, req)
+		updated, err := deps.Admin.UpdateVenue(c.Request.Context(), id, toRepoVenueUpsert(req))
 		if err != nil {
 			if errors.Is(err, repository.ErrVenueNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "venue not found"})
@@ -94,7 +100,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "update venue failed"})
 			return
 		}
-		c.JSON(http.StatusOK, updated)
+		c.JSON(http.StatusOK, toDTOVenueView(*updated))
 	})
 	admin.DELETE("/venues/:id", func(c *gin.Context) {
 		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -102,7 +108,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		if err := repository.DeleteVenue(c.Request.Context(), deps.DB.Gorm(), id); err != nil {
+		if err := deps.Admin.DeleteVenue(c.Request.Context(), id); err != nil {
 			if errors.Is(err, repository.ErrVenueNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "venue not found"})
 				return
@@ -116,15 +122,15 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 	// Artists
 	admin.GET("/artists", func(c *gin.Context) {
 		limit, offset := parseLimitOffset(c)
-		items, err := repository.ListArtists(c.Request.Context(), deps.DB.Gorm(), limit, offset)
+		items, err := deps.Admin.ListArtists(c.Request.Context(), limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "list artists failed"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": toDTOArtistViews(items)})
 	})
 	admin.POST("/artists", func(c *gin.Context) {
-		var req repository.ArtistUpsert
+		var req dto.ArtistUpsert
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 			return
@@ -134,12 +140,12 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
 			return
 		}
-		created, err := repository.CreateArtist(c.Request.Context(), deps.DB.Gorm(), req)
+		created, err := deps.Admin.CreateArtist(c.Request.Context(), toRepoArtistUpsert(req))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "create artist failed"})
 			return
 		}
-		c.JSON(http.StatusCreated, created)
+		c.JSON(http.StatusCreated, toDTOArtistView(*created))
 	})
 	admin.PATCH("/artists/:id", func(c *gin.Context) {
 		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -147,7 +153,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		var req repository.ArtistUpsert
+		var req dto.ArtistUpsert
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 			return
@@ -157,7 +163,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
 			return
 		}
-		updated, err := repository.UpdateArtist(c.Request.Context(), deps.DB.Gorm(), id, req)
+		updated, err := deps.Admin.UpdateArtist(c.Request.Context(), id, toRepoArtistUpsert(req))
 		if err != nil {
 			if errors.Is(err, repository.ErrArtistNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "artist not found"})
@@ -166,7 +172,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "update artist failed"})
 			return
 		}
-		c.JSON(http.StatusOK, updated)
+		c.JSON(http.StatusOK, toDTOArtistView(*updated))
 	})
 	admin.DELETE("/artists/:id", func(c *gin.Context) {
 		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -174,7 +180,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		if err := repository.DeleteArtist(c.Request.Context(), deps.DB.Gorm(), id); err != nil {
+		if err := deps.Admin.DeleteArtist(c.Request.Context(), id); err != nil {
 			if errors.Is(err, repository.ErrArtistNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "artist not found"})
 				return
@@ -188,15 +194,15 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 	// Concerts
 	admin.GET("/concerts", func(c *gin.Context) {
 		limit, offset := parseLimitOffset(c)
-		items, err := repository.ListConcerts(c.Request.Context(), deps.DB.Gorm(), limit, offset)
+		items, err := deps.Admin.ListConcerts(c.Request.Context(), limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "list concerts failed"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": toDTOConcertViews(items)})
 	})
 	admin.POST("/concerts", func(c *gin.Context) {
-		var req repository.ConcertUpsert
+		var req dto.ConcertUpsert
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 			return
@@ -209,12 +215,12 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "starts_at is required"})
 			return
 		}
-		created, err := repository.CreateConcert(c.Request.Context(), deps.DB.Gorm(), req)
+		created, err := deps.Admin.CreateConcert(c.Request.Context(), toRepoConcertUpsert(req))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "create concert failed"})
 			return
 		}
-		c.JSON(http.StatusCreated, created)
+		c.JSON(http.StatusCreated, toDTOConcertView(*created))
 	})
 	admin.PATCH("/concerts/:id", func(c *gin.Context) {
 		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -222,7 +228,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		var req repository.ConcertUpsert
+		var req dto.ConcertUpsert
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 			return
@@ -235,7 +241,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "starts_at is required"})
 			return
 		}
-		updated, err := repository.UpdateConcert(c.Request.Context(), deps.DB.Gorm(), id, req)
+		updated, err := deps.Admin.UpdateConcert(c.Request.Context(), id, toRepoConcertUpsert(req))
 		if err != nil {
 			if errors.Is(err, repository.ErrConcertAdminNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "concert not found"})
@@ -244,7 +250,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "update concert failed"})
 			return
 		}
-		c.JSON(http.StatusOK, updated)
+		c.JSON(http.StatusOK, toDTOConcertView(*updated))
 	})
 	admin.DELETE("/concerts/:id", func(c *gin.Context) {
 		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -252,7 +258,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		if err := repository.DeleteConcert(c.Request.Context(), deps.DB.Gorm(), id); err != nil {
+		if err := deps.Admin.DeleteConcert(c.Request.Context(), id); err != nil {
 			if errors.Is(err, repository.ErrConcertAdminNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "concert not found"})
 				return
@@ -267,12 +273,12 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 	admin.GET("/reviews", func(c *gin.Context) {
 		limit, offset := parseLimitOffset(c)
 		status := strings.TrimSpace(c.Query("status"))
-		items, err := repository.ListReviewsForModeration(c.Request.Context(), deps.DB.Gorm(), status, limit, offset)
+		items, err := deps.Admin.ListReviewsForModeration(c.Request.Context(), status, limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "list reviews failed"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		c.JSON(http.StatusOK, gin.H{"items": toDTOAdminReviewListItems(items)})
 	})
 	admin.POST("/reviews/:id/approve", func(c *gin.Context) {
 		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -280,7 +286,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		view, err := repository.ApproveReview(c.Request.Context(), deps.DB.Gorm(), id)
+		view, err := deps.Admin.ApproveReview(c.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, repository.ErrReviewNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "review not found"})
@@ -289,7 +295,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "approve failed"})
 			return
 		}
-		c.JSON(http.StatusOK, view)
+		c.JSON(http.StatusOK, toDTOReviewModerationView(view))
 	})
 	type rejectReq struct {
 		Reason string `json:"reason"`
@@ -306,7 +312,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			return
 		}
 		req.Reason = strings.TrimSpace(req.Reason)
-		view, err := repository.RejectReview(c.Request.Context(), deps.DB.Gorm(), id, req.Reason)
+		view, err := deps.Admin.RejectReview(c.Request.Context(), id, req.Reason)
 		if err != nil {
 			if errors.Is(err, repository.ErrReviewNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "review not found"})
@@ -315,7 +321,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "reject failed"})
 			return
 		}
-		c.JSON(http.StatusOK, view)
+		c.JSON(http.StatusOK, toDTOReviewModerationView(view))
 	})
 
 	// Ban/unban
@@ -334,7 +340,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			return
 		}
 		req.Reason = strings.TrimSpace(req.Reason)
-		if err := repository.BanUser(c.Request.Context(), deps.DB.Gorm(), id, req.Reason); err != nil {
+		if err := deps.Admin.BanUser(c.Request.Context(), id, req.Reason); err != nil {
 			if errors.Is(err, repository.ErrUserNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 				return
@@ -350,7 +356,7 @@ func registerAdminRoutes(r *gin.Engine, deps *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		if err := repository.UnbanUser(c.Request.Context(), deps.DB.Gorm(), id); err != nil {
+		if err := deps.Admin.UnbanUser(c.Request.Context(), id); err != nil {
 			if errors.Is(err, repository.ErrUserNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 				return

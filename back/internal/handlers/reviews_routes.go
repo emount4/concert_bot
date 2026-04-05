@@ -10,7 +10,6 @@ import (
 
 	"github.com/yourname/concert-reviews-backend/internal/middleware"
 	"github.com/yourname/concert-reviews-backend/internal/repository"
-	"github.com/yourname/concert-reviews-backend/internal/services/score"
 )
 
 // Задание: доменные ручки отзывов.
@@ -31,11 +30,16 @@ type createReviewRequest struct {
 func registerReviewRoutes(r *gin.Engine, cfg *RouterDeps) {
 	// Write endpoints — только с Telegram auth.
 	auth := r.Group("/")
-	auth.Use(middleware.TelegramAuth(cfg.Config, cfg.DB))
+	auth.Use(middleware.TelegramAuth(cfg.Auth))
 
 	// Задание: проверить, писал ли пользователь рецензию на концерт.
 	// GET /reviews/my?concert_id=123
-	auth.GET("/reviews/my", func(c *gin.Context) {
+	auth.GET("/reviews/my", handleGetMyReview(cfg))
+	auth.POST("/reviews", handleCreateReview(cfg))
+}
+
+func handleGetMyReview(cfg *RouterDeps) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		user, ok := middleware.GetUser(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -47,7 +51,7 @@ func registerReviewRoutes(r *gin.Engine, cfg *RouterDeps) {
 			return
 		}
 
-		review, exists, err := repository.GetMyReviewByConcert(c.Request.Context(), cfg.DB.Gorm(), user.ID, concertID)
+		review, exists, err := cfg.Reviews.GetMyReviewByConcert(c.Request.Context(), user.ID, concertID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "get my review failed"})
 			return
@@ -56,10 +60,12 @@ func registerReviewRoutes(r *gin.Engine, cfg *RouterDeps) {
 			c.JSON(http.StatusOK, gin.H{"exists": false})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"exists": true, "review": review})
-	})
+		c.JSON(http.StatusOK, gin.H{"exists": true, "review": toDTOMyReviewView(review)})
+	}
+}
 
-	auth.POST("/reviews", func(c *gin.Context) {
+func handleCreateReview(cfg *RouterDeps) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		user, ok := middleware.GetUser(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -75,55 +81,39 @@ func registerReviewRoutes(r *gin.Engine, cfg *RouterDeps) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 			return
 		}
-		if req.ConcertID == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "concert_id is required"})
-			return
-		}
 
-		title := strings.TrimSpace(req.Title)
-		text := strings.TrimSpace(req.Text)
-		if title == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "title is required"})
-			return
-		}
-		if text == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "text is required"})
-			return
-		}
-
-		s, err := score.Compute(score.Input{
-			Execution:        req.ExecutionRating,
-			SetlistDynamics:  req.SetlistDynamicsRating,
-			CrowdInteraction: req.CrowdInteractionRating,
-			SoundEngineer:    req.SoundEngineerRating,
-			Vibe:             req.VibeRating,
-		})
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		created, err := repository.CreateReview(c.Request.Context(), cfg.DB.Gorm(), user.ID, repository.ReviewCreateParams{
+		created, err := cfg.Reviews.CreateReview(c.Request.Context(), user.ID, repository.ReviewCreateParams{
 			ConcertID:              req.ConcertID,
-			Title:                  title,
-			Text:                   text,
+			Title:                  strings.TrimSpace(req.Title),
+			Text:                   strings.TrimSpace(req.Text),
 			MediaURLs:              req.MediaURLs,
 			ExecutionRating:        req.ExecutionRating,
 			SetlistDynamicsRating:  req.SetlistDynamicsRating,
 			CrowdInteractionRating: req.CrowdInteractionRating,
 			SoundEngineerRating:    req.SoundEngineerRating,
 			VibeRating:             req.VibeRating,
-			Score:                  s,
 		})
 		if err != nil {
-			if errors.Is(err, repository.ErrConcertNotFound) {
+			type badRequester interface {
+				BadRequest() bool
+			}
+
+			switch {
+			case errors.Is(err, repository.ErrConcertNotFound):
 				c.JSON(http.StatusBadRequest, gin.H{"error": "concert not found"})
 				return
+			case func() bool {
+				br, ok := err.(badRequester)
+				return ok && br.BadRequest()
+			}():
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "create review failed"})
+				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "create review failed"})
-			return
 		}
 
-		c.JSON(http.StatusCreated, created)
-	})
+		c.JSON(http.StatusCreated, toDTOReviewView(created))
+	}
 }

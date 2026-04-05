@@ -5,7 +5,8 @@
 ## Требования
 
 - Установлен Docker Desktop (Windows) с включённым Compose.
-- Порт `5432` свободен (если у тебя уже запущен локальный Postgres на 5432 — см. раздел про смену порта).
+- Docker Desktop (Windows) с включённым Compose.
+- Порт `5433` свободен (в этом репозитории Postgres по умолчанию проброшен на `5433:5432`, чтобы не конфликтовать с локальным Postgres).
 
 ## 1) Поднять базу одной командой
 
@@ -31,7 +32,7 @@
 
 Если `psql` установлен локально:
 
-- `psql "postgres://postgres:postgres@localhost:5432/concert_bot?sslmode=disable"`
+- `psql "postgres://postgres:postgres@localhost:5433/concert_bot?sslmode=disable"`
 
 Полезные команды:
 
@@ -51,7 +52,7 @@
 Параметры подключения:
 
 - Host: `localhost`
-- Port: `5432`
+- Port: `5433`
 - Database: `concert_bot`
 - User: `postgres`
 - Password: `postgres`
@@ -62,7 +63,7 @@
 
 Рекомендуемая строка:
 
-- `DATABASE_URL=postgres://postgres:postgres@localhost:5432/concert_bot?sslmode=disable`
+- `DATABASE_URL=postgres://postgres:postgres@localhost:5433/concert_bot?sslmode=disable`
 
 Запуск backend:
 
@@ -73,14 +74,6 @@
 
 - `curl http://localhost:8080/health`
 - `curl http://localhost:8080/ready`
-
-### Миграции (рекомендуемый способ фиксировать схему)
-
-В репозитории есть миграции и встроенная команда для их применения:
-
-- `cd back`
-- `go run ./cmd/migrate status`
-- `go run ./cmd/migrate up`
 
 Ожидания:
 
@@ -103,19 +96,9 @@
 
 - `docker compose up -d`
 
-## 6) Если порт 5432 занят (например, у тебя уже установлен Postgres)
+## 6) Если порт 5433 занят
 
-Самый простой вариант — пробросить контейнер на другой порт, например 5433.
-
-1) В [docker-compose.yml](docker-compose.yml) поменять строку:
-
-- было: `- "5432:5432"`
-- станет: `- "5433:5432"`
-
-2) В [back/.env](back/.env) поменять `DATABASE_URL`:
-
-- было: `...@localhost:5432/...`
-- станет: `...@localhost:5433/...`
+Если у тебя уже занято `5433`, поменяй проброс порта в [docker-compose.yml](docker-compose.yml), например на `5434:5432`, и обнови `DATABASE_URL` в [back/.env](back/.env).
 
 ## 7) Что создаётся автоматически
 
@@ -125,15 +108,3 @@
 - базу (`POSTGRES_DB`)
 
 Но таблицы проекта Docker не создаёт. Таблицы появятся после того, как ты добавишь миграции и начнёшь их запускать.
-
-## 8) Как в pgAdmin посмотреть схему
-
-1) Открой pgAdmin → подключись к серверу.
-2) Дерево слева: `Servers` → твой сервер → `Databases` → `concert_bot` → `Schemas` → `public` → `Tables`.
-3) Для таблицы: правый клик → `Properties` / `Columns`.
-4) Быстро через Query Tool:
-
-- Список таблиц:
-	- `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY 1;`
-- Колонки таблицы:
-	- `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='reviews' ORDER BY ordinal_position;`

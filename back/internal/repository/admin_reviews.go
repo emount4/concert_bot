@@ -15,10 +15,10 @@ import (
 var ErrReviewNotFound = errors.New("review not found")
 
 type ReviewModerationView struct {
-	ID               uint64    `json:"id"`
-	ModerationStatus string    `json:"moderation_status"`
-	ModerationReason string    `json:"moderation_reason"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               uint64
+	ModerationStatus string
+	ModerationReason string
+	UpdatedAt        time.Time
 }
 
 func ApproveReview(ctx context.Context, db *gorm.DB, reviewID uint64) (*ReviewModerationView, error) {
@@ -61,14 +61,14 @@ func setReviewModeration(ctx context.Context, db *gorm.DB, reviewID uint64, stat
 }
 
 type AdminReviewListItem struct {
-	ID               uint64    `json:"id"`
-	UserID           uint64    `json:"user_id"`
-	ConcertID        uint64    `json:"concert_id"`
-	Title            string    `json:"title"`
-	Text             string    `json:"text"`
-	Score            int       `json:"score"`
-	ModerationStatus string    `json:"moderation_status"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID               uint64
+	UserID           uint64
+	ConcertID        uint64
+	Title            string
+	Text             string
+	Score            int
+	ModerationStatus string
+	CreatedAt        time.Time
 }
 
 func ListReviewsForModeration(ctx context.Context, db *gorm.DB, status string, limit, offset int) ([]AdminReviewListItem, error) {

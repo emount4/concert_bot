@@ -17,8 +17,6 @@ func registerSystemRoutes(r *gin.Engine, ready ReadyChecker) {
 		c.String(http.StatusOK, "ok")
 	})
 
-	// /ready должен отвечать только если сервис действительно готов.
-	// Для нас готовность = БД доступна.
 	r.GET("/ready", func(c *gin.Context) {
 		if ready == nil {
 			c.String(http.StatusServiceUnavailable, "db not configured")

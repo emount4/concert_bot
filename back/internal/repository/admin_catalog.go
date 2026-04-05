@@ -19,30 +19,30 @@ var (
 )
 
 type VenueUpsert struct {
-	Name        string  `json:"name"`
-	City        string  `json:"city"`
-	Address     string  `json:"address"`
-	Links       string  `json:"links"`
-	Capacity    *int    `json:"capacity"`
-	Description string  `json:"description"`
-	ImageURL    *string `json:"image_url"`
-	Coordinates *string `json:"coordinates"`
-	WebsiteURL  *string `json:"website_url"`
+	Name        string
+	City        string
+	Address     string
+	Links       string
+	Capacity    *int
+	Description string
+	ImageURL    *string
+	Coordinates *string
+	WebsiteURL  *string
 }
 
 type VenueView struct {
-	ID          uint64    `json:"id"`
-	Name        string    `json:"name"`
-	City        string    `json:"city"`
-	Address     string    `json:"address"`
-	Links       string    `json:"links"`
-	Capacity    *int      `json:"capacity"`
-	Description string    `json:"description"`
-	ImageURL    *string   `json:"image_url"`
-	Coordinates *string   `json:"coordinates"`
-	WebsiteURL  *string   `json:"website_url"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uint64
+	Name        string
+	City        string
+	Address     string
+	Links       string
+	Capacity    *int
+	Description string
+	ImageURL    *string
+	Coordinates *string
+	WebsiteURL  *string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func CreateVenue(ctx context.Context, db *gorm.DB, in VenueUpsert) (*VenueView, error) {
@@ -134,16 +134,16 @@ func venueToView(v models.Venue) *VenueView {
 }
 
 type ArtistUpsert struct {
-	Name     string  `json:"name"`
-	ImageURL *string `json:"image_url"`
+	Name     string
+	ImageURL *string
 }
 
 type ArtistView struct {
-	ID        uint64    `json:"id"`
-	Name      string    `json:"name"`
-	ImageURL  *string   `json:"image_url"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint64
+	Name      string
+	ImageURL  *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func CreateArtist(ctx context.Context, db *gorm.DB, in ArtistUpsert) (*ArtistView, error) {
@@ -202,28 +202,28 @@ func artistToView(a models.Artist) *ArtistView {
 }
 
 type ConcertUpsert struct {
-	Title          *string   `json:"title"`
-	VenueID        uint64    `json:"venue_id"`
-	TicketPriceMin int       `json:"ticket_price_min"`
-	TicketPriceMax int       `json:"ticket_price_max"`
-	PosterURL      *string   `json:"poster_url"`
-	Description    string    `json:"description"`
-	WebsiteURL     *string   `json:"website_url"`
-	StartsAt       time.Time `json:"starts_at"`
+	Title          *string
+	VenueID        uint64
+	TicketPriceMin int
+	TicketPriceMax int
+	PosterURL      *string
+	Description    string
+	WebsiteURL     *string
+	StartsAt       time.Time
 }
 
 type ConcertView struct {
-	ID             uint64    `json:"id"`
-	Title          *string   `json:"title"`
-	VenueID        uint64    `json:"venue_id"`
-	TicketPriceMin int       `json:"ticket_price_min"`
-	TicketPriceMax int       `json:"ticket_price_max"`
-	PosterURL      *string   `json:"poster_url"`
-	Description    string    `json:"description"`
-	WebsiteURL     *string   `json:"website_url"`
-	StartsAt       time.Time `json:"starts_at"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             uint64
+	Title          *string
+	VenueID        uint64
+	TicketPriceMin int
+	TicketPriceMax int
+	PosterURL      *string
+	Description    string
+	WebsiteURL     *string
+	StartsAt       time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func CreateConcert(ctx context.Context, db *gorm.DB, in ConcertUpsert) (*ConcertView, error) {

@@ -15,14 +15,14 @@ import (
 // Не отдаём в handlers прямую Gorm-модель, чтобы проще менять внутренности.
 
 type UserView struct {
-	ID         uint64  `json:"id"`
-	TelegramID int64   `json:"telegram_id"`
-	Username   *string `json:"username"`
-	FirstName  string  `json:"first_name"`
-	LastName   *string `json:"last_name"`
-	AvatarURL  *string `json:"avatar_url"`
-	IsAdmin    bool    `json:"is_admin"`
-	IsBanned   bool    `json:"is_banned"`
+	ID         uint64
+	TelegramID int64
+	Username   *string
+	FirstName  string
+	LastName   *string
+	AvatarURL  *string
+	IsAdmin    bool
+	IsBanned   bool
 }
 
 func UpsertTelegramUser(ctx context.Context, db *gorm.DB, tgUser initdata.User, isAdmin bool) (*UserView, error) {

@@ -49,7 +49,20 @@ func Run() error {
 		}
 	}
 
-	router := handlers.NewRouter(cfg, db)
+	// Задание: инициализация MinIO (через DI-конфиг, без глобальных переменных).
+	minioClient, err := initMinio(cfg)
+	if err != nil {
+		return fmt.Errorf("minio init: %w", err)
+	}
+
+	authenticator := initAuthService(cfg, db)
+
+	reviewsSvc := initReviewsService(db)
+	feedSvc := initFeedService(db)
+	catalogSvc := initCatalogService(db)
+	adminSvc := initAdminService(db)
+
+	router := handlers.NewRouter(cfg, db, minioClient, authenticator, feedSvc, catalogSvc, reviewsSvc, adminSvc)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

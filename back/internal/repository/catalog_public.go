@@ -19,21 +19,21 @@ var (
 )
 
 type ConcertPublicView struct {
-	ID              uint64       `json:"id"`
-	Title           *string      `json:"title"`
-	VenueID         uint64       `json:"venue_id"`
-	Venue           VenueView    `json:"venue"`
-	TicketPriceMin  int          `json:"ticket_price_min"`
-	TicketPriceMax  int          `json:"ticket_price_max"`
-	PosterURL       *string      `json:"poster_url"`
-	Description     string       `json:"description"`
-	WebsiteURL      *string      `json:"website_url"`
-	StartsAt        time.Time    `json:"starts_at"`
-	Artists         []ArtistView `json:"artists"`
-	ReviewsCount    int          `json:"reviews_count"`
-	ReviewsAvgScore float64      `json:"reviews_avg_score"`
-	CreatedAt       time.Time    `json:"created_at"`
-	UpdatedAt       time.Time    `json:"updated_at"`
+	ID              uint64
+	Title           *string
+	VenueID         uint64
+	Venue           VenueView
+	TicketPriceMin  int
+	TicketPriceMax  int
+	PosterURL       *string
+	Description     string
+	WebsiteURL      *string
+	StartsAt        time.Time
+	Artists         []ArtistView
+	ReviewsCount    int
+	ReviewsAvgScore float64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type concertAgg struct {

@@ -31,6 +31,13 @@ type Config struct {
 	HTTPReadTimeout       time.Duration
 	HTTPWriteTimeout      time.Duration
 	HTTPIdleTimeout       time.Duration
+
+	//MINIO
+	MinioEndpoint     string // Адрес конечной точки Minio
+	BucketName        string // Название конкретного бакета в Minio
+	MinioRootUser     string // Имя пользователя для доступа к Minio
+	MinioRootPassword string // Пароль для доступа к Minio
+	MinioUseSSL       bool   // Переменная, отвечающая за
 }
 
 // Задание: проверка прав администратора по Telegram user_id.
@@ -68,6 +75,12 @@ func Load() (*Config, error) {
 		HTTPReadTimeout:       getDurationEnv("HTTP_READ_TIMEOUT", 15*time.Second),
 		HTTPWriteTimeout:      getDurationEnv("HTTP_WRITE_TIMEOUT", 15*time.Second),
 		HTTPIdleTimeout:       getDurationEnv("HTTP_IDLE_TIMEOUT", 60*time.Second),
+
+		MinioEndpoint:     getEnv("MINIO_ENDPOINT", "localhost:9000"),
+		BucketName:        getEnv("MINIO_BUCKET_NAME", "defaultBucket"),
+		MinioRootUser:     getEnv("MINIO_ROOT_USER", "root"),
+		MinioRootPassword: getEnv("MINIO_ROOT_PASSWORD", "minio_password"),
+		MinioUseSSL:       getEnvAsBool("MINIO_USE_SSL", false),
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -75,7 +88,7 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// Задание: удобный хелпер, чтобы в коде не размазывать проверки env.
+// Хелпер, чтобы в коде не размазывать проверки env.
 func (c *Config) IsProd() bool {
 	return c.AppEnv == "prod" || c.AppEnv == "production"
 }
@@ -167,4 +180,13 @@ func getInt64SliceEnv(key string) ([]int64, error) {
 		result = append(result, v)
 	}
 	return result, nil
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if valueStr := getEnv(key, ""); valueStr != "" {
+		if value, err := strconv.ParseBool(valueStr); err == nil {
+			return value
+		}
+	}
+	return defaultValue
 }

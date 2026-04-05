@@ -12,13 +12,13 @@ import (
 // Задание: публичные страницы артиста/площадки со списком их концертов.
 
 type ArtistPublicView struct {
-	Artist   ArtistView          `json:"artist"`
-	Concerts []ConcertPublicView `json:"concerts"`
+	Artist   ArtistView
+	Concerts []ConcertPublicView
 }
 
 type VenuePublicView struct {
-	Venue    VenueView           `json:"venue"`
-	Concerts []ConcertPublicView `json:"concerts"`
+	Venue    VenueView
+	Concerts []ConcertPublicView
 }
 
 func GetArtistPublic(ctx context.Context, db *gorm.DB, id uint64, limit, offset int) (*ArtistPublicView, error) {
