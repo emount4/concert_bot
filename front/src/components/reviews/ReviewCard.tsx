@@ -51,7 +51,19 @@ export function ReviewCard({ review }: ReviewCardProps) {
     <article className="reviewCard">
       <header className="reviewHeader">
         <Link to={`/users/${encodeURIComponent(review.authorName)}`} className="reviewAuthor reviewAuthorLink">
-          <div className="reviewAvatar" aria-hidden="true" />
+          {/* Задание 10.4: маленькая афиша и аватар пользователя в карточке рецензии. */}
+          <div className="reviewAvatar" aria-hidden="true">
+            {review.authorAvatarUrl && (
+              <img
+                className="reviewAvatarImg"
+                src={review.authorAvatarUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            )}
+          </div>
           <p className="reviewAuthorName">{review.authorName}</p>
         </Link>
 
@@ -76,7 +88,14 @@ export function ReviewCard({ review }: ReviewCardProps) {
         >
           <div className="reviewConcertPosterMedia">
             {review.concertPosterUrl ? (
-              <img className="reviewConcertPosterImg" src={review.concertPosterUrl} alt="" />
+              <img
+                className="reviewConcertPosterImg"
+                src={review.concertPosterUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
             ) : (
               <div className="reviewConcertPosterFallback" />
             )}

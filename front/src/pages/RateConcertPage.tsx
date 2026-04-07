@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ReviewCard } from '../components/reviews/ReviewCard'
+import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_REVIEWS } from '../data/mockReviews'
+import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 
 type ScoreState = {
   performance: number
@@ -119,6 +121,8 @@ export function RateConcertPage() {
     () => MOCK_REVIEWS.filter((review) => review.concertId === numericConcertId),
     [numericConcertId],
   )
+  // Задание 13.2: раскладка средней оценки концерта по параметрам (до десятых).
+  const concertAvgScores = useMemo(() => computeAvgScoresFromReviews(concertReviews), [concertReviews])
   const concertDateLabel = useMemo(() => {
     const date = new Date(concert?.dateTime ?? '')
     if (Number.isNaN(date.getTime())) return concert?.dateTime ?? ''
@@ -190,7 +194,24 @@ export function RateConcertPage() {
               ))}
             </div>
 
-            {avgConcertScore !== null && <div className="rateHeroAverageBadge">{avgConcertScore}</div>}
+            {avgConcertScore !== null && (
+              <RatingBreakdownBadge
+                value={avgConcertScore}
+                className="rateHeroAverageBadge"
+                ariaLabel="Средняя оценка концерта"
+                breakdown={
+                  concertAvgScores
+                    ? [
+                        { label: 'Исполнение', value: concertAvgScores.performance },
+                        { label: 'Динамика / трек-лист', value: concertAvgScores.setlist },
+                        { label: 'Подача / зал', value: concertAvgScores.crowd },
+                        { label: 'Звук', value: concertAvgScores.sound },
+                        { label: 'Вайб', value: concertAvgScores.vibe },
+                      ]
+                    : []
+                }
+              />
+            )}
           </div>
         </div>
       </article>

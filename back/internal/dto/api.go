@@ -19,6 +19,32 @@ type UserView struct {
 	IsBanned   bool    `json:"is_banned"`
 }
 
+// Profile
+
+// Задание: DTO для /me/profile.
+// Пока bio хранится только в клиенте (моками), поэтому на бэке отдаём пустую строку.
+
+type ProfileReviewItem struct {
+	ID           uint64    `json:"id"`
+	ConcertTitle string    `json:"concert_title"`
+	CreatedAt    time.Time `json:"created_at"`
+	Status       string    `json:"status"`
+	OverallScore int       `json:"overall_score"`
+}
+
+type UserProfile struct {
+	ID            uint64              `json:"id"`
+	DisplayName   string              `json:"display_name"`
+	Handle        string              `json:"handle"`
+	CreatedAt     time.Time           `json:"created_at"`
+	Bio           string              `json:"bio"`
+	ReviewsCount  int                 `json:"reviews_count"`
+	ApprovedCount int                 `json:"approved_count"`
+	PendingCount  int                 `json:"pending_count"`
+	AvatarURL     *string             `json:"avatar_url"`
+	RecentReviews []ProfileReviewItem `json:"recent_reviews"`
+}
+
 // Feed
 
 type FeedItem struct {

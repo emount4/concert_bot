@@ -3,9 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { ArtistCard } from '../components/artists/ArtistCard'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { ReviewCard } from '../components/reviews/ReviewCard'
+import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { MOCK_ARTISTS } from '../data/mockArtists'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_REVIEWS } from '../data/mockReviews'
+import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 
 type SortDirection = 'desc' | 'asc'
 type ArtistSortBy = 'rating' | 'alphabet'
@@ -97,6 +99,8 @@ export function ArtistsPage() {
       .sort((a, b) => b.id - a.id)
     const roundedScore =
       selectedArtist.avgConcertScore === null ? null : Math.round(selectedArtist.avgConcertScore)
+    // Задание 13.3: раскладка средней оценки артиста по параметрам (до десятых).
+    const artistAvgScores = computeAvgScoresFromReviews(artistReviews)
 
     return (
       <section className="page">
@@ -108,7 +112,19 @@ export function ArtistsPage() {
         </div>
 
         <article className="detailHero">
-          <div className="detailHeroMedia artistPhoto" aria-hidden="true" />
+          {/* Задание 3.4: реальные изображения в карточке артиста (детальная шапка). */}
+          <div className="detailHeroMedia artistPhoto" aria-hidden="true">
+            {selectedArtist.imageUrl && (
+              <img
+                className="artistPhotoImg"
+                src={selectedArtist.imageUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            )}
+          </div>
           <div className="detailHeroBody">
             <h2 className="detailHeroTitle">{selectedArtist.nickname}</h2>
             <div className="detailStatsRow">
@@ -119,7 +135,24 @@ export function ArtistsPage() {
                 Рецензий: <strong>{artistReviews.length}</strong>
               </p>
             </div>
-            {roundedScore !== null && <div className="ratingCircle detailRatingCircle">{roundedScore}</div>}
+            {roundedScore !== null && (
+              <RatingBreakdownBadge
+                value={roundedScore}
+                className="ratingCircle detailRatingCircle"
+                ariaLabel="Средняя оценка артиста"
+                breakdown={
+                  artistAvgScores
+                    ? [
+                        { label: 'Исполнение', value: artistAvgScores.performance },
+                        { label: 'Динамика / трек-лист', value: artistAvgScores.setlist },
+                        { label: 'Подача / зал', value: artistAvgScores.crowd },
+                        { label: 'Звук', value: artistAvgScores.sound },
+                        { label: 'Вайб', value: artistAvgScores.vibe },
+                      ]
+                    : []
+                }
+              />
+            )}
           </div>
         </article>
 

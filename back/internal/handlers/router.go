@@ -20,6 +20,7 @@ type RouterDeps struct {
 	Catalog CatalogService
 	Reviews ReviewsService
 	Admin   AdminService
+	Profile ProfileService
 }
 
 // Задание: собрать HTTP роутер (Gin)
@@ -32,6 +33,7 @@ func NewRouter(
 	catalogSvc CatalogService,
 	reviewsSvc ReviewsService,
 	adminSvc AdminService,
+	profileSvc ProfileService,
 ) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -46,6 +48,7 @@ func NewRouter(
 		Catalog: catalogSvc,
 		Reviews: reviewsSvc,
 		Admin:   adminSvc,
+		Profile: profileSvc,
 	}
 
 	registerSystemRoutes(r, db)
@@ -53,6 +56,7 @@ func NewRouter(
 	registerCatalogRoutes(r, deps)
 	registerReviewRoutes(r, deps)
 	registerAdminRoutes(r, deps)
+	registerProfileRoutes(r, deps)
 
 	return r
 }

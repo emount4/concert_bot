@@ -34,6 +34,8 @@
 .artistPhoto {
   aspect-ratio: 1 / 1;
   border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
     repeating-linear-gradient(
@@ -43,6 +45,13 @@
       transparent 10px,
       transparent 20px
     );
+}
+
+.artistPhotoImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .artistBody {

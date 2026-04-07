@@ -78,3 +78,10 @@ type ReviewsService interface {
 	GetMyReviewByConcert(ctx context.Context, userID uint64, concertID uint64) (*repository.MyReviewView, bool, error)
 	CreateReview(ctx context.Context, userID uint64, p repository.ReviewCreateParams) (*repository.ReviewView, error)
 }
+
+// ProfileService — контракт для профиля текущего пользователя.
+//
+// Задание: базовые эндпоинты /me.
+type ProfileService interface {
+	GetMyProfile(ctx context.Context, userID uint64) (*repository.MyProfileView, error)
+}

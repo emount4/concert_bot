@@ -9,6 +9,7 @@ import (
 	authsvc "github.com/yourname/concert-reviews-backend/internal/services/auth"
 	"github.com/yourname/concert-reviews-backend/internal/services/catalog"
 	"github.com/yourname/concert-reviews-backend/internal/services/feed"
+	"github.com/yourname/concert-reviews-backend/internal/services/profile"
 	"github.com/yourname/concert-reviews-backend/internal/services/reviews"
 	miniopkg "github.com/yourname/concert-reviews-backend/pkg/minio"
 )
@@ -45,4 +46,8 @@ func initCatalogService(db *repository.DB) handlers.CatalogService {
 
 func initAdminService(db *repository.DB) handlers.AdminService {
 	return admin.New(db)
+}
+
+func initProfileService(db *repository.DB) handlers.ProfileService {
+	return profile.New(db)
 }

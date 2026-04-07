@@ -42,10 +42,19 @@
   height: 36px;
   border-radius: 999px;
   border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
     var(--hover);
   flex: 0 0 36px;
+}
+
+.reviewAvatarImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .reviewAuthorName {
@@ -167,6 +176,10 @@
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.reviewConcertPosterImg {
+  object-fit: cover;
 }
 
 .reviewConcertPosterFallback {

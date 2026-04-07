@@ -12,7 +12,19 @@ export function ArtistCard({ artist }: ArtistCardProps) {
   return (
     <Link to={`/artists?artistId=${artist.id}`} className="artistCardLink">
       <article className="artistCard">
-        <div className="artistPhoto" aria-label="Фото артиста" />
+        {/* Задание 3.4: реальные изображения в карточке артиста (если есть URL). */}
+        <div className="artistPhoto" aria-label="Фото артиста">
+          {artist.imageUrl && (
+            <img
+              className="artistPhotoImg"
+              src={artist.imageUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          )}
+        </div>
 
         <div className="artistBody">
           <h2 className="artistNickname">{artist.nickname}</h2>

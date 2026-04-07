@@ -1,7 +1,22 @@
 import type { ReviewCardItem } from '../types/review'
 
 // Задание 5.2: мок-данные для вкладки рецензий.
-export const MOCK_REVIEWS: ReviewCardItem[] = [
+// Задание 10.4: реальные картинки для мини-афиши и аватара в карточке рецензии.
+const REVIEW_POSTERS: string[] = [
+  'https://images.unsplash.com/photo-1507874457470-272b3c8d8ee2?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=400&q=80',
+]
+
+const REVIEW_AVATARS: string[] = [
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
+  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80',
+]
+
+const RAW_REVIEWS: ReviewCardItem[] = [
   {
     id: 301,
     concertId: 1,
@@ -178,3 +193,9 @@ export const MOCK_REVIEWS: ReviewCardItem[] = [
     text: 'Отличная динамика по ходу всего концерта и грамотные паузы между треками. Артист хорошо чувствовал зал, поэтому даже новые песни заходили почти как хиты.',
   },
 ]
+
+export const MOCK_REVIEWS: ReviewCardItem[] = RAW_REVIEWS.map((review) => ({
+  ...review,
+  authorAvatarUrl: REVIEW_AVATARS[(review.id - 1) % REVIEW_AVATARS.length] ?? null,
+  concertPosterUrl: REVIEW_POSTERS[(review.concertId - 1) % REVIEW_POSTERS.length] ?? null,
+}))

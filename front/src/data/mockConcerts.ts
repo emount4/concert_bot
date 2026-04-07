@@ -1,7 +1,18 @@
 import type { Concert } from '../types/concert'
 
 // Задание 2.2: моки приведены к схеме концерта из plan.txt.
-export const MOCK_CONCERTS: Concert[] = [
+
+// Задание 2.3: реальные изображения афиш для вкладки "Концерты".
+// Примечание: URL'ы публичные и используются только для dev-моков.
+const CONCERT_POSTERS: string[] = [
+  'https://images.unsplash.com/photo-1507874457470-272b3c8d8ee2?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80',
+]
+
+const RAW_CONCERTS: Concert[] = [
   {
     id: 1,
     title: 'Ночной пульс',
@@ -327,3 +338,8 @@ export const MOCK_CONCERTS: Concert[] = [
     },
   },
 ]
+
+export const MOCK_CONCERTS: Concert[] = RAW_CONCERTS.map((concert) => ({
+  ...concert,
+  bannerImageUrl: CONCERT_POSTERS[(concert.id - 1) % CONCERT_POSTERS.length] ?? null,
+}))

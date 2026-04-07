@@ -61,8 +61,9 @@ func Run() error {
 	feedSvc := initFeedService(db)
 	catalogSvc := initCatalogService(db)
 	adminSvc := initAdminService(db)
+	profileSvc := initProfileService(db)
 
-	router := handlers.NewRouter(cfg, db, minioClient, authenticator, feedSvc, catalogSvc, reviewsSvc, adminSvc)
+	router := handlers.NewRouter(cfg, db, minioClient, authenticator, feedSvc, catalogSvc, reviewsSvc, adminSvc, profileSvc)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

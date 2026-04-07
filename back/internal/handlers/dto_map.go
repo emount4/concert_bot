@@ -253,6 +253,36 @@ func toDTOAdminReviewListItems(items []repository.AdminReviewListItem) []dto.Adm
 	return out
 }
 
+func toDTOUserProfile(v *repository.MyProfileView) *dto.UserProfile {
+	if v == nil {
+		return nil
+	}
+
+	recent := make([]dto.ProfileReviewItem, 0, len(v.RecentReviews))
+	for _, it := range v.RecentReviews {
+		recent = append(recent, dto.ProfileReviewItem{
+			ID:           it.ID,
+			ConcertTitle: it.ConcertTitle,
+			CreatedAt:    it.CreatedAt,
+			Status:       it.Status,
+			OverallScore: it.OverallScore,
+		})
+	}
+
+	return &dto.UserProfile{
+		ID:            v.ID,
+		DisplayName:   v.DisplayName,
+		Handle:        v.Handle,
+		CreatedAt:     v.CreatedAt,
+		Bio:           v.Bio,
+		ReviewsCount:  v.ReviewsCount,
+		ApprovedCount: v.ApprovedCount,
+		PendingCount:  v.PendingCount,
+		AvatarURL:     v.AvatarURL,
+		RecentReviews: recent,
+	}
+}
+
 // Request DTO → domain
 
 func toRepoVenueUpsert(v dto.VenueUpsert) repository.VenueUpsert {

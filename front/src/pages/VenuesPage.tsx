@@ -5,7 +5,9 @@ import { ReviewCard } from '../components/reviews/ReviewCard'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_REVIEWS } from '../data/mockReviews'
 import { VenueCard } from '../components/venues/VenueCard'
+import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { MOCK_VENUES } from '../data/mockVenues'
+import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 
 type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
 type SortDirection = 'desc' | 'asc'
@@ -98,6 +100,8 @@ export function VenuesPage() {
       .sort((a, b) => b.id - a.id)
     const roundedScore =
       selectedVenue.avgVenueScore === null ? null : Math.round(selectedVenue.avgVenueScore)
+    // Задание 13.4: раскладка средней оценки площадки по параметрам (до десятых).
+    const venueAvgScores = computeAvgScoresFromReviews(venueReviews)
 
     return (
       <section className="page">
@@ -109,7 +113,19 @@ export function VenuesPage() {
         </div>
 
         <article className="detailHero">
-          <div className="detailHeroMedia venuePhoto" aria-hidden="true" />
+          {/* Задание 4.4: реальные изображения в карточке площадки (детальная шапка). */}
+          <div className="detailHeroMedia venuePhoto" aria-hidden="true">
+            {selectedVenue.imageUrl && (
+              <img
+                className="venuePhotoImg"
+                src={selectedVenue.imageUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            )}
+          </div>
           <div className="detailHeroBody">
             <h2 className="detailHeroTitle">{selectedVenue.name}</h2>
             <div className="detailStatsRow">
@@ -126,7 +142,24 @@ export function VenuesPage() {
                 Рецензий: <strong>{venueReviews.length}</strong>
               </p>
             </div>
-            {roundedScore !== null && <div className="ratingCircle detailRatingCircle">{roundedScore}</div>}
+            {roundedScore !== null && (
+              <RatingBreakdownBadge
+                value={roundedScore}
+                className="ratingCircle detailRatingCircle"
+                ariaLabel="Средняя оценка площадки"
+                breakdown={
+                  venueAvgScores
+                    ? [
+                        { label: 'Исполнение', value: venueAvgScores.performance },
+                        { label: 'Динамика / трек-лист', value: venueAvgScores.setlist },
+                        { label: 'Подача / зал', value: venueAvgScores.crowd },
+                        { label: 'Звук', value: venueAvgScores.sound },
+                        { label: 'Вайб', value: venueAvgScores.vibe },
+                      ]
+                    : []
+                }
+              />
+            )}
           </div>
         </article>
 

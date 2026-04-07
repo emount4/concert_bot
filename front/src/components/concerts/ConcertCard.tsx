@@ -42,7 +42,19 @@ export function ConcertCard({ concert }: ConcertCardProps) {
 
   return (
     <article className="concertCard">
-      <div className="concertPoster" aria-label="Постер концерта" />
+      {/* Задание 2.3: заменить заглушку афиши на реальное изображение (если есть URL). */}
+      <div className="concertPoster" aria-label="Постер концерта">
+        {concert.bannerImageUrl && (
+          <img
+            className="concertPosterImg"
+            src={concert.bannerImageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+          />
+        )}
+      </div>
 
       <div className="concertBottom">
         <div className="concertInfo">

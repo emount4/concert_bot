@@ -41,7 +41,19 @@ export function VenueCard({ venue }: VenueCardProps) {
   return (
     <Link to={`/venues?venueId=${venue.id}`} className="venueCardLink">
       <article className="venueCard">
-        <div className="venuePhoto" aria-label="Фото площадки" />
+        {/* Задание 4.4: реальные изображения в карточке площадки (если есть URL). */}
+        <div className="venuePhoto" aria-label="Фото площадки">
+          {venue.imageUrl && (
+            <img
+              className="venuePhotoImg"
+              src={venue.imageUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          )}
+        </div>
 
         <div className="venueBottom">
           <div className="venueInfo">
