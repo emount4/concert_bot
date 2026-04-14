@@ -3,6 +3,7 @@ import type { UserProfile } from '../types/profile'
 // Задание 6.2: мок профиля для страницы «Мой профиль».
 export const MOCK_PROFILE: UserProfile = {
   id: 1,
+  user_id: '1',
   displayName: 'Марк Колосов',
   handle: '@mark_reviews',
   created_at: '2026-02-09T12:00:00Z',
@@ -14,6 +15,7 @@ export const MOCK_PROFILE: UserProfile = {
   recent_reviews: [
     {
       id: 301,
+      review_id: '301',
       concert_title: 'Ночной пульс',
       created_at: '2026-03-25T20:30:00Z',
       status: 'approved',
@@ -21,6 +23,7 @@ export const MOCK_PROFILE: UserProfile = {
     },
     {
       id: 302,
+      review_id: '302',
       concert_title: 'Огни на воде',
       created_at: '2026-03-18T19:50:00Z',
       status: 'approved',
@@ -28,6 +31,7 @@ export const MOCK_PROFILE: UserProfile = {
     },
     {
       id: 303,
+      review_id: '303',
       concert_title: 'Летний сигнал',
       created_at: '2026-03-10T22:10:00Z',
       status: 'pending',

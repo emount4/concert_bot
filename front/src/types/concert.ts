@@ -1,11 +1,13 @@
 // Задание 2.1: типы приближены к схеме из plan.txt и API-концертам.
 export type Artist = {
-  id: number
+  artist_id?: string
+  id?: string | number
   name: string
 }
 
 export type Venue = {
-  id: number
+  venue_id?: string
+  id?: string | number
   name: string
   city: string
   address: string
@@ -18,7 +20,8 @@ export type ConcertStats = {
 }
 
 export type Concert = {
-  id: number
+  concert_id?: string
+  id?: string | number
   title: string | null
   date: string
   poster_url: string | null

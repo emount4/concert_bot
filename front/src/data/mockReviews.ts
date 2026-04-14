@@ -194,9 +194,11 @@ const RAW_REVIEWS: ReviewCardItem[] = [
   },
 ]
 
-export const MOCK_REVIEWS: ReviewCardItem[] = RAW_REVIEWS.map((review) => ({
+export const MOCK_REVIEWS: ReviewCardItem[] = RAW_REVIEWS.map((review, index) => ({
   ...review,
-  author_avatar_url: REVIEW_AVATARS[(review.id - 1) % REVIEW_AVATARS.length] ?? null,
-  concert_poster_url: REVIEW_POSTERS[(review.concertId - 1) % REVIEW_POSTERS.length] ?? null,
+  review_id: String(review.id),
+  concert_id: String(review.concertId),
+  author_avatar_url: REVIEW_AVATARS[index % REVIEW_AVATARS.length] ?? null,
+  concert_poster_url: REVIEW_POSTERS[index % REVIEW_POSTERS.length] ?? null,
 }))
 

@@ -76,8 +76,9 @@ const RAW_VENUES: VenueCardItem[] = [
   },
 ]
 
-export const MOCK_VENUES: VenueCardItem[] = RAW_VENUES.map((venue) => ({
+export const MOCK_VENUES: VenueCardItem[] = RAW_VENUES.map((venue, index) => ({
   ...venue,
-  photo_url: VENUE_IMAGES[(venue.id - 1) % VENUE_IMAGES.length] ?? null,
+  venue_id: String(venue.id),
+  photo_url: VENUE_IMAGES[index % VENUE_IMAGES.length] ?? null,
 }))
 

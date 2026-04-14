@@ -60,8 +60,9 @@ const RAW_ARTISTS: ArtistCardItem[] = [
   },
 ]
 
-export const MOCK_ARTISTS: ArtistCardItem[] = RAW_ARTISTS.map((artist) => ({
+export const MOCK_ARTISTS: ArtistCardItem[] = RAW_ARTISTS.map((artist, index) => ({
   ...artist,
-  photo_url: ARTIST_IMAGES[(artist.id - 1) % ARTIST_IMAGES.length] ?? null,
+  artist_id: String(artist.id),
+  photo_url: ARTIST_IMAGES[index % ARTIST_IMAGES.length] ?? null,
 }))
 

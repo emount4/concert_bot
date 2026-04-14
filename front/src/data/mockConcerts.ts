@@ -339,8 +339,17 @@ const RAW_CONCERTS: Concert[] = [
   },
 ]
 
-export const MOCK_CONCERTS: Concert[] = RAW_CONCERTS.map((concert) => ({
+export const MOCK_CONCERTS: Concert[] = RAW_CONCERTS.map((concert, index) => ({
   ...concert,
-  poster_url: CONCERT_POSTERS[(concert.id - 1) % CONCERT_POSTERS.length] ?? null,
+  concert_id: String(concert.id),
+  poster_url: CONCERT_POSTERS[index % CONCERT_POSTERS.length] ?? null,
+  venue: {
+    ...concert.venue,
+    venue_id: String(concert.venue.id),
+  },
+  artists: concert.artists.map((artist) => ({
+    ...artist,
+    artist_id: String(artist.id),
+  })),
 }))
 
