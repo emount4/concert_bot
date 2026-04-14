@@ -21,12 +21,23 @@
   line-height: 1.2;
 }
 
+.settingsCardHint {
+  margin: -4px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .settingRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 10px 0;
+}
+
+.settingRowColumn {
+  align-items: flex-start;
 }
 
 .settingRow + .settingRow {
@@ -48,6 +59,155 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.settingsControl {
+  width: min(460px, 100%);
+  display: grid;
+  gap: 8px;
+}
+
+.settingsInline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settingsInlineWide {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.settingsInput {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--fg);
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.settingsTextarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--fg);
+  padding: 10px 12px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.settingsHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settingsError {
+  margin: 0;
+  color: #ff9fa3;
+  font-size: 13px;
+}
+
+.settingsOk {
+  margin: 0;
+  color: #a7f3d0;
+  font-size: 13px;
+}
+
+.settingsBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.settingsForm {
+  display: grid;
+  gap: 8px;
+}
+
+.settingsCheckbox {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.settingsDangerText {
+  color: #ff9fa3;
+}
+
+.settingsMediaRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.settingsMediaPreview {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.settingsMediaPreviewBanner {
+  width: 140px;
+  height: 52px;
+}
+
+.settingsMediaPlaceholder {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.settingsAvatarImg,
+.settingsBannerImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.settingsFile {
+  display: none;
+}
+
+.settingsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.settingsListItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 12px;
+}
+
+.settingsListTitle {
+  font-size: 13px;
+  min-width: 0;
 }
 
 .switchBtn {
@@ -131,6 +291,15 @@
 
 .settingsBtn.primary {
   background: var(--hover);
+}
+
+.settingsBtn.danger {
+  background: transparent;
+}
+
+.settingsBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .settingsSaved {

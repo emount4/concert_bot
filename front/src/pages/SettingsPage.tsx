@@ -1,110 +1,172 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { logout } from '../utils/authMock'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAppData } from '../api/AppDataProvider'
+import { changePasswordMock, deleteAccountMock, getCurrentUserEmail, logout } from '../utils/authMock'
 
-type DefaultTab = 'concerts' | 'reviews' | 'artists' | 'venues'
+type ThemeMode = 'light' | 'dark' | 'system'
 
-type SettingsState = {
-  compactCards: boolean
-  enableAnimations: boolean
-  followTelegramTheme: boolean
-  hapticFeedback: boolean
-  openLinksInTelegram: boolean
-  mediaDataSaver: boolean
-  showCityInCards: boolean
-  hideUnratedItems: boolean
-  upcomingOnly: boolean
-  blurSensitiveText: boolean
-  notifyModeration: boolean
-  notifyNewConcerts: boolean
-  notifyWeeklyDigest: boolean
-  defaultTab: DefaultTab
-}
-
-const INITIAL_SETTINGS: SettingsState = {
-  compactCards: false,
-  enableAnimations: true,
-  followTelegramTheme: true,
-  hapticFeedback: true,
-  openLinksInTelegram: true,
-  mediaDataSaver: false,
-  showCityInCards: true,
-  hideUnratedItems: false,
-  upcomingOnly: false,
-  blurSensitiveText: false,
-  notifyModeration: true,
-  notifyNewConcerts: false,
-  notifyWeeklyDigest: true,
-  defaultTab: 'concerts',
-}
-
-type BooleanSettingKey =
-  | 'compactCards'
-  | 'enableAnimations'
-  | 'followTelegramTheme'
-  | 'hapticFeedback'
-  | 'openLinksInTelegram'
-  | 'mediaDataSaver'
-  | 'showCityInCards'
-  | 'hideUnratedItems'
-  | 'upcomingOnly'
-  | 'blurSensitiveText'
-  | 'notifyModeration'
-  | 'notifyNewConcerts'
-  | 'notifyWeeklyDigest'
-
-function defaultTabLabel(tab: DefaultTab): string {
-  if (tab === 'concerts') return 'Концерты'
-  if (tab === 'reviews') return 'Рецензии'
-  if (tab === 'artists') return 'Артисты'
-  return 'Площадки'
-}
-
-type ToggleRowProps = {
+type ModerationRequest = {
+  id: string
   title: string
-  description: string
-  value: boolean
-  onToggle: () => void
+  status: 'в очереди' | 'на проверке' | 'одобрено' | 'отклонено'
 }
 
-function ToggleRow({ title, description, value, onToggle }: ToggleRowProps) {
-  return (
-    <div className="settingRow">
-      <div className="settingText">
-        <p className="settingTitle">{title}</p>
-        <p className="settingDescription">{description}</p>
-      </div>
+function normalizeUsername(input: string): string {
+  return input.trim().replace(/^@+/, '')
+}
 
-      <button
-        type="button"
-        className={value ? 'switchBtn on' : 'switchBtn'}
-        aria-pressed={value}
-        onClick={onToggle}
-      >
-        <span className="switchKnob" />
-      </button>
-    </div>
-  )
+function looksLikeUsername(value: string): boolean {
+  return /^[a-zA-Z0-9_]{3,20}$/.test(value)
+}
+
+function randomId(prefix: string): string {
+  return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`
+}
+
+function moderationHint() {
+  return <span className="settingsBadge">Изменения вступят в силу после модерации</span>
 }
 
 export function SettingsPage() {
-  // Задание 7.1: страница настроек именно для Telegram Mini App.
-  const [settings, setSettings] = useState<SettingsState>(INITIAL_SETTINGS)
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  // Задание 7.2: страница настроек в 5 блоков (профиль/безопасность/UX/приватность/юридическое) на моках.
+  const { data, isLoading, error } = useAppData()
   const navigate = useNavigate()
 
-  function toggleField(field: BooleanSettingKey) {
-    setSettings((prev) => ({ ...prev, [field]: !prev[field] }))
+  const profile = data?.profile ?? null
+  const currentEmail = useMemo(() => getCurrentUserEmail() ?? 'demo@concert.bot', [])
+
+  const [moderationRequests, setModerationRequests] = useState<ModerationRequest[]>([])
+
+  const initialUsername = useMemo(() => normalizeUsername(profile?.handle ?? ''), [profile?.handle])
+  const initialBio = useMemo(() => profile?.bio ?? '', [profile?.bio])
+
+  const [usernameDraft, setUsernameDraft] = useState(initialUsername)
+  const [usernameCheck, setUsernameCheck] = useState<
+    | { state: 'idle' }
+    | { state: 'checking' }
+    | { state: 'available' }
+    | { state: 'taken' }
+    | { state: 'invalid'; message: string }
+  >({ state: 'idle' })
+
+  const [bioDraft, setBioDraft] = useState(initialBio)
+
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
+
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null)
+
+  const [themeMode, setThemeMode] = useState<ThemeMode>('system')
+  const [language, setLanguage] = useState<'ru'>('ru')
+
+  const [telegramUsername, setTelegramUsername] = useState<string | null>(null)
+  const [telegramBusy, setTelegramBusy] = useState(false)
+
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [newPasswordRepeat, setNewPasswordRepeat] = useState('')
+  const [passwordStatus, setPasswordStatus] = useState<string | null>(null)
+  const [passwordBusy, setPasswordBusy] = useState(false)
+
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setUsernameDraft(initialUsername)
+    setBioDraft(initialBio)
+  }, [initialUsername, initialBio])
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreviewUrl(null)
+      return
+    }
+
+    const url = URL.createObjectURL(avatarFile)
+    setAvatarPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [avatarFile])
+
+  useEffect(() => {
+    if (!bannerFile) {
+      setBannerPreviewUrl(null)
+      return
+    }
+
+    const url = URL.createObjectURL(bannerFile)
+    setBannerPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [bannerFile])
+
+  async function checkUsernameUnique() {
+    // Задание 7.3: проверка уникальности username (мок).
+    const normalized = normalizeUsername(usernameDraft)
+    setUsernameDraft(normalized)
+
+    if (!normalized) {
+      setUsernameCheck({ state: 'invalid', message: 'Введите username.' })
+      return
+    }
+
+    if (!looksLikeUsername(normalized)) {
+      setUsernameCheck({
+        state: 'invalid',
+        message: 'Допустимы латиница, цифры и _, длина 3–20.',
+      })
+      return
+    }
+
+    setUsernameCheck({ state: 'checking' })
+    await new Promise((resolve) => window.setTimeout(resolve, 450))
+
+    const taken = new Set(['admin', 'support', 'concert_bot', 'root', 'moderator'])
+    if (normalized === initialUsername) {
+      setUsernameCheck({ state: 'available' })
+      return
+    }
+
+    setUsernameCheck(taken.has(normalized.toLowerCase()) ? { state: 'taken' } : { state: 'available' })
   }
 
-  function onSave() {
-    // Пока сохраняем только в память страницы; позже заменим на API /api/settings.
-    setLastSavedAt(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }))
+  function enqueueModeration(title: string) {
+    setModerationRequests((prev) => [{ id: randomId('mod'), title, status: 'в очереди' }, ...prev])
   }
 
-  function onReset() {
-    setSettings(INITIAL_SETTINGS)
-    setLastSavedAt(null)
+  function submitUsernameChange() {
+    const normalized = normalizeUsername(usernameDraft)
+    if (!looksLikeUsername(normalized)) {
+      setUsernameCheck({
+        state: 'invalid',
+        message: 'Сначала введите корректный username (латиница/цифры/_).',
+      })
+      return
+    }
+
+    if (usernameCheck.state !== 'available') {
+      return
+    }
+
+    enqueueModeration('Смена ника — в очереди')
+  }
+
+  function submitBioChange() {
+    if (!bioDraft.trim()) {
+      return
+    }
+    enqueueModeration('Обновление описания — в очереди')
+  }
+
+  function submitAvatarChange() {
+    if (!avatarFile) return
+    enqueueModeration('Смена аватарки — в очереди')
+  }
+
+  function submitBannerChange() {
+    if (!bannerFile) return
+    enqueueModeration('Смена баннера — в очереди')
   }
 
   function onLogout() {
@@ -112,169 +174,456 @@ export function SettingsPage() {
     navigate('/login', { replace: true })
   }
 
+  async function onChangePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
+    // Задание 7.4: смена пароля (мок), как техническое ядро.
+    event.preventDefault()
+    setPasswordStatus(null)
+    setPasswordBusy(true)
+
+    const result = await changePasswordMock({ oldPassword, newPassword, newPasswordRepeat })
+    setPasswordBusy(false)
+
+    if (!result.ok) {
+      setPasswordStatus(result.message)
+      return
+    }
+
+    setOldPassword('')
+    setNewPassword('')
+    setNewPasswordRepeat('')
+    setPasswordStatus('Пароль обновлён (мок).')
+  }
+
+  async function onBindTelegram() {
+    // Задание 7.5: привязка Telegram (мок), без реального Mini App/бота.
+    setTelegramBusy(true)
+    await new Promise((resolve) => window.setTimeout(resolve, 500))
+    setTelegramUsername('@mock_user')
+    setTelegramBusy(false)
+  }
+
+  async function onUnbindTelegram() {
+    // Задание 7.6: отвязка Telegram (мок) с предупреждением.
+    const ok = window.confirm('Отвязать Telegram? Быстрый вход перестанет работать.')
+    if (!ok) return
+    setTelegramBusy(true)
+    await new Promise((resolve) => window.setTimeout(resolve, 350))
+    setTelegramUsername(null)
+    setTelegramBusy(false)
+  }
+
+  async function onDeleteAccountSubmit(event: React.FormEvent<HTMLFormElement>) {
+    // Задание 7.7: удаление аккаунта (мок) с подтверждением паролем.
+    event.preventDefault()
+    setDeleteError(null)
+
+    if (!deleteConfirm) {
+      setDeleteError('Подтвердите необратимость действия.')
+      return
+    }
+
+    setDeleteBusy(true)
+    const result = await deleteAccountMock({ password: deletePassword })
+    setDeleteBusy(false)
+
+    if (!result.ok) {
+      setDeleteError(result.message)
+      return
+    }
+
+    navigate('/login', { replace: true })
+  }
+
   return (
     <section className="page">
       <h1 className="pageTitle">Настройки</h1>
 
-      <div className="settingsLayout">
-        <article className="settingsCard">
-          <h2 className="settingsCardTitle">Telegram Mini App</h2>
+      {isLoading && <p className="settingsSummary">Загружаем данные...</p>}
+      {error && <p className="settingsError">{error}</p>}
 
-          <ToggleRow
-            title="Следовать теме Telegram"
-            description="Автоматически подстраивать цвета под тему клиента Telegram."
-            value={settings.followTelegramTheme}
-            onToggle={() => toggleField('followTelegramTheme')}
-          />
+      {!isLoading && !error && (
+        <div className="settingsLayout">
+          <article className="settingsCard settingsCardWide">
+            <h2 className="settingsCardTitle">Публичный профиль (модерируемый)</h2>
+            <p className="settingsCardHint">Изменения в публичном профиле применяются после проверки админом.</p>
 
-          <ToggleRow
-            title="Тактильный отклик"
-            description="Вибро-отклик при важных действиях, если поддерживается устройством."
-            value={settings.hapticFeedback}
-            onToggle={() => toggleField('hapticFeedback')}
-          />
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Username</p>
+                <p className="settingDescription">Смена ника с проверкой уникальности. {moderationHint()}</p>
+              </div>
 
-          <ToggleRow
-            title="Открывать ссылки внутри Telegram"
-            description="Внешние ссылки открываются во встроенном браузере Telegram."
-            value={settings.openLinksInTelegram}
-            onToggle={() => toggleField('openLinksInTelegram')}
-          />
+              <div className="settingsControl">
+                <div className="settingsInline">
+                  <input
+                    className="settingsInput"
+                    type="text"
+                    inputMode="text"
+                    placeholder="например: mark_reviews"
+                    value={usernameDraft}
+                    onChange={(e) => {
+                      setUsernameDraft(e.target.value)
+                      setUsernameCheck({ state: 'idle' })
+                    }}
+                  />
+                  <button type="button" className="settingsBtn ghost" onClick={checkUsernameUnique}>
+                    Проверить
+                  </button>
+                </div>
 
-          <ToggleRow
-            title="Экономия трафика медиа"
-            description="Снижать качество превью и загружать изображения по запросу."
-            value={settings.mediaDataSaver}
-            onToggle={() => toggleField('mediaDataSaver')}
-          />
-        </article>
+                {usernameCheck.state === 'checking' && <p className="settingsHint">Проверяем...</p>}
+                {usernameCheck.state === 'available' && <p className="settingsOk">Ник свободен.</p>}
+                {usernameCheck.state === 'taken' && <p className="settingsError">Ник занят.</p>}
+                {usernameCheck.state === 'invalid' && <p className="settingsError">{usernameCheck.message}</p>}
 
-        <article className="settingsCard">
-          <h2 className="settingsCardTitle">Лента и карточки</h2>
-
-          <ToggleRow
-            title="Компактные карточки"
-            description="Уменьшенный вертикальный ритм карточек для плотного списка."
-            value={settings.compactCards}
-            onToggle={() => toggleField('compactCards')}
-          />
-
-          <ToggleRow
-            title="Включить анимации"
-            description="Плавные переходы и микроанимации в интерфейсе."
-            value={settings.enableAnimations}
-            onToggle={() => toggleField('enableAnimations')}
-          />
-
-          <ToggleRow
-            title="Показывать город в карточках"
-            description="Город площадки отображается рядом с названием клуба."
-            value={settings.showCityInCards}
-            onToggle={() => toggleField('showCityInCards')}
-          />
-
-          <ToggleRow
-            title="Только предстоящие концерты"
-            description="Скрывать прошедшие концерты в основных списках."
-            value={settings.upcomingOnly}
-            onToggle={() => toggleField('upcomingOnly')}
-          />
-
-          <ToggleRow
-            title="Скрывать карточки без оценки"
-            description="Элементы без средней оценки не показываются в лентах."
-            value={settings.hideUnratedItems}
-            onToggle={() => toggleField('hideUnratedItems')}
-          />
-
-          <ToggleRow
-            title="Скрывать чувствительный текст"
-            description="Размытие потенциально чувствительного контента до нажатия."
-            value={settings.blurSensitiveText}
-            onToggle={() => toggleField('blurSensitiveText')}
-          />
-        </article>
-
-        <article className="settingsCard">
-          <h2 className="settingsCardTitle">Уведомления в Telegram</h2>
-
-          <ToggleRow
-            title="Статус модерации рецензий"
-            description="Личное сообщение в Telegram, когда рецензия одобрена или отклонена."
-            value={settings.notifyModeration}
-            onToggle={() => toggleField('notifyModeration')}
-          />
-
-          <ToggleRow
-            title="Новые концерты по интересам"
-            description="Подборка новых концертов по артистам и площадкам."
-            value={settings.notifyNewConcerts}
-            onToggle={() => toggleField('notifyNewConcerts')}
-          />
-
-          <ToggleRow
-            title="Еженедельный дайджест"
-            description="Краткая сводка новых рецензий и концертов за неделю."
-            value={settings.notifyWeeklyDigest}
-            onToggle={() => toggleField('notifyWeeklyDigest')}
-          />
-        </article>
-
-        <article className="settingsCard settingsCardWide">
-          <h2 className="settingsCardTitle">Запуск и данные</h2>
-
-          <div className="settingRow settingRowSelect">
-            <div className="settingText">
-              <p className="settingTitle">Вкладка по умолчанию</p>
-              <p className="settingDescription">Экран, который открывается после запуска мини-приложения.</p>
+                <button
+                  type="button"
+                  className="settingsBtn primary"
+                  onClick={submitUsernameChange}
+                  disabled={usernameCheck.state !== 'available'}
+                >
+                  Отправить на модерацию
+                </button>
+              </div>
             </div>
 
-            <label className="selectWrap" aria-label="Вкладка по умолчанию">
-              <select
-                className="settingsSelect"
-                value={settings.defaultTab}
-                onChange={(e) => setSettings((prev) => ({ ...prev, defaultTab: e.target.value as DefaultTab }))}
-              >
-                <option value="concerts">Концерты</option>
-                <option value="reviews">Рецензии</option>
-                <option value="artists">Артисты</option>
-                <option value="venues">Площадки</option>
-              </select>
-            </label>
-          </div>
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Bio / Описание</p>
+                <p className="settingDescription">Короткий текст о себе. {moderationHint()}</p>
+              </div>
 
-          <div className="settingRow">
-            <div className="settingText">
-              <p className="settingTitle">Сбросить локальные данные</p>
-              <p className="settingDescription">Очистить кеш интерфейса и временные данные на этом устройстве.</p>
+              <div className="settingsControl">
+                <textarea
+                  className="settingsTextarea"
+                  rows={4}
+                  placeholder="Напишите пару слов о себе"
+                  value={bioDraft}
+                  onChange={(e) => setBioDraft(e.target.value)}
+                />
+                <button type="button" className="settingsBtn primary" onClick={submitBioChange} disabled={!bioDraft.trim()}>
+                  Отправить на модерацию
+                </button>
+              </div>
             </div>
 
-            <button type="button" className="settingsBtn ghost">
-              Очистить кеш
-            </button>
-          </div>
-        </article>
-      </div>
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Аватарка</p>
+                <p className="settingDescription">Загрузка в S3 (мок) с превью старой → новой. {moderationHint()}</p>
+              </div>
 
-      <footer className="settingsFooter">
-        <p className="settingsSummary">Вкладка по умолчанию: {defaultTabLabel(settings.defaultTab)}</p>
+              <div className="settingsControl">
+                <div className="settingsMediaRow">
+                  <div className="settingsMediaPreview">
+                    {avatarPreviewUrl ? (
+                      <img className="settingsAvatarImg" src={avatarPreviewUrl} alt="Новая аватарка" />
+                    ) : profile?.avatar_url ? (
+                      <img className="settingsAvatarImg" src={profile.avatar_url} alt="Текущая аватарка" />
+                    ) : (
+                      <div className="settingsMediaPlaceholder">Нет</div>
+                    )}
+                  </div>
 
-        <div className="settingsActions">
-          <button type="button" className="settingsBtn ghost" onClick={onLogout}>
-            Выйти
-          </button>
-          <button type="button" className="settingsBtn ghost" onClick={onReset}>
-            Сбросить
-          </button>
-          <button type="button" className="settingsBtn primary" onClick={onSave}>
-            Сохранить
-          </button>
+                  <label className="settingsBtn ghost">
+                    Выбрать файл
+                    <input
+                      className="settingsFile"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                </div>
+
+                <button type="button" className="settingsBtn primary" onClick={submitAvatarChange} disabled={!avatarFile}>
+                  Загрузить (на модерацию)
+                </button>
+              </div>
+            </div>
+
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Баннер профиля</p>
+                <p className="settingDescription">Широкое изображение для шапки профиля. {moderationHint()}</p>
+              </div>
+
+              <div className="settingsControl">
+                <div className="settingsMediaRow">
+                  <div className="settingsMediaPreview settingsMediaPreviewBanner">
+                    {bannerPreviewUrl ? (
+                      <img className="settingsBannerImg" src={bannerPreviewUrl} alt="Новый баннер" />
+                    ) : (
+                      <div className="settingsMediaPlaceholder">Нет</div>
+                    )}
+                  </div>
+
+                  <label className="settingsBtn ghost">
+                    Выбрать файл
+                    <input
+                      className="settingsFile"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setBannerFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                </div>
+
+                <button type="button" className="settingsBtn primary" onClick={submitBannerChange} disabled={!bannerFile}>
+                  Загрузить (на модерацию)
+                </button>
+              </div>
+            </div>
+
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Статус модерации</p>
+                <p className="settingDescription">Текущие заявки на изменение данных профиля.</p>
+              </div>
+
+              <div className="settingsControl">
+                {moderationRequests.length === 0 ? (
+                  <p className="settingsHint">Пока нет заявок.</p>
+                ) : (
+                  <ul className="settingsList" aria-label="Заявки на модерацию">
+                    {moderationRequests.map((item) => (
+                      <li key={item.id} className="settingsListItem">
+                        <span className="settingsListTitle">{item.title}</span>
+                        <span className="settingsBadge">{item.status}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </article>
+
+          <article className="settingsCard settingsCardWide">
+            <h2 className="settingsCardTitle">Аккаунт и безопасность</h2>
+
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Email</p>
+                <p className="settingDescription">Только чтение (MVP).</p>
+              </div>
+              <div className="settingsControl">
+                <input className="settingsInput" type="email" value={currentEmail} readOnly />
+              </div>
+            </div>
+
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Смена пароля</p>
+                <p className="settingDescription">Старый пароль → новый → повтор.</p>
+              </div>
+
+              <div className="settingsControl">
+                <form className="settingsForm" onSubmit={onChangePasswordSubmit}>
+                  <input
+                    className="settingsInput"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="Старый пароль"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                  />
+                  <input
+                    className="settingsInput"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Новый пароль"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <input
+                    className="settingsInput"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Повторите новый пароль"
+                    value={newPasswordRepeat}
+                    onChange={(e) => setNewPasswordRepeat(e.target.value)}
+                  />
+
+                  {passwordStatus && (
+                    <p className={passwordStatus.includes('обновл') ? 'settingsOk' : 'settingsError'}>{passwordStatus}</p>
+                  )}
+
+                  <button type="submit" className="settingsBtn primary" disabled={passwordBusy}>
+                    {passwordBusy ? 'Сохраняем...' : 'Обновить пароль'}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Привязка Telegram</p>
+                <p className="settingDescription">
+                  Для MVP — мок. В проде здесь будет открытие Mini App или ссылка на бота.
+                </p>
+              </div>
+
+              <div className="settingsControl">
+                {!telegramUsername ? (
+                  <button type="button" className="settingsBtn primary" onClick={onBindTelegram} disabled={telegramBusy}>
+                    {telegramBusy ? 'Привязываем...' : 'Привязать Telegram'}
+                  </button>
+                ) : (
+                  <div className="settingsInline settingsInlineWide">
+                    <p className="settingsHint">Telegram привязан: {telegramUsername}</p>
+                    <button type="button" className="settingsBtn ghost" onClick={onUnbindTelegram} disabled={telegramBusy}>
+                      Отвязать
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="settingRow">
+              <div className="settingText">
+                <p className="settingTitle">Выход</p>
+                <p className="settingDescription">Завершить текущую сессию на этом устройстве.</p>
+              </div>
+              <button type="button" className="settingsBtn ghost" onClick={onLogout}>
+                Выйти
+              </button>
+            </div>
+          </article>
+
+          <article className="settingsCard">
+            <h2 className="settingsCardTitle">Настройки интерфейса (UX)</h2>
+            <p className="settingsCardHint">Особенно важно для Telegram Mini App.</p>
+
+            <div className="settingRow settingRowSelect">
+              <div className="settingText">
+                <p className="settingTitle">Тема оформления</p>
+                <p className="settingDescription">Светлая / Тёмная / Системная (под Telegram). Пока — мок.</p>
+              </div>
+
+              <label className="selectWrap" aria-label="Тема оформления">
+                <select className="settingsSelect" value={themeMode} onChange={(e) => setThemeMode(e.target.value as ThemeMode)}>
+                  <option value="light">Светлая</option>
+                  <option value="dark">Тёмная</option>
+                  <option value="system">Системная</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="settingRow settingRowSelect">
+              <div className="settingText">
+                <p className="settingTitle">Язык</p>
+                <p className="settingDescription">Пока только Русский (задел на будущее).</p>
+              </div>
+
+              <label className="selectWrap" aria-label="Язык">
+                <select className="settingsSelect" value={language} onChange={() => setLanguage('ru')} disabled>
+                  <option value="ru">Русский</option>
+                </select>
+              </label>
+            </div>
+          </article>
+
+          <article className="settingsCard">
+            <h2 className="settingsCardTitle">Приватность и данные</h2>
+
+            <div className="settingRow">
+              <div className="settingText">
+                <p className="settingTitle">Список избранного</p>
+                <p className="settingDescription">Быстрый переход к своим артистам/площадкам.</p>
+              </div>
+
+              <div className="settingsInline">
+                <Link to="/artists" className="settingsBtn ghost">
+                  Артисты
+                </Link>
+                <Link to="/venues" className="settingsBtn ghost">
+                  Площадки
+                </Link>
+              </div>
+            </div>
+
+            <div className="settingRow settingRowColumn">
+              <div className="settingText">
+                <p className="settingTitle">Удаление аккаунта</p>
+                <p className="settingDescription">
+                  <strong className="settingsDangerText">Действие необратимо.</strong> В проде здесь запускается логика анонимизации
+                  (затирка данных, но сохранение рецензий). Для MVP — мок.
+                </p>
+              </div>
+
+              <div className="settingsControl">
+                <form className="settingsForm" onSubmit={onDeleteAccountSubmit}>
+                  <input
+                    className="settingsInput"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="Введите пароль для подтверждения"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                  />
+
+                  <label className="settingsCheckbox">
+                    <input type="checkbox" checked={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.checked)} />
+                    Я понимаю, что это действие необратимо
+                  </label>
+
+                  {deleteError && <p className="settingsError">{deleteError}</p>}
+
+                  <button
+                    type="submit"
+                    className="settingsBtn danger"
+                    disabled={deleteBusy || !deletePassword || !deleteConfirm}
+                  >
+                    {deleteBusy ? 'Удаляем...' : 'Удалить профиль'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </article>
+
+          <article className="settingsCard settingsCardWide">
+            <h2 className="settingsCardTitle">Инфо и юридические документы</h2>
+
+            <div className="settingRow">
+              <div className="settingText">
+                <p className="settingTitle">Версия приложения</p>
+                <p className="settingDescription">v1.0.0-mvp</p>
+              </div>
+              <span className="settingsBadge">MVP</span>
+            </div>
+
+            <div className="settingRow">
+              <div className="settingText">
+                <p className="settingTitle">Пользовательское соглашение</p>
+                <p className="settingDescription">Открывается как статический файл.</p>
+              </div>
+              <a className="settingsBtn ghost" href="/terms.html" target="_blank" rel="noreferrer">
+                Открыть
+              </a>
+            </div>
+
+            <div className="settingRow">
+              <div className="settingText">
+                <p className="settingTitle">Политика конфиденциальности</p>
+                <p className="settingDescription">Открывается как статический файл.</p>
+              </div>
+              <a className="settingsBtn ghost" href="/privacy.html" target="_blank" rel="noreferrer">
+                Открыть
+              </a>
+            </div>
+
+            <div className="settingRow">
+              <div className="settingText">
+                <p className="settingTitle">Связаться с нами</p>
+                <p className="settingDescription">Email для жалоб и предложений (пример).</p>
+              </div>
+              <a className="settingsBtn ghost" href="mailto:support@concert.bot">
+                support@concert.bot
+              </a>
+            </div>
+          </article>
         </div>
-      </footer>
-
-      {lastSavedAt && <p className="settingsSaved">Изменения сохранены в {lastSavedAt}</p>}
-
-      <p className="settingsSummary">Часть параметров применяется сразу, синхронизация с сервером будет подключена позже.</p>
+      )}
     </section>
   )
 }
