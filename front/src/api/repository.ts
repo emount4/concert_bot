@@ -7,6 +7,7 @@ import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_PROFILE } from '../data/mockProfile'
 import { MOCK_REVIEWS } from '../data/mockReviews'
 import { MOCK_VENUES } from '../data/mockVenues'
+import { applyProfileOverrides } from '../data/profileStore'
 import type { AdminAccount, AdminArtist, AdminConcert, AdminReviewModerationItem, AdminVenue } from '../types/admin'
 import type { ArtistCardItem } from '../types/artist'
 import type { Concert } from '../types/concert'
@@ -31,20 +32,47 @@ export type AppBootstrapData = {
   }
 }
 
+function normalizeUsername(input: string): string {
+  return input.trim().replace(/^@+/, '').toLowerCase()
+}
+
 export async function loadAppBootstrapData(): Promise<AppBootstrapData> {
   if (DATA_SOURCE_MODE === 'mock') {
+    const baseProfile = MOCK_PROFILE
+    const profile = applyProfileOverrides(baseProfile)
+
+    const baseUsername = normalizeUsername(baseProfile.handle)
+    const currentUsername = normalizeUsername(profile.handle)
+
+    const reviews: ReviewCardItem[] = MOCK_REVIEWS.map((review) => {
+      const reviewUsername = normalizeUsername(review.author_username ?? '')
+      if (!baseUsername || !currentUsername || reviewUsername !== baseUsername) return review
+
+      return {
+        ...review,
+        author_username: currentUsername,
+        author_avatar_url: profile.avatar_url,
+      }
+    })
+
+    const adminAccounts: AdminAccount[] = MOCK_ADMIN_ACCOUNTS.map((acc) => {
+      if (!acc.is_current) return acc
+      if (!baseUsername || !currentUsername || normalizeUsername(acc.handle) !== baseUsername) return acc
+      return { ...acc, handle: `@${currentUsername}` }
+    })
+
     return {
       concerts: MOCK_CONCERTS,
       artists: MOCK_ARTISTS,
       venues: MOCK_VENUES,
-      reviews: MOCK_REVIEWS,
-      profile: MOCK_PROFILE,
+      reviews,
+      profile,
       admin: {
         reviews: MOCK_ADMIN_REVIEWS,
         artists: MOCK_ADMIN_ARTISTS,
         venues: MOCK_ADMIN_VENUES,
         concerts: MOCK_ADMIN_CONCERTS,
-        accounts: MOCK_ADMIN_ACCOUNTS,
+        accounts: adminAccounts,
       },
     }
   }

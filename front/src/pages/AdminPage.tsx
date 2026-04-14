@@ -2,13 +2,30 @@ import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useAppData } from '../api/AppDataProvider'
 import { setDevAdmin } from '../utils/adminAccess'
+import {
+  appendAuditLog,
+  ensureAdminStoreSeeded,
+  loadAuditLogs,
+  loadCities,
+  loadConcertSuggestions,
+  loadProfileChangeRequests,
+  removeCity,
+  setConcertSuggestionStatus,
+  setProfileChangeStatus,
+  upsertCity,
+} from '../data/adminStore'
+import { setProfileOverride } from '../data/profileStore'
 import type {
   AdminAccount,
   AdminAccountRole,
   AdminArtist,
+  AdminAuditLogEntry,
+  AdminCity,
   AdminConcert,
+  AdminConcertSuggestion,
   AdminReviewModerationItem,
   AdminReviewStatus,
+  AdminProfileChangeRequest,
   AdminVenue,
 } from '../types/admin'
 
@@ -23,11 +40,12 @@ type AdminSeed = {
   accounts: AdminAccount[]
 }
 
-type AdminTab = 'moderation' | 'artists' | 'venues' | 'concerts' | 'accounts'
+type AdminTab = 'moderation' | 'queue' | 'artists' | 'venues' | 'cities' | 'concerts' | 'accounts' | 'logs'
 type ModerationStream = 'pending' | 'approved' | 'rejected'
+type QueueStream = 'profile' | 'suggestions'
 
 function roleLabel(role: AdminAccountRole): string {
-  if (role === 'super-admin') return 'Главный админ'
+  if (role === 'super-admin' || role === 'super_admin') return 'Главный админ'
   if (role === 'admin') return 'Админ'
   return 'Пользователь'
 }
@@ -51,8 +69,25 @@ function statusLabel(status: AdminReviewStatus): string {
   return 'Отклонено'
 }
 
+function triStatusLabel(status: 'pending' | 'approved' | 'rejected'): string {
+  if (status === 'pending') return 'На модерации'
+  if (status === 'approved') return 'Одобрено'
+  return 'Отклонено'
+}
+
+function suggestionStatusLabel(status: AdminConcertSuggestion['status']): string {
+  if (status === 'pending') return 'В очереди'
+  if (status === 'created') return 'Создано'
+  return 'Отклонено'
+}
+
+function suggestionStatusClass(status: AdminConcertSuggestion['status']): 'pending' | 'approved' | 'rejected' {
+  if (status === 'created') return 'approved'
+  return status
+}
+
 export function AdminPage({ isAdmin }: AdminPageProps) {
-  const { data, isLoading, error } = useAppData()
+  const { data, isLoading, error, refresh } = useAppData()
 
   if (isLoading || !data) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
@@ -62,19 +97,28 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
     return <section className="page"><div className="placeholder">{error}</div></section>
   }
 
-  return <AdminPageContent isAdmin={isAdmin} seed={data.admin} />
+  return <AdminPageContent isAdmin={isAdmin} seed={data.admin} refreshAppData={refresh} />
 }
 
-function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed }) {
+function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { seed: AdminSeed; refreshAppData: () => Promise<void> }) {
   // Задание 9.1: модальный выбор площадки и артистов для формы концерта.
   const [tab, setTab] = useState<AdminTab>('moderation')
   const [moderationStream, setModerationStream] = useState<ModerationStream>('pending')
+  const [queueStream, setQueueStream] = useState<QueueStream>('profile')
 
   const [reviews, setReviews] = useState<AdminReviewModerationItem[]>(seed.reviews)
   const [artists, setArtists] = useState<AdminArtist[]>(seed.artists)
   const [venues, setVenues] = useState<AdminVenue[]>(seed.venues)
   const [concerts, setConcerts] = useState<AdminConcert[]>(seed.concerts)
   const [accounts, setAccounts] = useState<AdminAccount[]>(seed.accounts)
+
+  const [profileChanges, setProfileChanges] = useState<AdminProfileChangeRequest[]>(() => {
+    ensureAdminStoreSeeded()
+    return loadProfileChangeRequests()
+  })
+  const [concertSuggestions, setConcertSuggestions] = useState<AdminConcertSuggestion[]>(() => loadConcertSuggestions())
+  const [cities, setCities] = useState<AdminCity[]>(() => loadCities())
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>(() => loadAuditLogs())
 
   const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', photo_url: '' })
   const [venueForm, setVenueForm] = useState({
@@ -85,6 +129,7 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
     capacity: '0',
     photo_url: '',
   })
+  const [cityForm, setCityForm] = useState({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
   const [concertForm, setConcertForm] = useState({
     id: 0,
     title: '',
@@ -104,6 +149,10 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
   const [activeModerationMedia, setActiveModerationMedia] = useState<AdminReviewModerationItem | null>(null)
   // Задание 10.4: просмотр медиа в модерации по одному элементу.
   const [activeModerationMediaIndex, setActiveModerationMediaIndex] = useState(0)
+
+  const [approveDraftReview, setApproveDraftReview] = useState<AdminReviewModerationItem | null>(null)
+  const [approveDraftText, setApproveDraftText] = useState('')
+  const [approveDraftMediaIds, setApproveDraftMediaIds] = useState<string[]>([])
 
   const pending_count = useMemo(
     () => reviews.filter((review) => review.status === 'pending').length,
@@ -173,18 +222,196 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
   const activeModerationAttachments = activeModerationMedia?.media ?? []
   const activeModerationAttachment = activeModerationAttachments[activeModerationMediaIndex] ?? null
   const currentAdminAccount = useMemo(() => accounts.find((account) => account.is_current) ?? null, [accounts])
-  const canGrantAdmins = currentAdminAccount?.role === 'super-admin'
+  const canGrantAdmins = currentAdminAccount?.role === 'super-admin' || currentAdminAccount?.role === 'super_admin'
+  const canViewAuditLogs = currentAdminAccount?.role === 'super-admin' || currentAdminAccount?.role === 'super_admin'
+  const superAdminHandles = useMemo(
+    () => accounts.filter((acc) => acc.role === 'super-admin' || acc.role === 'super_admin').map((acc) => acc.handle),
+    [accounts],
+  )
   const filteredAdminAccounts = useMemo(() => {
-    const normalizedQuery = accountListQuery.trim().toLowerCase()
-    if (!normalizedQuery) return accounts
+    const base = canGrantAdmins
+      ? accounts
+      : accounts.filter((account) => account.role !== 'super-admin' && account.role !== 'super_admin')
 
-    return accounts.filter((account) =>
+    const normalizedQuery = accountListQuery.trim().toLowerCase()
+    if (!normalizedQuery) return base
+
+    return base.filter((account) =>
       `${account.displayName} ${account.handle} ${account.role}`.toLowerCase().includes(normalizedQuery),
     )
-  }, [accountListQuery, accounts])
+  }, [accountListQuery, accounts, canGrantAdmins])
+
+  function writeAudit(message: string) {
+    if (!currentAdminAccount) return
+
+    const entry = appendAuditLog({
+      actor_displayName: currentAdminAccount.displayName,
+      actor_role: currentAdminAccount.role,
+      message,
+    })
+    setAuditLogs((prev) => [entry, ...prev])
+  }
 
   function markReview(id: number, status: AdminReviewStatus) {
     setReviews((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)))
+
+    if (currentAdminAccount) {
+      writeAudit(`Модератор ${currentAdminAccount.displayName} изменил статус рецензии #${id} на «${statusLabel(status)}».`)
+    }
+  }
+
+  function openApproveDraft(review: AdminReviewModerationItem) {
+    setApproveDraftReview(review)
+    setApproveDraftText(review.text)
+    setApproveDraftMediaIds((review.media ?? []).map((m) => m.id))
+  }
+
+  function closeApproveDraft() {
+    setApproveDraftReview(null)
+    setApproveDraftText('')
+    setApproveDraftMediaIds([])
+  }
+
+  function toggleApproveDraftMedia(id: string, checked: boolean) {
+    setApproveDraftMediaIds((prev) => {
+      if (checked) {
+        return prev.includes(id) ? prev : [...prev, id]
+      }
+      return prev.filter((x) => x !== id)
+    })
+  }
+
+  function applyApproveDraft() {
+    if (!approveDraftReview) return
+
+    const nextText = approveDraftText.trim()
+    if (!nextText) return
+
+    const keep = new Set(approveDraftMediaIds)
+    const beforeText = approveDraftReview.text
+    const beforeCount = approveDraftReview.media?.length ?? 0
+
+    setReviews((prev) =>
+      prev.map((item) => {
+        if (item.id !== approveDraftReview.id) return item
+
+        const filteredMedia = (item.media ?? []).filter((m) => keep.has(m.id))
+
+        return {
+          ...item,
+          status: 'approved',
+          text: nextText,
+          media: filteredMedia.length > 0 ? filteredMedia : undefined,
+        }
+      }),
+    )
+
+    if (currentAdminAccount) {
+      const mediaAfter = approveDraftMediaIds.length
+      const changed = nextText !== beforeText || mediaAfter !== beforeCount
+      writeAudit(
+        `Модератор ${currentAdminAccount.displayName} одобрил рецензию #${approveDraftReview.id}${changed ? ' с правками' : ''}.`,
+      )
+    }
+
+    closeApproveDraft()
+  }
+
+  function approveProfileChange(requestId: string) {
+    const request = profileChanges.find((x) => x.id === requestId) ?? null
+    if (!request) return
+
+    setProfileChanges((prev) => prev.map((item) => (item.id === requestId ? { ...item, status: 'approved' } : item)))
+    setProfileChangeStatus(requestId, 'approved')
+
+    if (request.type === 'username' && request.new_username) {
+      setProfileOverride({ handle: `@${request.new_username}` })
+    }
+    if (request.type === 'bio' && request.new_bio !== undefined) {
+      setProfileOverride({ bio: request.new_bio ?? '' })
+    }
+    if (request.type === 'avatar') {
+      setProfileOverride({ avatar_url: request.new_avatar_url ?? null })
+    }
+    if (request.type === 'banner') {
+      setProfileOverride({ banner_url: request.new_banner_url ?? null })
+    }
+
+    if (currentAdminAccount) {
+      writeAudit(`Модератор ${currentAdminAccount.displayName} одобрил изменение профиля (${request.type}) для @${request.requested_by_username}.`)
+    }
+
+    void refreshAppData()
+  }
+
+  function rejectProfileChange(requestId: string) {
+    const request = profileChanges.find((x) => x.id === requestId) ?? null
+    if (!request) return
+
+    setProfileChanges((prev) => prev.map((item) => (item.id === requestId ? { ...item, status: 'rejected' } : item)))
+    setProfileChangeStatus(requestId, 'rejected')
+
+    if (currentAdminAccount) {
+      writeAudit(`Модератор ${currentAdminAccount.displayName} отклонил изменение профиля (${request.type}) для @${request.requested_by_username}.`)
+    }
+  }
+
+  function createConcertFromSuggestion(suggestionId: string) {
+    const suggestion = concertSuggestions.find((x) => x.id === suggestionId) ?? null
+    if (!suggestion) return
+
+    const normalizedVenue = suggestion.venue_name.trim().toLowerCase()
+    const matchedVenue = venues.find((venue) => venue.name.trim().toLowerCase().includes(normalizedVenue)) ?? null
+
+    const normalizedArtist = suggestion.artist_name.trim().toLowerCase()
+    const matchedArtist = artists.find((artist) => artist.name.trim().toLowerCase().includes(normalizedArtist)) ?? null
+
+    setConcertForm({
+      id: 0,
+      title: suggestion.artist_name,
+      date: suggestion.date,
+      venue_id: matchedVenue ? String(matchedVenue.id) : '0',
+      artist_ids: matchedArtist ? [matchedArtist.id] : [],
+      poster_url: '',
+    })
+
+    setConcertSuggestions((prev) => prev.map((item) => (item.id === suggestionId ? { ...item, status: 'created' } : item)))
+    setConcertSuggestionStatus(suggestionId, 'created')
+
+    if (currentAdminAccount) {
+      writeAudit(`Админ ${currentAdminAccount.displayName} создал концерт на основе предложения #${suggestionId}.`)
+    }
+
+    setTab('concerts')
+  }
+
+  function saveCity() {
+    if (!cityForm.name.trim() || !cityForm.slug.trim() || !cityForm.timezone.trim()) return
+
+    const next = upsertCity({
+      id: cityForm.id ? cityForm.id : undefined,
+      name: cityForm.name.trim(),
+      slug: cityForm.slug.trim(),
+      timezone: cityForm.timezone.trim(),
+    })
+
+    setCities(loadCities())
+
+    if (currentAdminAccount) {
+      writeAudit(`Админ ${currentAdminAccount.displayName} сохранил город «${next.name}».`)
+    }
+
+    setCityForm({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
+  }
+
+  function deleteCity(id: number) {
+    const city = cities.find((x) => x.id === id) ?? null
+    removeCity(id)
+    setCities(loadCities())
+
+    if (city && currentAdminAccount) {
+      writeAudit(`Админ ${currentAdminAccount.displayName} удалил город «${city.name}».`)
+    }
   }
 
   function saveArtist() {
@@ -220,7 +447,7 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
   }
 
   function saveVenue() {
-    if (!venueForm.name.trim()) return
+    if (!venueForm.name.trim() || !venueForm.city.trim()) return
 
     const capacity = Number(venueForm.capacity) || 0
 
@@ -298,14 +525,29 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
   function removeArtist(id: number) {
     setArtists((prev) => prev.filter((x) => x.id !== id))
     setConcerts((prev) => prev.map((x) => ({ ...x, artist_ids: x.artist_ids.filter((artistId) => artistId !== id) })))
+
+    const artist = artists.find((x) => x.id === id) ?? null
+    if (artist && currentAdminAccount) {
+      writeAudit(`Админ ${currentAdminAccount.displayName} удалил артиста «${artist.name}».`)
+    }
   }
 
   function removeVenue(id: number) {
     setVenues((prev) => prev.filter((x) => x.id !== id))
+
+    const venue = venues.find((x) => x.id === id) ?? null
+    if (venue && currentAdminAccount) {
+      writeAudit(`Админ ${currentAdminAccount.displayName} удалил площадку «${venue.name}».`)
+    }
   }
 
   function removeConcert(id: number) {
     setConcerts((prev) => prev.filter((x) => x.id !== id))
+
+    const concert = concerts.find((x) => x.id === id) ?? null
+    if (concert && currentAdminAccount) {
+      writeAudit(`Админ ${currentAdminAccount.displayName} удалил концерт «${concert.title}».`)
+    }
   }
 
   function setAccountBanState(id: number, is_banned: boolean) {
@@ -315,6 +557,11 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
         return { ...account, is_banned }
       }),
     )
+
+    const account = accounts.find((x) => x.id === id) ?? null
+    if (account && currentAdminAccount) {
+      writeAudit(`Админ ${currentAdminAccount.displayName} ${is_banned ? 'забанил' : 'разбанил'} пользователя ${account.handle}.`)
+    }
   }
 
   function promoteAccountToAdmin(id: number) {
@@ -327,6 +574,11 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
         return { ...account, role: 'admin' }
       }),
     )
+
+    const account = accounts.find((x) => x.id === id) ?? null
+    if (account && currentAdminAccount) {
+      writeAudit(`Главный админ ${currentAdminAccount.displayName} назначил администратора ${account.handle}.`)
+    }
   }
 
   function demoteAccountToUser(id: number) {
@@ -339,6 +591,11 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
         return { ...account, role: 'user' }
       }),
     )
+
+    const account = accounts.find((x) => x.id === id) ?? null
+    if (account && currentAdminAccount) {
+      writeAudit(`Главный админ ${currentAdminAccount.displayName} понизил пользователя ${account.handle} до роли «Пользователь».`)
+    }
   }
 
   function onMediaPick(event: React.ChangeEvent<HTMLInputElement>, onSet: (value: string) => void) {
@@ -419,6 +676,13 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
         </button>
         <button
           type="button"
+          className={tab === 'queue' ? 'adminTab active' : 'adminTab'}
+          onClick={() => setTab('queue')}
+        >
+          Очередь
+        </button>
+        <button
+          type="button"
           className={tab === 'artists' ? 'adminTab active' : 'adminTab'}
           onClick={() => setTab('artists')}
         >
@@ -430,6 +694,13 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
           onClick={() => setTab('venues')}
         >
           Площадки
+        </button>
+        <button
+          type="button"
+          className={tab === 'cities' ? 'adminTab active' : 'adminTab'}
+          onClick={() => setTab('cities')}
+        >
+          Города
         </button>
         <button
           type="button"
@@ -445,7 +716,154 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
         >
           Аккаунты
         </button>
+        {canViewAuditLogs && (
+          <button
+            type="button"
+            className={tab === 'logs' ? 'adminTab active' : 'adminTab'}
+            onClick={() => setTab('logs')}
+          >
+            Логи
+          </button>
+        )}
       </div>
+
+      {tab === 'queue' && (
+        <section className="adminSection">
+          <div className="adminSubTabs" role="tablist" aria-label="Очереди">
+            <button
+              type="button"
+              className={queueStream === 'profile' ? 'adminSubTab active' : 'adminSubTab'}
+              onClick={() => setQueueStream('profile')}
+            >
+              Модерация профилей ({profileChanges.filter((x) => x.status === 'pending').length})
+            </button>
+            <button
+              type="button"
+              className={queueStream === 'suggestions' ? 'adminSubTab active' : 'adminSubTab'}
+              onClick={() => setQueueStream('suggestions')}
+            >
+              Предложения ({concertSuggestions.filter((x) => x.status === 'pending').length})
+            </button>
+          </div>
+
+          {queueStream === 'profile' && (
+            <>
+              {profileChanges.length > 0 ? (
+                profileChanges.map((req) => (
+                  <article key={req.id} className="adminItemCard">
+                    <div className="adminItemTop">
+                      <p className="adminItemTitle">{req.type === 'username' ? 'Смена username' : req.type === 'bio' ? 'Смена bio' : req.type === 'banner' ? 'Смена баннера' : 'Смена аватара'}</p>
+                      <span className={`adminStatus adminStatus-${req.status}`}>{triStatusLabel(req.status)}</span>
+                    </div>
+
+                    <p className="adminItemMeta">
+                      <Link to={`/users/${encodeURIComponent(req.requested_by_username)}`}>{req.requested_by_displayName}</Link> • {formatDateTime(req.created_at)}
+                    </p>
+
+                    {req.type === 'username' && (
+                      <p className="adminItemPreview">
+                        @{req.old_username ?? '—'} → @{req.new_username ?? '—'}
+                      </p>
+                    )}
+                    {req.type === 'bio' && (
+                      <div className="adminDiffBlock">
+                        <p className="adminDiffLabel">Старое</p>
+                        <p className="adminItemPreview">{req.old_bio ?? '—'}</p>
+                        <p className="adminDiffLabel">Новое</p>
+                        <p className="adminItemPreview">{req.new_bio ?? '—'}</p>
+                      </div>
+                    )}
+                    {(req.type === 'avatar' || req.type === 'banner') && (
+                      <div className="adminMediaDiff">
+                        <div className="adminMediaDiffCol">
+                          <p className="adminDiffLabel">Было</p>
+                          <div className="adminMediaThumb">
+                            {(req.type === 'avatar' ? req.old_avatar_url : req.old_banner_url) ? (
+                              <img
+                                className="adminMediaThumbImg"
+                                src={(req.type === 'avatar' ? req.old_avatar_url : req.old_banner_url) as string}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="adminMediaThumbPlaceholder" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="adminMediaDiffCol">
+                          <p className="adminDiffLabel">Стало</p>
+                          <div className="adminMediaThumb">
+                            {(req.type === 'avatar' ? req.new_avatar_url : req.new_banner_url) ? (
+                              <img
+                                className="adminMediaThumbImg"
+                                src={(req.type === 'avatar' ? req.new_avatar_url : req.new_banner_url) as string}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="adminMediaThumbPlaceholder" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {req.status === 'pending' && (
+                      <div className="adminItemActions">
+                        <button type="button" className="settingsBtn primary" onClick={() => approveProfileChange(req.id)}>
+                          Принять
+                        </button>
+                        <button type="button" className="settingsBtn ghost" onClick={() => rejectProfileChange(req.id)}>
+                          Отклонить
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                ))
+              ) : (
+                <div className="adminEmpty">Заявок на изменение профиля нет.</div>
+              )}
+            </>
+          )}
+
+          {queueStream === 'suggestions' && (
+            <>
+              {concertSuggestions.length > 0 ? (
+                concertSuggestions.map((sugg) => (
+                  <article key={sugg.id} className="adminItemCard">
+                    <div className="adminItemTop">
+                      <p className="adminItemTitle">Предложение концерта</p>
+                      <span className={`adminStatus adminStatus-${suggestionStatusClass(sugg.status)}`}>{suggestionStatusLabel(sugg.status)}</span>
+                    </div>
+                    <p className="adminItemMeta">
+                      <Link to={`/users/${encodeURIComponent(sugg.suggested_by_username)}`}>{sugg.suggested_by_displayName}</Link> • {formatDateTime(sugg.created_at)}
+                    </p>
+                    <p className="adminItemPreview">
+                      {sugg.artist_name} • {sugg.city_name} • {sugg.venue_name} • {formatDateTime(sugg.date)}
+                    </p>
+                    <div className="adminItemActions">
+                      <button
+                        type="button"
+                        className="settingsBtn primary"
+                        disabled={sugg.status !== 'pending'}
+                        onClick={() => createConcertFromSuggestion(sugg.id)}
+                      >
+                        Создать на основе
+                      </button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="adminEmpty">Предложений пока нет.</div>
+              )}
+            </>
+          )}
+        </section>
+      )}
 
       {tab === 'moderation' && (
         <section className="adminSection">
@@ -503,7 +921,7 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
                   <button
                     type="button"
                     className="settingsBtn primary"
-                    onClick={() => markReview(review.id, 'approved')}
+                    onClick={() => openApproveDraft(review)}
                   >
                     Одобрить
                   </button>
@@ -595,6 +1013,59 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
               </article>
             </div>
           )}
+
+          {approveDraftReview && (
+            <div className="adminModalBackdrop" onClick={closeApproveDraft}>
+              <article className="adminModalCard" onClick={(event) => event.stopPropagation()}>
+                <div className="adminModalHeader">
+                  <h3 className="adminModalTitle">Одобрение с правками</h3>
+                  <button type="button" className="settingsBtn ghost" onClick={closeApproveDraft}>
+                    Закрыть
+                  </button>
+                </div>
+
+                <p className="adminListMeta">
+                  {approveDraftReview.concert_title} • {approveDraftReview.author_name} • {approveDraftReview.rating_total}
+                </p>
+
+                <textarea
+                  className="adminTextarea"
+                  value={approveDraftText}
+                  onChange={(e) => setApproveDraftText(e.target.value)}
+                />
+
+                {approveDraftReview.media && approveDraftReview.media.length > 0 && (
+                  <>
+                    <p className="adminInlineLabel">Медиа (снимите галочки, чтобы убрать из публикации)</p>
+                    <div className="adminModalList" role="list" aria-label="Медиа вложения">
+                      {approveDraftReview.media.map((m) => (
+                        <label key={m.id} className="adminModalOption" role="listitem">
+                          <div className="adminChecklistRow">
+                            <input
+                              type="checkbox"
+                              checked={approveDraftMediaIds.includes(m.id)}
+                              onChange={(e) => toggleApproveDraftMedia(m.id, e.target.checked)}
+                            />
+                            <span className="adminModalOptionTitle">{m.type === 'video' ? 'Видео' : 'Фото'}</span>
+                          </div>
+                          <span className="adminModalOptionMeta">{m.url}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="adminItemActions">
+                  <button type="button" className="settingsBtn primary" onClick={applyApproveDraft} disabled={!approveDraftText.trim()}>
+                    Одобрить
+                  </button>
+                  <button type="button" className="settingsBtn ghost" onClick={closeApproveDraft}>
+                    Отмена
+                  </button>
+                </div>
+              </article>
+            </div>
+          )}
         </section>
       )}
 
@@ -657,6 +1128,17 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
                       <button
                         type="button"
                         className="settingsBtn ghost"
+                        onClick={() => {
+                          if (currentAdminAccount) {
+                            writeAudit(`Админ ${currentAdminAccount.displayName} пересчитал статистику артиста «${artist.name}» (мок).`)
+                          }
+                        }}
+                      >
+                        Пересчитать
+                      </button>
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
                         onClick={() =>
                           setArtistForm({
                             id: artist.id,
@@ -692,12 +1174,18 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
               value={venueForm.name}
               onChange={(e) => setVenueForm((prev) => ({ ...prev, name: e.target.value }))}
             />
-            <input
+            <select
               className="adminInput"
-              placeholder="Город"
               value={venueForm.city}
               onChange={(e) => setVenueForm((prev) => ({ ...prev, city: e.target.value }))}
-            />
+            >
+              <option value="">Выберите город</option>
+              {cities.map((city) => (
+                <option key={city.id} value={city.name}>
+                  {city.name}
+                </option>
+              ))}
+            </select>
             <input
               className="adminInput"
               placeholder="Адрес"
@@ -753,6 +1241,17 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
                       </p>
                     </div>
                     <div className="adminRowActions">
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        onClick={() => {
+                          if (currentAdminAccount) {
+                            writeAudit(`Админ ${currentAdminAccount.displayName} пересчитал статистику площадки «${venue.name}» (мок).`)
+                          }
+                        }}
+                      >
+                        Пересчитать
+                      </button>
                       <button
                         type="button"
                         className="settingsBtn ghost"
@@ -1064,6 +1563,9 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
                   Вы: {currentAdminAccount.displayName} ({roleLabel(currentAdminAccount.role)})
                 </p>
               )}
+              {canGrantAdmins && superAdminHandles.length > 0 && (
+                <p className="adminListMeta">Super Admin: {superAdminHandles.join(', ')}</p>
+              )}
               {!canGrantAdmins && (
                 <p className="adminWarningText">
                   Только главный админ может назначать новых админов.
@@ -1122,6 +1624,100 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
                 ))
               ) : (
                 <div className="adminEmpty">Аккаунты не найдены.</div>
+              )}
+            </div>
+          </article>
+        </section>
+      )}
+
+      {tab === 'cities' && (
+        <section className="adminSection adminSectionGrid">
+          <article className="adminFormCard">
+            <h2 className="settingsCardTitle">{cityForm.id ? 'Редактировать город' : 'Новый город'}</h2>
+            <input
+              className="adminInput"
+              placeholder="Название"
+              value={cityForm.name}
+              onChange={(e) => setCityForm((prev) => ({ ...prev, name: e.target.value }))}
+            />
+            <input
+              className="adminInput"
+              placeholder="Slug"
+              value={cityForm.slug}
+              onChange={(e) => setCityForm((prev) => ({ ...prev, slug: e.target.value }))}
+            />
+            <input
+              className="adminInput"
+              placeholder="Timezone"
+              value={cityForm.timezone}
+              onChange={(e) => setCityForm((prev) => ({ ...prev, timezone: e.target.value }))}
+            />
+            <div className="adminItemActions">
+              <button type="button" className="settingsBtn primary" onClick={saveCity}>
+                Сохранить
+              </button>
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={() => setCityForm({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })}
+              >
+                Очистить
+              </button>
+            </div>
+          </article>
+
+          <article className="adminListCard adminListCardScrollable">
+            <div className="adminScrollableList">
+              {cities.length > 0 ? (
+                cities.map((city) => (
+                  <div key={city.id} className="adminListRow">
+                    <div>
+                      <p className="adminListTitle">{city.name}</p>
+                      <p className="adminListMeta">
+                        {city.slug} • {city.timezone}
+                      </p>
+                    </div>
+                    <div className="adminRowActions">
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        onClick={() => setCityForm({ id: city.id, name: city.name, slug: city.slug, timezone: city.timezone })}
+                      >
+                        Изменить
+                      </button>
+                      <button type="button" className="settingsBtn ghost" onClick={() => deleteCity(city.id)}>
+                        Удалить
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="adminEmpty">Города не найдены.</div>
+              )}
+            </div>
+          </article>
+        </section>
+      )}
+
+      {tab === 'logs' && canViewAuditLogs && (
+        <section className="adminSection">
+          <article className="adminListCard adminListCardScrollable">
+            <p className="adminListMeta">Логи действий модераторов и админов.</p>
+
+            <div className="adminScrollableList">
+              {auditLogs.length > 0 ? (
+                auditLogs.map((entry) => (
+                  <div key={entry.id} className="adminListRow">
+                    <div>
+                      <p className="adminListTitle">{entry.message}</p>
+                      <p className="adminListMeta">
+                        {formatDateTime(entry.created_at)} • {entry.actor_displayName} ({roleLabel(entry.actor_role)})
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="adminEmpty">Пока нет записей.</div>
               )}
             </div>
           </article>

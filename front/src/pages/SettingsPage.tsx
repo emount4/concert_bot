@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppData } from '../api/AppDataProvider'
+import { enqueueProfileChangeRequest, loadProfileChangeRequests } from '../data/adminStore'
+import type { AdminProfileChangeRequest } from '../types/admin'
 import { changePasswordMock, deleteAccountMock, getCurrentUserEmail, logout } from '../utils/authMock'
 
 type ThemeMode = 'light' | 'dark' | 'system'
-
-type ModerationRequest = {
-  id: string
-  title: string
-  status: 'в очереди' | 'на проверке' | 'одобрено' | 'отклонено'
-}
 
 function normalizeUsername(input: string): string {
   return input.trim().replace(/^@+/, '')
@@ -19,8 +15,26 @@ function looksLikeUsername(value: string): boolean {
   return /^[a-zA-Z0-9_]{3,20}$/.test(value)
 }
 
-function randomId(prefix: string): string {
-  return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`
+function changeTypeTitle(type: AdminProfileChangeRequest['type']): string {
+  if (type === 'username') return 'Смена username'
+  if (type === 'bio') return 'Обновление bio'
+  if (type === 'banner') return 'Смена баннера'
+  return 'Смена аватара'
+}
+
+function moderationStatusRu(status: AdminProfileChangeRequest['status']): string {
+  if (status === 'pending') return 'на проверке'
+  if (status === 'approved') return 'одобрено'
+  return 'отклонено'
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл'))
+    reader.readAsDataURL(file)
+  })
 }
 
 function moderationHint() {
@@ -35,7 +49,7 @@ export function SettingsPage() {
   const profile = data?.profile ?? null
   const currentEmail = useMemo(() => getCurrentUserEmail() ?? 'demo@concert.bot', [])
 
-  const [moderationRequests, setModerationRequests] = useState<ModerationRequest[]>([])
+  const [profileChangeRequests, setProfileChangeRequests] = useState<AdminProfileChangeRequest[]>([])
 
   const initialUsername = useMemo(() => normalizeUsername(profile?.handle ?? ''), [profile?.handle])
   const initialBio = useMemo(() => profile?.bio ?? '', [profile?.bio])
@@ -77,6 +91,14 @@ export function SettingsPage() {
   useEffect(() => {
     setUsernameDraft(initialUsername)
     setBioDraft(initialBio)
+
+    if (!profile) {
+      setProfileChangeRequests([])
+      return
+    }
+
+    const byDisplayName = loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName)
+    setProfileChangeRequests(byDisplayName)
   }, [initialUsername, initialBio])
 
   useEffect(() => {
@@ -131,10 +153,6 @@ export function SettingsPage() {
     setUsernameCheck(taken.has(normalized.toLowerCase()) ? { state: 'taken' } : { state: 'available' })
   }
 
-  function enqueueModeration(title: string) {
-    setModerationRequests((prev) => [{ id: randomId('mod'), title, status: 'в очереди' }, ...prev])
-  }
-
   function submitUsernameChange() {
     const normalized = normalizeUsername(usernameDraft)
     if (!looksLikeUsername(normalized)) {
@@ -149,24 +167,63 @@ export function SettingsPage() {
       return
     }
 
-    enqueueModeration('Смена ника — в очереди')
+    if (!profile) return
+
+    enqueueProfileChangeRequest({
+      requested_by_username: normalizeUsername(profile.handle),
+      requested_by_displayName: profile.displayName,
+      type: 'username',
+      old_username: initialUsername,
+      new_username: normalized,
+    })
+    setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
   }
 
   function submitBioChange() {
     if (!bioDraft.trim()) {
       return
     }
-    enqueueModeration('Обновление описания — в очереди')
+
+    if (!profile) return
+
+    enqueueProfileChangeRequest({
+      requested_by_username: normalizeUsername(profile.handle),
+      requested_by_displayName: profile.displayName,
+      type: 'bio',
+      old_bio: initialBio,
+      new_bio: bioDraft,
+    })
+    setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
   }
 
-  function submitAvatarChange() {
+  async function submitAvatarChange() {
     if (!avatarFile) return
-    enqueueModeration('Смена аватарки — в очереди')
+    if (!profile) return
+
+    const dataUrl = await fileToDataUrl(avatarFile)
+    enqueueProfileChangeRequest({
+      requested_by_username: normalizeUsername(profile.handle),
+      requested_by_displayName: profile.displayName,
+      type: 'avatar',
+      old_avatar_url: profile.avatar_url,
+      new_avatar_url: dataUrl,
+    })
+    setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
   }
 
-  function submitBannerChange() {
+  async function submitBannerChange() {
     if (!bannerFile) return
-    enqueueModeration('Смена баннера — в очереди')
+    if (!profile) return
+
+    const dataUrl = await fileToDataUrl(bannerFile)
+    enqueueProfileChangeRequest({
+      requested_by_username: normalizeUsername(profile.handle),
+      requested_by_displayName: profile.displayName,
+      type: 'banner',
+      old_banner_url: profile.banner_url ?? null,
+      new_banner_url: dataUrl,
+    })
+    setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
   }
 
   function onLogout() {
@@ -382,14 +439,14 @@ export function SettingsPage() {
               </div>
 
               <div className="settingsControl">
-                {moderationRequests.length === 0 ? (
+                {profileChangeRequests.length === 0 ? (
                   <p className="settingsHint">Пока нет заявок.</p>
                 ) : (
                   <ul className="settingsList" aria-label="Заявки на модерацию">
-                    {moderationRequests.map((item) => (
+                    {profileChangeRequests.map((item) => (
                       <li key={item.id} className="settingsListItem">
-                        <span className="settingsListTitle">{item.title}</span>
-                        <span className="settingsBadge">{item.status}</span>
+                        <span className="settingsListTitle">{changeTypeTitle(item.type)}</span>
+                        <span className="settingsBadge">{moderationStatusRu(item.status)}</span>
                       </li>
                     ))}
                   </ul>

@@ -2,6 +2,61 @@
 
 export type AdminReviewStatus = 'pending' | 'approved' | 'rejected'
 
+// Задание 19.1: типы админ-очереди (модерация профиля/предложения), географии и audit-логов.
+
+export type AdminProfileChangeType = 'username' | 'bio' | 'avatar' | 'banner'
+export type AdminProfileChangeStatus = 'pending' | 'approved' | 'rejected'
+
+export type AdminProfileChangeRequest = {
+  id: string
+  created_at: string
+  requested_by_username: string
+  requested_by_displayName: string
+  type: AdminProfileChangeType
+  status: AdminProfileChangeStatus
+
+  old_username?: string | null
+  new_username?: string | null
+
+  old_bio?: string | null
+  new_bio?: string | null
+
+  old_avatar_url?: string | null
+  new_avatar_url?: string | null
+
+  old_banner_url?: string | null
+  new_banner_url?: string | null
+}
+
+export type AdminConcertSuggestionStatus = 'pending' | 'created' | 'rejected'
+
+export type AdminConcertSuggestion = {
+  id: string
+  created_at: string
+  status: AdminConcertSuggestionStatus
+  suggested_by_username: string
+  suggested_by_displayName: string
+  artist_name: string
+  venue_name: string
+  city_name: string
+  date: string
+}
+
+export type AdminCity = {
+  id: number
+  name: string
+  slug: string
+  timezone: string
+}
+
+export type AdminAuditLogEntry = {
+  id: string
+  created_at: string
+  actor_displayName: string
+  actor_role: AdminAccountRole
+  message: string
+}
+
 export type AdminReviewAttachment = {
   id: string
   type: 'image' | 'video'

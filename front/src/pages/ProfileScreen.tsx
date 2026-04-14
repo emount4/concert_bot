@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAppData } from '../api/AppDataProvider'
 import {
   getMockUserByUsername,
+  getMockUsernameByDisplayName,
   MOCK_FAVORITES_BY_USERNAME,
   MOCK_LIKED_REVIEW_IDS_BY_USERNAME,
 } from '../data/mockUsers'
@@ -160,11 +161,24 @@ export function ProfileScreen(props: ProfileScreenProps) {
       // Имитация сетевой задержки даже в mock-режиме.
       await sleep(350)
 
-      const userFromDirectory = getMockUserByUsername(username)
-      if (!userFromDirectory) return null
-
       const isOwn = Boolean(myUsername && username === myUsername)
       const showAdminBadge = isOwn && isAdmin
+
+      const stableSocialKey = isOwn ? (getMockUsernameByDisplayName(data.profile.displayName) ?? username) : username
+
+      let userFromDirectory = getMockUserByUsername(username)
+      if (!userFromDirectory && isOwn) {
+        userFromDirectory = {
+          username,
+          displayName: data.profile.displayName,
+          bio: data.profile.bio,
+          avatar_url: data.profile.avatar_url,
+          banner_url: data.profile.banner_url ?? null,
+          is_active: data.profile.is_active ?? true,
+        }
+      }
+
+      if (!userFromDirectory) return null
 
       const is_active = userFromDirectory.is_active
 
@@ -216,9 +230,9 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
       const reviewsCount = visibleReviews.length
       const likes_received = visibleReviews.reduce((sum, item) => sum + (likesCountByReviewId.get(item.review.id) ?? 0), 0)
-      const likes_given = (MOCK_LIKED_REVIEW_IDS_BY_USERNAME[username] ?? []).length
+      const likes_given = (MOCK_LIKED_REVIEW_IDS_BY_USERNAME[stableSocialKey] ?? []).length
 
-      const favoritesIds = MOCK_FAVORITES_BY_USERNAME[username] ?? { artists: [], venues: [], concerts: [] }
+      const favoritesIds = MOCK_FAVORITES_BY_USERNAME[stableSocialKey] ?? { artists: [], venues: [], concerts: [] }
 
       const favorites: FavoriteCardVm[] = [
         ...favoritesIds.artists
@@ -253,7 +267,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
           })),
       ]
 
-      const likedReviewIds = MOCK_LIKED_REVIEW_IDS_BY_USERNAME[username] ?? []
+      const likedReviewIds = MOCK_LIKED_REVIEW_IDS_BY_USERNAME[stableSocialKey] ?? []
       const liked = likedReviewIds
         .map((id) => data.reviews.find((review) => review.id === id) ?? null)
         .filter((v): v is NonNullable<typeof v> => Boolean(v))
