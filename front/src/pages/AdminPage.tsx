@@ -482,7 +482,7 @@ function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed 
                 </div>
 
                 <p className="adminItemMeta">
-                  <Link to={`/users/${encodeURIComponent(review.author_name)}`}>{review.author_name}</Link> • {formatDateTime(review.created_at)} • {review.rating_total}
+                  <Link to={`/users/${encodeURIComponent(review.author_username ?? review.author_name)}`}>{review.author_name}</Link> • {formatDateTime(review.created_at)} • {review.rating_total}
                 </p>
                 <p className="adminItemPreview">{review.text}</p>
 

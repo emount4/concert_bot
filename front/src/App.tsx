@@ -104,7 +104,7 @@ function App() {
             }
           />
           <Route
-            path="/users/:displayName"
+            path="/users/:username"
             element={
               <GuardedRoute>
                 <UserProfilePage />

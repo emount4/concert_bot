@@ -7,6 +7,7 @@ export type ProfileReviewItem = {
   concert_title: string
   created_at: string
   status: ProfileReviewStatus
+  rejection_reason?: string | null
   rating_total: number
 }
 
@@ -21,6 +22,8 @@ export type UserProfile = {
   approved_count: number
   pending_count: number
   avatar_url: string | null
+  banner_url?: string | null
+  is_active?: boolean
   recent_reviews: ProfileReviewItem[]
 }
 

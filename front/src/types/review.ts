@@ -19,6 +19,7 @@ export type ReviewCardItem = {
   id: number
   concertId: number
   author_name: string
+  author_username?: string
   author_avatar_url: string | null
   concert_title: string
   concert_artist: string

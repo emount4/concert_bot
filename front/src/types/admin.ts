@@ -12,6 +12,7 @@ export type AdminReviewModerationItem = {
   review_id?: string
   id: number
   author_name: string
+  author_username?: string
   concert_title: string
   created_at: string
   rating_total: number

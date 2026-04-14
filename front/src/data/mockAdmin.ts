@@ -11,6 +11,7 @@ export const MOCK_ADMIN_REVIEWS: AdminReviewModerationItem[] = [
   {
     id: 901,
     author_name: 'Игорь Туманов',
+    author_username: 'igor_live',
     concert_title: 'Летний сигнал',
     created_at: '2026-03-30T14:20:00Z',
     rating_total: 79,
@@ -33,6 +34,7 @@ export const MOCK_ADMIN_REVIEWS: AdminReviewModerationItem[] = [
   {
     id: 902,
     author_name: 'Анна Соколова',
+    author_username: 'anna_music',
     concert_title: 'Громкие сны',
     created_at: '2026-03-29T19:05:00Z',
     rating_total: 82,

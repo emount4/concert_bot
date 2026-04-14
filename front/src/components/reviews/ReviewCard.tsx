@@ -46,11 +46,12 @@ export function ReviewCard({ review }: ReviewCardProps) {
   const media = review.media ?? []
   const currentMedia = media[currentMediaIndex] ?? null
   const navigate = useNavigate()
+  const authorLinkParam = encodeURIComponent(review.author_username ?? review.author_name)
 
   return (
     <article className="reviewCard">
       <header className="reviewHeader">
-        <Link to={`/users/${encodeURIComponent(review.author_name)}`} className="reviewAuthor reviewAuthorLink">
+        <Link to={`/users/${authorLinkParam}`} className="reviewAuthor reviewAuthorLink">
           {/* Задание 10.4: маленькая афиша и аватар пользователя в карточке рецензии. */}
           <div className="reviewAvatar" aria-hidden="true">
             {review.author_avatar_url && (

@@ -1,4 +1,5 @@
 import type { ReviewCardItem } from '../types/review'
+import { DELETED_USERNAME, getMockUsernameByDisplayName } from './mockUsers'
 
 // Задание 5.2: мок-данные для вкладки рецензий.
 // Задание 10.4: реальные картинки для мини-афиши и аватара в карточке рецензии.
@@ -192,13 +193,77 @@ const RAW_REVIEWS: ReviewCardItem[] = [
     scores: { performance: 9, setlist: 8, crowd: 8, sound: 8, vibe: 8 },
     text: 'Отличная динамика по ходу всего концерта и грамотные паузы между треками. Артист хорошо чувствовал зал, поэтому даже новые песни заходили почти как хиты.',
   },
+  {
+    id: 315,
+    concertId: 6,
+    author_name: 'Марк Колосов',
+    author_avatar_url: null,
+    concert_title: 'Полуночный экспресс',
+    concert_artist: 'Джаз Трамвай',
+    concert_poster_url: null,
+    rating_total: 82,
+    scores: { performance: 8, setlist: 8, crowd: 7, sound: 8, vibe: 8 },
+    text: 'Очень ровный и музыкальный сет. Не хватило пары резких акцентов по динамике, но качество исполнения и звук по залу были на уровне.',
+  },
+  {
+    id: 316,
+    concertId: 8,
+    author_name: 'Марк Колосов',
+    author_avatar_url: null,
+    concert_title: 'Ближе к небу',
+    concert_artist: 'Пыльца',
+    concert_poster_url: null,
+    rating_total: 78,
+    scores: { performance: 8, setlist: 7, crowd: 8, sound: 7, vibe: 9 },
+    text: 'Сильный вайб и визуал, но по звуку были локальные провалы в середине — кажется, вокал то пропадал, то возвращался. Впечатление всё равно хорошее.',
+  },
+  {
+    id: 315,
+    concertId: 6,
+    author_name: 'Марк Колосов',
+    author_avatar_url: null,
+    concert_title: 'Полуночный экспресс',
+    concert_artist: 'Джаз Трамвай',
+    concert_poster_url: null,
+    rating_total: 82,
+    scores: { performance: 8, setlist: 8, crowd: 7, sound: 8, vibe: 8 },
+    text: 'Очень ровный и музыкальный сет. Не хватило пары резких акцентов по динамике, но качество исполнения и звук по залу были на уровне.',
+  },
+  {
+    id: 316,
+    concertId: 8,
+    author_name: 'Марк Колосов',
+    author_avatar_url: null,
+    concert_title: 'Ближе к небу',
+    concert_artist: 'Пыльца',
+    concert_poster_url: null,
+    rating_total: 78,
+    scores: { performance: 8, setlist: 7, crowd: 8, sound: 7, vibe: 9 },
+    text: 'Сильный вайб и визуал, но по звуку были локальные провалы в середине — кажется, вокал то пропадал, то возвращался. Впечатление всё равно хорошее.',
+  },
+  {
+    id: 314,
+    concertId: 3,
+    author_name: 'Удаленный пользователь',
+    author_avatar_url: null,
+    concert_title: 'Громкие сны',
+    concert_artist: 'Эхо Города',
+    concert_poster_url: null,
+    rating_total: 74,
+    scores: { performance: 7, setlist: 7, crowd: 8, sound: 7, vibe: 8 },
+    text: 'Рецензия сохранена, но профиль автора удалён. Текст оставлен как есть для целостности ленты (мок).',
+  },
 ]
 
 export const MOCK_REVIEWS: ReviewCardItem[] = RAW_REVIEWS.map((review, index) => ({
   ...review,
   review_id: String(review.id),
   concert_id: String(review.concertId),
-  author_avatar_url: REVIEW_AVATARS[index % REVIEW_AVATARS.length] ?? null,
+  author_username: getMockUsernameByDisplayName(review.author_name) ?? undefined,
+  author_avatar_url:
+    getMockUsernameByDisplayName(review.author_name) === DELETED_USERNAME
+      ? null
+      : (REVIEW_AVATARS[index % REVIEW_AVATARS.length] ?? null),
   concert_poster_url: REVIEW_POSTERS[index % REVIEW_POSTERS.length] ?? null,
 }))
 
