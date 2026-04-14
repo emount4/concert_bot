@@ -4,9 +4,7 @@ import { ArtistCard } from '../components/artists/ArtistCard'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
-import { MOCK_ARTISTS } from '../data/mockArtists'
-import { MOCK_CONCERTS } from '../data/mockConcerts'
-import { MOCK_REVIEWS } from '../data/mockReviews'
+import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 
 type SortDirection = 'desc' | 'asc'
@@ -22,37 +20,42 @@ export function ArtistsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
 
+  const { data, isLoading, error } = useAppData()
+  const artists = data?.artists ?? []
+  const concerts = data?.concerts ?? []
+  const reviews = data?.reviews ?? []
+
   const [searchParams] = useSearchParams()
   const artistId = Number(searchParams.get('artistId'))
   const selectedArtist = Number.isFinite(artistId)
-    ? MOCK_ARTISTS.find((item) => item.id === artistId) ?? null
+    ? artists.find((item) => item.id === artistId) ?? null
     : null
 
   const artistStats = useMemo(() => {
     const reviewsByConcertId = new Map<number, number>()
-    for (const review of MOCK_REVIEWS) {
+    for (const review of reviews) {
       reviewsByConcertId.set(review.concertId, (reviewsByConcertId.get(review.concertId) ?? 0) + 1)
     }
 
     const out = new Map<number, { concertsCount: number; reviews_count: number }>()
-    for (const artist of MOCK_ARTISTS) {
-      const concerts = MOCK_CONCERTS.filter((concert) =>
+    for (const artist of artists) {
+      const artistConcerts = concerts.filter((concert) =>
         concert.artists.some((concert_artist) => concert_artist.id === artist.id),
       )
-      const reviews_count = concerts.reduce(
+      const reviews_count = artistConcerts.reduce(
         (sum, concert) => sum + (reviewsByConcertId.get(concert.id) ?? 0),
         0,
       )
-      out.set(artist.id, { concertsCount: concerts.length, reviews_count })
+      out.set(artist.id, { concertsCount: artistConcerts.length, reviews_count })
     }
 
     return out
-  }, [])
+  }, [artists, concerts, reviews])
 
   const filteredArtists = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
 
-    const filtered = MOCK_ARTISTS.filter((artist) => {
+    const filtered = artists.filter((artist) => {
       const stats = artistStats.get(artist.id) ?? { concertsCount: 0, reviews_count: 0 }
 
       if (reviewsFilter === 'with_reviews' && stats.reviews_count === 0) {
@@ -89,12 +92,20 @@ export function ArtistsPage() {
     return filteredArtists.slice(start, start + ARTISTS_PAGE_SIZE)
   }, [currentPage, filteredArtists])
 
+  if (isLoading) {
+    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+  }
+
+  if (error) {
+    return <section className="page"><div className="placeholder">{error}</div></section>
+  }
+
   if (selectedArtist) {
-    const artistConcerts = MOCK_CONCERTS
+    const artistConcerts = concerts
       .filter((concert) => concert.artists.some((artist) => artist.id === selectedArtist.id))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     const artistConcertIds = new Set(artistConcerts.map((concert) => concert.id))
-    const artistReviews = MOCK_REVIEWS
+    const artistReviews = reviews
       .filter((review) => artistConcertIds.has(review.concertId))
       .sort((a, b) => b.id - a.id)
     const roundedScore =

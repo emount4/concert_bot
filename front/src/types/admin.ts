@@ -10,7 +10,7 @@ export type AdminReviewAttachment = {
 
 export type AdminReviewModerationItem = {
   review_id?: string
-  id?: string | number
+  id: number
   author_name: string
   concert_title: string
   created_at: string
@@ -22,7 +22,7 @@ export type AdminReviewModerationItem = {
 
 export type AdminArtist = {
   artist_id?: string
-  id?: string | number
+  id: number
   name: string
   description: string
   photo_url: string | null
@@ -30,7 +30,7 @@ export type AdminArtist = {
 
 export type AdminVenue = {
   venue_id?: string
-  id?: string | number
+  id: number
   name: string
   city: string
   address: string
@@ -40,11 +40,11 @@ export type AdminVenue = {
 
 export type AdminConcert = {
   concert_id?: string
-  id?: string | number
+  id: number
   title: string
   date: string
-  venue_id: string | number
-  artist_ids: Array<string | number>
+  venue_id: number
+  artist_ids: number[]
   poster_url: string | null
 }
 
@@ -52,7 +52,7 @@ export type AdminAccountRole = 'user' | 'admin' | 'super_admin' | 'super-admin'
 
 export type AdminAccount = {
   user_id?: string
-  id?: string | number
+  id: number
   displayName: string
   handle: string
   role: AdminAccountRole

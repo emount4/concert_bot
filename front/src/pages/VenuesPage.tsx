@@ -2,11 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { ReviewCard } from '../components/reviews/ReviewCard'
-import { MOCK_CONCERTS } from '../data/mockConcerts'
-import { MOCK_REVIEWS } from '../data/mockReviews'
 import { VenueCard } from '../components/venues/VenueCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
-import { MOCK_VENUES } from '../data/mockVenues'
+import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 
 type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
@@ -27,22 +25,27 @@ export function VenuesPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
 
+  const { data, isLoading, error } = useAppData()
+  const venues = data?.venues ?? []
+  const concerts = data?.concerts ?? []
+  const reviews = data?.reviews ?? []
+
   const [searchParams] = useSearchParams()
   const venue_id = Number(searchParams.get('venue_id'))
   const selectedVenue = Number.isFinite(venue_id)
-    ? MOCK_VENUES.find((item) => item.id === venue_id) ?? null
+    ? venues.find((item) => item.id === venue_id) ?? null
     : null
 
   const availableCities = useMemo(() => {
-    return Array.from(new Set(MOCK_VENUES.map((venue) => venue.city))).sort((a, b) =>
+    return Array.from(new Set(venues.map((venue) => venue.city))).sort((a, b) =>
       a.localeCompare(b, 'ru-RU'),
     )
-  }, [])
+  }, [venues])
 
   const filteredVenues = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
 
-    const filtered = MOCK_VENUES.filter((venue) => {
+    const filtered = venues.filter((venue) => {
       if (cityFilter !== 'all' && venue.city !== cityFilter) {
         return false
       }
@@ -75,7 +78,7 @@ export function VenuesPage() {
 
       return sortDirection === 'desc' ? base : -base
     })
-  }, [capacityFrom, capacityTo, cityFilter, search, sortBy, sortDirection])
+  }, [capacityFrom, capacityTo, cityFilter, search, sortBy, sortDirection, venues])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -87,15 +90,23 @@ export function VenuesPage() {
     return filteredVenues.slice(start, start + VENUES_PAGE_SIZE)
   }, [currentPage, filteredVenues])
 
+  if (isLoading) {
+    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+  }
+
+  if (error) {
+    return <section className="page"><div className="placeholder">{error}</div></section>
+  }
+
   if (selectedVenue) {
-    const venueConcerts = MOCK_CONCERTS
+    const venueConcerts = concerts
       .filter(
         (concert) =>
           concert.venue.name === selectedVenue.name && concert.venue.city === selectedVenue.city,
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     const venueConcertIds = new Set(venueConcerts.map((concert) => concert.id))
-    const venueReviews = MOCK_REVIEWS
+    const venueReviews = reviews
       .filter((review) => venueConcertIds.has(review.concertId))
       .sort((a, b) => b.id - a.id)
     const roundedScore =

@@ -3,7 +3,7 @@ export type ProfileReviewStatus = 'approved' | 'pending' | 'rejected'
 
 export type ProfileReviewItem = {
   review_id?: string
-  id?: string | number
+  id: number
   concert_title: string
   created_at: string
   status: ProfileReviewStatus
@@ -12,7 +12,7 @@ export type ProfileReviewItem = {
 
 export type UserProfile = {
   user_id?: string
-  id?: string | number
+  id: number
   displayName: string
   handle: string
   created_at: string

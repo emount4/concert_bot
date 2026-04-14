@@ -1,6 +1,5 @@
 import { ReviewCard } from '../components/reviews/ReviewCard'
-import { MOCK_REVIEWS } from '../data/mockReviews'
-import { MOCK_PROFILE } from '../data/mockProfile'
+import { useAppData } from '../api/AppDataProvider'
 
 function formatDate(value: string): string {
   const date = new Date(value)
@@ -15,9 +14,20 @@ function formatDate(value: string): string {
 
 export function ProfilePage() {
   // Задание 6.3: витрина профиля в стиле дашборда с моими рецензиями.
-  const profile = MOCK_PROFILE
+  const { data, isLoading, error } = useAppData()
+  const profile = data?.profile
+  const reviews = data?.reviews ?? []
+
+  if (isLoading || !profile) {
+    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+  }
+
+  if (error) {
+    return <section className="page"><div className="placeholder">{error}</div></section>
+  }
+
   const profileReviewCards = profile.recent_reviews
-    .map((item) => MOCK_REVIEWS.find((review) => review.id === item.id))
+    .map((item) => reviews.find((review) => review.id === item.id))
     .filter((review): review is NonNullable<typeof review> => Boolean(review))
     .map((review) => ({ ...review, author_name: profile.displayName }))
 

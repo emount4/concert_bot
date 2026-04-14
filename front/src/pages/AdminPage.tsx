@@ -1,12 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
-import {
-  MOCK_ADMIN_ACCOUNTS,
-  MOCK_ADMIN_ARTISTS,
-  MOCK_ADMIN_CONCERTS,
-  MOCK_ADMIN_REVIEWS,
-  MOCK_ADMIN_VENUES,
-} from '../data/mockAdmin'
+import { useAppData } from '../api/AppDataProvider'
 import { setDevAdmin } from '../utils/adminAccess'
 import type {
   AdminAccount,
@@ -20,6 +14,13 @@ import type {
 
 type AdminPageProps = {
   isAdmin: boolean
+}
+type AdminSeed = {
+  reviews: AdminReviewModerationItem[]
+  artists: AdminArtist[]
+  venues: AdminVenue[]
+  concerts: AdminConcert[]
+  accounts: AdminAccount[]
 }
 
 type AdminTab = 'moderation' | 'artists' | 'venues' | 'concerts' | 'accounts'
@@ -51,15 +52,29 @@ function statusLabel(status: AdminReviewStatus): string {
 }
 
 export function AdminPage({ isAdmin }: AdminPageProps) {
+  const { data, isLoading, error } = useAppData()
+
+  if (isLoading || !data) {
+    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+  }
+
+  if (error) {
+    return <section className="page"><div className="placeholder">{error}</div></section>
+  }
+
+  return <AdminPageContent isAdmin={isAdmin} seed={data.admin} />
+}
+
+function AdminPageContent({ isAdmin, seed }: AdminPageProps & { seed: AdminSeed }) {
   // Задание 9.1: модальный выбор площадки и артистов для формы концерта.
   const [tab, setTab] = useState<AdminTab>('moderation')
   const [moderationStream, setModerationStream] = useState<ModerationStream>('pending')
 
-  const [reviews, setReviews] = useState<AdminReviewModerationItem[]>(MOCK_ADMIN_REVIEWS)
-  const [artists, setArtists] = useState<AdminArtist[]>(MOCK_ADMIN_ARTISTS)
-  const [venues, setVenues] = useState<AdminVenue[]>(MOCK_ADMIN_VENUES)
-  const [concerts, setConcerts] = useState<AdminConcert[]>(MOCK_ADMIN_CONCERTS)
-  const [accounts, setAccounts] = useState<AdminAccount[]>(MOCK_ADMIN_ACCOUNTS)
+  const [reviews, setReviews] = useState<AdminReviewModerationItem[]>(seed.reviews)
+  const [artists, setArtists] = useState<AdminArtist[]>(seed.artists)
+  const [venues, setVenues] = useState<AdminVenue[]>(seed.venues)
+  const [concerts, setConcerts] = useState<AdminConcert[]>(seed.concerts)
+  const [accounts, setAccounts] = useState<AdminAccount[]>(seed.accounts)
 
   const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', photo_url: '' })
   const [venueForm, setVenueForm] = useState({

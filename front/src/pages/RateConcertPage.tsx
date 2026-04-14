@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
-import { MOCK_CONCERTS } from '../data/mockConcerts'
-import { MOCK_REVIEWS } from '../data/mockReviews'
+import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 
 type ScoreState = {
@@ -22,11 +21,15 @@ function formatFileSize(bytes: number): string {
 
 export function RateConcertPage() {
   // Задание 11.1: первичный экран оценивания концерта с ползунками и списком рецензий.
+  const { data, isLoading, error } = useAppData()
+  const concerts = data?.concerts ?? []
+  const reviews = data?.reviews ?? []
+
   const { concertId } = useParams<{ concertId: string }>()
   const numericConcertId = Number(concertId)
   const concert = useMemo(
-    () => MOCK_CONCERTS.find((item) => item.id === numericConcertId) ?? null,
-    [numericConcertId],
+    () => concerts.find((item) => item.id === numericConcertId) ?? null,
+    [concerts, numericConcertId],
   )
 
   const [scores, setScores] = useState<ScoreState>({
@@ -118,8 +121,8 @@ export function RateConcertPage() {
   }
 
   const concertReviews = useMemo(
-    () => MOCK_REVIEWS.filter((review) => review.concertId === numericConcertId),
-    [numericConcertId],
+    () => reviews.filter((review) => review.concertId === numericConcertId),
+    [numericConcertId, reviews],
   )
   // Задание 13.2: раскладка средней оценки концерта по параметрам (до десятых).
   const concertAvgScores = useMemo(() => computeAvgScoresFromReviews(concertReviews), [concertReviews])
@@ -143,6 +146,24 @@ export function RateConcertPage() {
     concert?.stats.avg_rating_total === null || concert?.stats.avg_rating_total === undefined
       ? null
       : Math.round(concert.stats.avg_rating_total)
+
+  if (isLoading) {
+    return (
+      <section className="page">
+        <h1 className="pageTitle">Оценивание концерта</h1>
+        <div className="placeholder">Загрузка данных...</div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section className="page">
+        <h1 className="pageTitle">Оценивание концерта</h1>
+        <div className="placeholder">{error}</div>
+      </section>
+    )
+  }
 
   if (!concert) {
     return (

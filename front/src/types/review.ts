@@ -16,8 +16,8 @@ export type ReviewMediaAttachment = {
 export type ReviewCardItem = {
   review_id?: string
   concert_id?: string
-  id?: string | number
-  concertId?: string | number
+  id: number
+  concertId: number
   author_name: string
   author_avatar_url: string | null
   concert_title: string

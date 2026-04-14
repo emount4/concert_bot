@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
-import { MOCK_CONCERTS } from '../data/mockConcerts'
+import { useAppData } from '../api/AppDataProvider'
 
 type ConcertSortBy = 'date' | 'rating' | 'reviews' | 'title'
 type SortDirection = 'desc' | 'asc'
@@ -16,17 +16,20 @@ export function ConcertsPage() {
   const [sortBy, setSortBy] = useState<ConcertSortBy>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
+  const { data, isLoading, error } = useAppData()
+  const concerts = data?.concerts ?? []
+
   const availableCities = useMemo(() => {
-    return Array.from(new Set(MOCK_CONCERTS.map((concert) => concert.venue.city))).sort((a, b) =>
+    return Array.from(new Set(concerts.map((concert) => concert.venue.city))).sort((a, b) =>
       a.localeCompare(b, 'ru-RU'),
     )
-  }, [])
+  }, [concerts])
 
   const filteredConcerts = useMemo(() => {
     const now = new Date()
     const normalizedSearch = search.trim().toLowerCase()
 
-    const filtered = MOCK_CONCERTS.filter((concert) => {
+    const filtered = concerts.filter((concert) => {
       if (cityFilter !== 'all' && concert.venue.city !== cityFilter) {
         return false
       }
@@ -73,7 +76,15 @@ export function ConcertsPage() {
 
       return sortDirection === 'desc' ? base : -base
     })
-  }, [cityFilter, onlyRated, search, sortBy, sortDirection, upcomingOnly])
+  }, [cityFilter, concerts, onlyRated, search, sortBy, sortDirection, upcomingOnly])
+
+  if (isLoading) {
+    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+  }
+
+  if (error) {
+    return <section className="page"><div className="placeholder">{error}</div></section>
+  }
 
   return (
     <section className="page">

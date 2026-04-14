@@ -1,7 +1,7 @@
 // Задание 4.1: тип карточки площадки для витрины.
 export type VenueCardItem = {
   venue_id?: string
-  id?: string | number
+  id: number
   name: string
   city: string
   capacity: number

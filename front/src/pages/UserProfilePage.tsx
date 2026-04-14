@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ReviewCard } from '../components/reviews/ReviewCard'
-import { MOCK_PROFILE } from '../data/mockProfile'
-import { MOCK_REVIEWS } from '../data/mockReviews'
+import { useAppData } from '../api/AppDataProvider'
 
 function formatDate(value: string): string {
   const date = new Date(value)
@@ -24,9 +23,21 @@ export function UserProfilePage() {
   const params = useParams<{ displayName: string }>()
   const displayName = decodeURIComponent(params.displayName ?? '').trim()
 
+  const { data, isLoading, error } = useAppData()
+  const profile = data?.profile
+  const reviews = data?.reviews ?? []
+
+  if (isLoading || !profile) {
+    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+  }
+
+  if (error) {
+    return <section className="page"><div className="placeholder">{error}</div></section>
+  }
+
   const userReviews = useMemo(
-    () => MOCK_REVIEWS.filter((review) => review.author_name === displayName),
-    [displayName],
+    () => reviews.filter((review) => review.author_name === displayName),
+    [displayName, reviews],
   )
   const avgScore =
     userReviews.length > 0
@@ -34,12 +45,12 @@ export function UserProfilePage() {
       : null
   const mediaReviewsCount = userReviews.filter((review) => (review.media?.length ?? 0) > 0).length
 
-  const isOwnProfileData = displayName === MOCK_PROFILE.displayName
-  const profileSince = isOwnProfileData ? formatDate(MOCK_PROFILE.created_at) : 'дата регистрации неизвестна'
+  const isOwnProfileData = displayName === profile.displayName
+  const profileSince = isOwnProfileData ? formatDate(profile.created_at) : 'дата регистрации неизвестна'
   const profileBio = isOwnProfileData
-    ? MOCK_PROFILE.bio
+    ? profile.bio
     : 'Пользователь публикует рецензии на концерты и делится впечатлениями о выступлениях.'
-  const profileHandle = isOwnProfileData ? MOCK_PROFILE.handle : buildHandle(displayName)
+  const profileHandle = isOwnProfileData ? profile.handle : buildHandle(displayName)
 
   if (!displayName) {
     return (
