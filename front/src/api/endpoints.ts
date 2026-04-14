@@ -1,0 +1,65 @@
+// Целевые endpoint-ы по актуальному концепту (PDF),
+// текущий локальный back не является источником истины.
+export const apiEndpoints = {
+  auth: {
+    register: '/auth/register',
+    verifyEmail: '/auth/verify-email',
+    login: '/auth/login',
+    tgLogin: '/auth/tg-web-app/login',
+    tgBind: '/auth/tg-web-app/bind',
+    refresh: '/auth/refresh',
+    logout: '/auth/logout',
+  },
+  users: {
+    me: '/users/me',
+    patchMe: '/users/me',
+    profileByUsername: (username: string) => `/users/profile/${encodeURIComponent(username)}`,
+    notifications: '/users/notifications',
+  },
+  cities: {
+    list: '/cities',
+  },
+  artists: {
+    list: '/artists',
+    byId: (artistId: string) => `/artists/${encodeURIComponent(artistId)}`,
+  },
+  venues: {
+    list: '/venues',
+    byId: (venueId: string) => `/venues/${encodeURIComponent(venueId)}`,
+  },
+  concerts: {
+    list: '/concerts',
+    byId: (concertId: string) => `/concerts/${encodeURIComponent(concertId)}`,
+    suggest: '/concerts/suggest',
+  },
+  reviews: {
+    list: '/reviews',
+    byId: (reviewId: string) => `/reviews/${encodeURIComponent(reviewId)}`,
+    create: '/reviews',
+    likeToggle: (reviewId: string) => `/reviews/${encodeURIComponent(reviewId)}/like`,
+    likers: (reviewId: string) => `/reviews/${encodeURIComponent(reviewId)}/likers`,
+    presignUpload: '/reviews/media/presign-upload',
+  },
+  favorites: {
+    list: '/favorites',
+    create: '/favorites',
+    remove: (targetId: string) => `/favorites/${encodeURIComponent(targetId)}`,
+  },
+  admin: {
+    users: '/admin/users',
+    pendingReviews: '/admin/reviews/pending',
+    approveReview: (reviewId: string) => `/admin/reviews/${encodeURIComponent(reviewId)}/approve`,
+    rejectReview: (reviewId: string) => `/admin/reviews/${encodeURIComponent(reviewId)}/reject`,
+    pendingProfiles: '/admin/profiles/pending',
+    resolveProfile: (moderationId: string) => `/admin/profiles/${encodeURIComponent(moderationId)}/resolve`,
+    artists: '/admin/artists',
+    artistById: (artistId: string) => `/admin/artists/${encodeURIComponent(artistId)}`,
+    venues: '/admin/venues',
+    venueById: (venueId: string) => `/admin/venues/${encodeURIComponent(venueId)}`,
+    concerts: '/admin/concerts',
+    concertById: (concertId: string) => `/admin/concerts/${encodeURIComponent(concertId)}`,
+    banUser: (userId: string) => `/admin/users/${encodeURIComponent(userId)}/ban`,
+    userRole: (userId: string) => `/admin/users/${encodeURIComponent(userId)}/role`,
+    logs: '/admin/logs',
+  },
+} as const
