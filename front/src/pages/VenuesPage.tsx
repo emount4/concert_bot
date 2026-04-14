@@ -28,9 +28,9 @@ export function VenuesPage() {
   const [currentPage, setCurrentPage] = useState(1)
 
   const [searchParams] = useSearchParams()
-  const venueId = Number(searchParams.get('venueId'))
-  const selectedVenue = Number.isFinite(venueId)
-    ? MOCK_VENUES.find((item) => item.id === venueId) ?? null
+  const venue_id = Number(searchParams.get('venue_id'))
+  const selectedVenue = Number.isFinite(venue_id)
+    ? MOCK_VENUES.find((item) => item.id === venue_id) ?? null
     : null
 
   const availableCities = useMemo(() => {
@@ -70,7 +70,7 @@ export function VenuesPage() {
         sortBy === 'capacity'
           ? b.capacity - a.capacity
           : sortBy === 'rating'
-            ? (b.avgVenueScore ?? -1) - (a.avgVenueScore ?? -1)
+            ? (b.avg_rating_total ?? -1) - (a.avg_rating_total ?? -1)
             : b.name.localeCompare(a.name, 'ru-RU')
 
       return sortDirection === 'desc' ? base : -base
@@ -93,13 +93,13 @@ export function VenuesPage() {
         (concert) =>
           concert.venue.name === selectedVenue.name && concert.venue.city === selectedVenue.city,
       )
-      .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     const venueConcertIds = new Set(venueConcerts.map((concert) => concert.id))
     const venueReviews = MOCK_REVIEWS
       .filter((review) => venueConcertIds.has(review.concertId))
       .sort((a, b) => b.id - a.id)
     const roundedScore =
-      selectedVenue.avgVenueScore === null ? null : Math.round(selectedVenue.avgVenueScore)
+      selectedVenue.avg_rating_total === null ? null : Math.round(selectedVenue.avg_rating_total)
     // Задание 13.4: раскладка средней оценки площадки по параметрам (до десятых).
     const venueAvgScores = computeAvgScoresFromReviews(venueReviews)
 
@@ -115,10 +115,10 @@ export function VenuesPage() {
         <article className="detailHero">
           {/* Задание 4.4: реальные изображения в карточке площадки (детальная шапка). */}
           <div className="detailHeroMedia venuePhoto" aria-hidden="true">
-            {selectedVenue.imageUrl && (
+            {selectedVenue.photo_url && (
               <img
                 className="venuePhotoImg"
-                src={selectedVenue.imageUrl}
+                src={selectedVenue.photo_url}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -328,3 +328,4 @@ export function VenuesPage() {
     </section>
   )
 }
+

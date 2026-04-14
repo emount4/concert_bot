@@ -34,16 +34,16 @@ export function ArtistsPage() {
       reviewsByConcertId.set(review.concertId, (reviewsByConcertId.get(review.concertId) ?? 0) + 1)
     }
 
-    const out = new Map<number, { concertsCount: number; reviewsCount: number }>()
+    const out = new Map<number, { concertsCount: number; reviews_count: number }>()
     for (const artist of MOCK_ARTISTS) {
       const concerts = MOCK_CONCERTS.filter((concert) =>
-        concert.artists.some((concertArtist) => concertArtist.id === artist.id),
+        concert.artists.some((concert_artist) => concert_artist.id === artist.id),
       )
-      const reviewsCount = concerts.reduce(
+      const reviews_count = concerts.reduce(
         (sum, concert) => sum + (reviewsByConcertId.get(concert.id) ?? 0),
         0,
       )
-      out.set(artist.id, { concertsCount: concerts.length, reviewsCount })
+      out.set(artist.id, { concertsCount: concerts.length, reviews_count })
     }
 
     return out
@@ -53,13 +53,13 @@ export function ArtistsPage() {
     const normalizedSearch = search.trim().toLowerCase()
 
     const filtered = MOCK_ARTISTS.filter((artist) => {
-      const stats = artistStats.get(artist.id) ?? { concertsCount: 0, reviewsCount: 0 }
+      const stats = artistStats.get(artist.id) ?? { concertsCount: 0, reviews_count: 0 }
 
-      if (reviewsFilter === 'with_reviews' && stats.reviewsCount === 0) {
+      if (reviewsFilter === 'with_reviews' && stats.reviews_count === 0) {
         return false
       }
 
-      if (reviewsFilter === 'without_reviews' && stats.reviewsCount > 0) {
+      if (reviewsFilter === 'without_reviews' && stats.reviews_count > 0) {
         return false
       }
 
@@ -67,14 +67,14 @@ export function ArtistsPage() {
         return true
       }
 
-      return artist.nickname.toLowerCase().includes(normalizedSearch)
+      return artist.name.toLowerCase().includes(normalizedSearch)
     })
 
     return filtered.sort((a, b) => {
       const base =
         sortBy === 'rating'
-          ? (b.avgConcertScore ?? -1) - (a.avgConcertScore ?? -1)
-          : b.nickname.localeCompare(a.nickname, 'ru-RU')
+          ? (b.avg_rating_total ?? -1) - (a.avg_rating_total ?? -1)
+          : b.name.localeCompare(a.name, 'ru-RU')
       return sortDirection === 'desc' ? base : -base
     })
   }, [artistStats, reviewsFilter, search, sortBy, sortDirection])
@@ -92,13 +92,13 @@ export function ArtistsPage() {
   if (selectedArtist) {
     const artistConcerts = MOCK_CONCERTS
       .filter((concert) => concert.artists.some((artist) => artist.id === selectedArtist.id))
-      .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     const artistConcertIds = new Set(artistConcerts.map((concert) => concert.id))
     const artistReviews = MOCK_REVIEWS
       .filter((review) => artistConcertIds.has(review.concertId))
       .sort((a, b) => b.id - a.id)
     const roundedScore =
-      selectedArtist.avgConcertScore === null ? null : Math.round(selectedArtist.avgConcertScore)
+      selectedArtist.avg_rating_total === null ? null : Math.round(selectedArtist.avg_rating_total)
     // Задание 13.3: раскладка средней оценки артиста по параметрам (до десятых).
     const artistAvgScores = computeAvgScoresFromReviews(artistReviews)
 
@@ -114,10 +114,10 @@ export function ArtistsPage() {
         <article className="detailHero">
           {/* Задание 3.4: реальные изображения в карточке артиста (детальная шапка). */}
           <div className="detailHeroMedia artistPhoto" aria-hidden="true">
-            {selectedArtist.imageUrl && (
+            {selectedArtist.photo_url && (
               <img
                 className="artistPhotoImg"
-                src={selectedArtist.imageUrl}
+                src={selectedArtist.photo_url}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -126,7 +126,7 @@ export function ArtistsPage() {
             )}
           </div>
           <div className="detailHeroBody">
-            <h2 className="detailHeroTitle">{selectedArtist.nickname}</h2>
+            <h2 className="detailHeroTitle">{selectedArtist.name}</h2>
             <div className="detailStatsRow">
               <p className="detailStatItem">
                 Концертов: <strong>{artistConcerts.length}</strong>
@@ -297,3 +297,4 @@ export function ArtistsPage() {
     </section>
   )
 }
+

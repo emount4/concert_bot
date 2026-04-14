@@ -124,8 +124,8 @@ export function RateConcertPage() {
   // Задание 13.2: раскладка средней оценки концерта по параметрам (до десятых).
   const concertAvgScores = useMemo(() => computeAvgScoresFromReviews(concertReviews), [concertReviews])
   const concertDateLabel = useMemo(() => {
-    const date = new Date(concert?.dateTime ?? '')
-    if (Number.isNaN(date.getTime())) return concert?.dateTime ?? ''
+    const date = new Date(concert?.date ?? '')
+    if (Number.isNaN(date.getTime())) return concert?.date ?? ''
 
     return new Intl.DateTimeFormat('ru-RU', {
       day: '2-digit',
@@ -137,12 +137,12 @@ export function RateConcertPage() {
   const objectiveSum = scores.performance + scores.setlist + scores.crowd + scores.sound
   const vibeMultiplier = Math.pow(1.6072, (scores.vibe - 1) / 9)
   const overallRaw = objectiveSum * 1.4 * vibeMultiplier
-  const overallScore = Math.min(90, overallRaw)
-  const overallRounded = Math.round(overallScore)
-  const avgConcertScore =
-    concert?.stats.avgOverallScore === null || concert?.stats.avgOverallScore === undefined
+  const rating_total = Math.min(90, overallRaw)
+  const overallRounded = Math.round(rating_total)
+  const avg_rating_total =
+    concert?.stats.avg_rating_total === null || concert?.stats.avg_rating_total === undefined
       ? null
-      : Math.round(concert.stats.avgOverallScore)
+      : Math.round(concert.stats.avg_rating_total)
 
   if (!concert) {
     return (
@@ -161,7 +161,7 @@ export function RateConcertPage() {
         <div className="rateHeroMain">
           <div className="rateHeroPosterWrapper">
             <div className="rateHeroPoster" aria-hidden="true">
-              {concert.bannerImageUrl ? <img src={concert.bannerImageUrl} alt="" /> : <div className="rateHeroPosterFallback" />}
+              {concert.poster_url ? <img src={concert.poster_url} alt="" /> : <div className="rateHeroPosterFallback" />}
             </div>
           </div>
 
@@ -169,7 +169,7 @@ export function RateConcertPage() {
             <div className="rateHeroInfoRow">
               <div className="rateHeroTags">
                 <span className="rateHeroTag">{concertDateLabel}</span>
-                <Link to={`/venues?venueId=${concert.venue.id}`} className="rateHeroTag rateHeroTagLink">
+                <Link to={`/venues?venue_id=${concert.venue.id}`} className="rateHeroTag rateHeroTagLink">
                   {concert.venue.name}, {concert.venue.city}
                 </Link>
               </div>
@@ -194,9 +194,9 @@ export function RateConcertPage() {
               ))}
             </div>
 
-            {avgConcertScore !== null && (
+            {avg_rating_total !== null && (
               <RatingBreakdownBadge
-                value={avgConcertScore}
+                value={avg_rating_total}
                 className="rateHeroAverageBadge"
                 ariaLabel="Средняя оценка концерта"
                 breakdown={
@@ -497,3 +497,4 @@ export function RateConcertPage() {
     </section>
   )
 }
+

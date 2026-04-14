@@ -36,17 +36,17 @@ function formatCapacity(value: number): string {
 
 export function VenueCard({ venue }: VenueCardProps) {
   // Задание 4.3: рейтинг площадки отображается кругом, число округляется на фронтенде.
-  const roundedScore = venue.avgVenueScore === null ? null : Math.round(venue.avgVenueScore)
+  const roundedScore = venue.avg_rating_total === null ? null : Math.round(venue.avg_rating_total)
 
   return (
-    <Link to={`/venues?venueId=${venue.id}`} className="venueCardLink">
+    <Link to={`/venues?venue_id=${venue.id}`} className="venueCardLink">
       <article className="venueCard">
         {/* Задание 4.4: реальные изображения в карточке площадки (если есть URL). */}
         <div className="venuePhoto" aria-label="Фото площадки">
-          {venue.imageUrl && (
+          {venue.photo_url && (
             <img
               className="venuePhotoImg"
-              src={venue.imageUrl}
+              src={venue.photo_url}
               alt=""
               loading="lazy"
               decoding="async"
@@ -79,3 +79,4 @@ export function VenueCard({ venue }: VenueCardProps) {
     </Link>
   )
 }
+

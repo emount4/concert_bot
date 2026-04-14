@@ -61,22 +61,22 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
   const [concerts, setConcerts] = useState<AdminConcert[]>(MOCK_ADMIN_CONCERTS)
   const [accounts, setAccounts] = useState<AdminAccount[]>(MOCK_ADMIN_ACCOUNTS)
 
-  const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', imageUrl: '' })
+  const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', photo_url: '' })
   const [venueForm, setVenueForm] = useState({
     id: 0,
     name: '',
     city: '',
     address: '',
     capacity: '0',
-    imageUrl: '',
+    photo_url: '',
   })
   const [concertForm, setConcertForm] = useState({
     id: 0,
     title: '',
-    dateTime: '',
-    venueId: '0',
-    artistIds: [] as number[],
-    bannerImageUrl: '',
+    date: '',
+    venue_id: '0',
+    artist_ids: [] as number[],
+    poster_url: '',
   })
   const [isVenueModalOpen, setIsVenueModalOpen] = useState(false)
   const [isArtistsModalOpen, setIsArtistsModalOpen] = useState(false)
@@ -90,11 +90,11 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
   // Задание 10.4: просмотр медиа в модерации по одному элементу.
   const [activeModerationMediaIndex, setActiveModerationMediaIndex] = useState(0)
 
-  const pendingCount = useMemo(
+  const pending_count = useMemo(
     () => reviews.filter((review) => review.status === 'pending').length,
     [reviews],
   )
-  const approvedCount = useMemo(
+  const approved_count = useMemo(
     () => reviews.filter((review) => review.status === 'approved').length,
     [reviews],
   )
@@ -107,12 +107,12 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
     [moderationStream, reviews],
   )
   const selectedVenue = useMemo(
-    () => venues.find((venue) => String(venue.id) === concertForm.venueId) ?? null,
-    [concertForm.venueId, venues],
+    () => venues.find((venue) => String(venue.id) === concertForm.venue_id) ?? null,
+    [concertForm.venue_id, venues],
   )
   const selectedArtists = useMemo(
-    () => artists.filter((artist) => concertForm.artistIds.includes(artist.id)),
-    [artists, concertForm.artistIds],
+    () => artists.filter((artist) => concertForm.artist_ids.includes(artist.id)),
+    [artists, concertForm.artist_ids],
   )
   const filteredVenues = useMemo(() => {
     const normalizedQuery = venueSearchQuery.trim().toLowerCase()
@@ -145,19 +145,19 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
     if (!normalizedQuery) return concerts
 
     return concerts.filter((concert) => {
-      const venueName = venues.find((venue) => venue.id === concert.venueId)?.name ?? ''
-      const artistNames = concert.artistIds
+      const venueName = venues.find((venue) => venue.id === concert.venue_id)?.name ?? ''
+      const artistNames = concert.artist_ids
         .map((artistId) => artists.find((artist) => artist.id === artistId)?.name ?? '')
         .join(' ')
 
-      return `${concert.title} ${concert.dateTime} ${venueName} ${artistNames}`
+      return `${concert.title} ${concert.date} ${venueName} ${artistNames}`
         .toLowerCase()
         .includes(normalizedQuery)
     })
   }, [artists, concertListQuery, concerts, venues])
   const activeModerationAttachments = activeModerationMedia?.media ?? []
   const activeModerationAttachment = activeModerationAttachments[activeModerationMediaIndex] ?? null
-  const currentAdminAccount = useMemo(() => accounts.find((account) => account.isCurrent) ?? null, [accounts])
+  const currentAdminAccount = useMemo(() => accounts.find((account) => account.is_current) ?? null, [accounts])
   const canGrantAdmins = currentAdminAccount?.role === 'super-admin'
   const filteredAdminAccounts = useMemo(() => {
     const normalizedQuery = accountListQuery.trim().toLowerCase()
@@ -183,7 +183,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                 ...item,
                 name: artistForm.name,
                 description: artistForm.description,
-                imageUrl: artistForm.imageUrl || null,
+                photo_url: artistForm.photo_url || null,
               }
             : item,
         )
@@ -196,12 +196,12 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
           id: nextId,
           name: artistForm.name,
           description: artistForm.description,
-          imageUrl: artistForm.imageUrl || null,
+          photo_url: artistForm.photo_url || null,
         },
       ]
     })
 
-    setArtistForm({ id: 0, name: '', description: '', imageUrl: '' })
+    setArtistForm({ id: 0, name: '', description: '', photo_url: '' })
   }
 
   function saveVenue() {
@@ -219,7 +219,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                 city: venueForm.city,
                 address: venueForm.address,
                 capacity,
-                imageUrl: venueForm.imageUrl || null,
+                photo_url: venueForm.photo_url || null,
               }
             : item,
         )
@@ -234,18 +234,18 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
           city: venueForm.city,
           address: venueForm.address,
           capacity,
-          imageUrl: venueForm.imageUrl || null,
+          photo_url: venueForm.photo_url || null,
         },
       ]
     })
 
-    setVenueForm({ id: 0, name: '', city: '', address: '', capacity: '0', imageUrl: '' })
+    setVenueForm({ id: 0, name: '', city: '', address: '', capacity: '0', photo_url: '' })
   }
 
   function saveConcert() {
     if (!concertForm.title.trim()) return
 
-    const venueId = Number(concertForm.venueId) || 0
+    const venue_id = Number(concertForm.venue_id) || 0
 
     setConcerts((prev) => {
       if (concertForm.id) {
@@ -254,10 +254,10 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
             ? {
                 ...item,
                 title: concertForm.title,
-                dateTime: concertForm.dateTime,
-                venueId,
-                artistIds: concertForm.artistIds,
-                bannerImageUrl: concertForm.bannerImageUrl || null,
+                date: concertForm.date,
+                venue_id,
+                artist_ids: concertForm.artist_ids,
+                poster_url: concertForm.poster_url || null,
               }
             : item,
         )
@@ -269,20 +269,20 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
         {
           id: nextId,
           title: concertForm.title,
-          dateTime: concertForm.dateTime,
-          venueId,
-          artistIds: concertForm.artistIds,
-          bannerImageUrl: concertForm.bannerImageUrl || null,
+          date: concertForm.date,
+          venue_id,
+          artist_ids: concertForm.artist_ids,
+          poster_url: concertForm.poster_url || null,
         },
       ]
     })
 
-    setConcertForm({ id: 0, title: '', dateTime: '', venueId: '0', artistIds: [], bannerImageUrl: '' })
+    setConcertForm({ id: 0, title: '', date: '', venue_id: '0', artist_ids: [], poster_url: '' })
   }
 
   function removeArtist(id: number) {
     setArtists((prev) => prev.filter((x) => x.id !== id))
-    setConcerts((prev) => prev.map((x) => ({ ...x, artistIds: x.artistIds.filter((artistId) => artistId !== id) })))
+    setConcerts((prev) => prev.map((x) => ({ ...x, artist_ids: x.artist_ids.filter((artistId) => artistId !== id) })))
   }
 
   function removeVenue(id: number) {
@@ -293,11 +293,11 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
     setConcerts((prev) => prev.filter((x) => x.id !== id))
   }
 
-  function setAccountBanState(id: number, isBanned: boolean) {
+  function setAccountBanState(id: number, is_banned: boolean) {
     setAccounts((prev) =>
       prev.map((account) => {
-        if (account.id !== id || account.isCurrent) return account
-        return { ...account, isBanned }
+        if (account.id !== id || account.is_current) return account
+        return { ...account, is_banned }
       }),
     )
   }
@@ -337,9 +337,9 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
   function toggleArtistInConcert(artistId: number) {
     setConcertForm((prev) => ({
       ...prev,
-      artistIds: prev.artistIds.includes(artistId)
-        ? prev.artistIds.filter((id) => id !== artistId)
-        : [...prev.artistIds, artistId],
+      artist_ids: prev.artist_ids.includes(artistId)
+        ? prev.artist_ids.filter((id) => id !== artistId)
+        : [...prev.artist_ids, artistId],
     }))
   }
 
@@ -391,7 +391,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
 
       <div className="adminHeader">
         <p className="adminIntro">Модерация рецензий и управление концертами, артистами и площадками.</p>
-        <span className="adminBadge">Pending: {pendingCount}</span>
+        <span className="adminBadge">Pending: {pending_count}</span>
       </div>
 
       <div className="adminTabs" role="tablist" aria-label="Разделы админки">
@@ -440,14 +440,14 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
               className={moderationStream === 'pending' ? 'adminSubTab active' : 'adminSubTab'}
               onClick={() => setModerationStream('pending')}
             >
-              Новые ({pendingCount})
+              Новые ({pending_count})
             </button>
             <button
               type="button"
               className={moderationStream === 'approved' ? 'adminSubTab active' : 'adminSubTab'}
               onClick={() => setModerationStream('approved')}
             >
-              Одобренные ({approvedCount})
+              Одобренные ({approved_count})
             </button>
             <button
               type="button"
@@ -462,12 +462,12 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
             visibleModerationReviews.map((review) => (
               <article key={review.id} className="adminItemCard">
                 <div className="adminItemTop">
-                  <p className="adminItemTitle">{review.concertTitle}</p>
+                  <p className="adminItemTitle">{review.concert_title}</p>
                   <span className={`adminStatus adminStatus-${review.status}`}>{statusLabel(review.status)}</span>
                 </div>
 
                 <p className="adminItemMeta">
-                  <Link to={`/users/${encodeURIComponent(review.authorName)}`}>{review.authorName}</Link> • {formatDateTime(review.createdAt)} • {review.overallScore}
+                  <Link to={`/users/${encodeURIComponent(review.author_name)}`}>{review.author_name}</Link> • {formatDateTime(review.created_at)} • {review.rating_total}
                 </p>
                 <p className="adminItemPreview">{review.text}</p>
 
@@ -536,7 +536,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                   </button>
                 </div>
 
-                <p className="adminListMeta">{activeModerationMedia.concertTitle}</p>
+                <p className="adminListMeta">{activeModerationMedia.concert_title}</p>
 
                 {activeModerationAttachment && (
                   <>
@@ -604,10 +604,10 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => onMediaPick(e, (value) => setArtistForm((prev) => ({ ...prev, imageUrl: value })))}
+                onChange={(e) => onMediaPick(e, (value) => setArtistForm((prev) => ({ ...prev, photo_url: value })))}
               />
             </label>
-            {artistForm.imageUrl && <img className="adminPreviewImage" src={artistForm.imageUrl} alt="Превью" />}
+            {artistForm.photo_url && <img className="adminPreviewImage" src={artistForm.photo_url} alt="Превью" />}
             <div className="adminItemActions">
               <button type="button" className="settingsBtn primary" onClick={saveArtist}>
                 Сохранить
@@ -615,7 +615,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
               <button
                 type="button"
                 className="settingsBtn ghost"
-                onClick={() => setArtistForm({ id: 0, name: '', description: '', imageUrl: '' })}
+                onClick={() => setArtistForm({ id: 0, name: '', description: '', photo_url: '' })}
               >
                 Очистить
               </button>
@@ -647,7 +647,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                             id: artist.id,
                             name: artist.name,
                             description: artist.description,
-                            imageUrl: artist.imageUrl ?? '',
+                            photo_url: artist.photo_url ?? '',
                           })
                         }
                       >
@@ -701,10 +701,10 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => onMediaPick(e, (value) => setVenueForm((prev) => ({ ...prev, imageUrl: value })))}
+                onChange={(e) => onMediaPick(e, (value) => setVenueForm((prev) => ({ ...prev, photo_url: value })))}
               />
             </label>
-            {venueForm.imageUrl && <img className="adminPreviewImage" src={venueForm.imageUrl} alt="Превью" />}
+            {venueForm.photo_url && <img className="adminPreviewImage" src={venueForm.photo_url} alt="Превью" />}
             <div className="adminItemActions">
               <button type="button" className="settingsBtn primary" onClick={saveVenue}>
                 Сохранить
@@ -712,7 +712,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
               <button
                 type="button"
                 className="settingsBtn ghost"
-                onClick={() => setVenueForm({ id: 0, name: '', city: '', address: '', capacity: '0', imageUrl: '' })}
+                onClick={() => setVenueForm({ id: 0, name: '', city: '', address: '', capacity: '0', photo_url: '' })}
               >
                 Очистить
               </button>
@@ -748,7 +748,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                             city: venue.city,
                             address: venue.address,
                             capacity: String(venue.capacity),
-                            imageUrl: venue.imageUrl ?? '',
+                            photo_url: venue.photo_url ?? '',
                           })
                         }
                       >
@@ -781,8 +781,8 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
             <input
               className="adminInput"
               type="datetime-local"
-              value={concertForm.dateTime}
-              onChange={(e) => setConcertForm((prev) => ({ ...prev, dateTime: e.target.value }))}
+              value={concertForm.date}
+              onChange={(e) => setConcertForm((prev) => ({ ...prev, date: e.target.value }))}
             />
 
             <label className="adminInlineLabel">Площадка</label>
@@ -805,7 +805,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                   <button
                     type="button"
                     className="settingsBtn ghost"
-                    onClick={() => setConcertForm((prev) => ({ ...prev, venueId: '0' }))}
+                    onClick={() => setConcertForm((prev) => ({ ...prev, venue_id: '0' }))}
                   >
                     Сбросить
                   </button>
@@ -845,7 +845,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                 <button
                   type="button"
                   className="settingsBtn ghost"
-                  onClick={() => setConcertForm((prev) => ({ ...prev, artistIds: [] }))}
+                  onClick={() => setConcertForm((prev) => ({ ...prev, artist_ids: [] }))}
                 >
                   Очистить выбор
                 </button>
@@ -858,12 +858,12 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                 type="file"
                 accept="image/*"
                 onChange={(e) =>
-                  onMediaPick(e, (value) => setConcertForm((prev) => ({ ...prev, bannerImageUrl: value })))
+                  onMediaPick(e, (value) => setConcertForm((prev) => ({ ...prev, poster_url: value })))
                 }
               />
             </label>
-            {concertForm.bannerImageUrl && (
-              <img className="adminPreviewImage" src={concertForm.bannerImageUrl} alt="Превью афиши" />
+            {concertForm.poster_url && (
+              <img className="adminPreviewImage" src={concertForm.poster_url} alt="Превью афиши" />
             )}
 
             <div className="adminItemActions">
@@ -877,10 +877,10 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                   setConcertForm({
                     id: 0,
                     title: '',
-                    dateTime: '',
-                    venueId: '0',
-                    artistIds: [],
-                    bannerImageUrl: '',
+                    date: '',
+                    venue_id: '0',
+                    artist_ids: [],
+                    poster_url: '',
                   })
                 }
               >
@@ -900,8 +900,8 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
             <div className="adminScrollableList">
               {filteredAdminConcerts.length > 0 ? (
                 filteredAdminConcerts.map((concert) => {
-                  const venueName = venues.find((venue) => venue.id === concert.venueId)?.name ?? 'Без площадки'
-                  const artistNames = concert.artistIds
+                  const venueName = venues.find((venue) => venue.id === concert.venue_id)?.name ?? 'Без площадки'
+                  const artistNames = concert.artist_ids
                     .map((artistId) => artists.find((artist) => artist.id === artistId)?.name)
                     .filter(Boolean)
                     .join(', ')
@@ -911,7 +911,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                       <div>
                         <p className="adminListTitle">{concert.title}</p>
                         <p className="adminListMeta">
-                          {formatDateTime(concert.dateTime)} • {venueName}
+                          {formatDateTime(concert.date)} • {venueName}
                         </p>
                         <p className="adminListMeta">{artistNames || 'Артисты не выбраны'}</p>
                       </div>
@@ -923,10 +923,10 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                             setConcertForm({
                               id: concert.id,
                               title: concert.title,
-                              dateTime: concert.dateTime,
-                              venueId: String(concert.venueId),
-                              artistIds: concert.artistIds,
-                              bannerImageUrl: concert.bannerImageUrl ?? '',
+                              date: concert.date,
+                              venue_id: String(concert.venue_id),
+                              artist_ids: concert.artist_ids,
+                              poster_url: concert.poster_url ?? '',
                             })
                           }
                         >
@@ -965,14 +965,14 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                 <div className="adminModalList" role="listbox" aria-label="Список площадок">
                   {filteredVenues.length > 0 ? (
                     filteredVenues.map((venue) => {
-                      const active = String(venue.id) === concertForm.venueId
+                      const active = String(venue.id) === concertForm.venue_id
                       return (
                         <button
                           key={venue.id}
                           type="button"
                           className={active ? 'adminModalOption active' : 'adminModalOption'}
                           onClick={() => {
-                            setConcertForm((prev) => ({ ...prev, venueId: String(venue.id) }))
+                            setConcertForm((prev) => ({ ...prev, venue_id: String(venue.id) }))
                             setIsVenueModalOpen(false)
                           }}
                         >
@@ -1011,7 +1011,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                 <div className="adminModalList" role="listbox" aria-label="Список артистов">
                   {filteredArtists.length > 0 ? (
                     filteredArtists.map((artist) => {
-                      const active = concertForm.artistIds.includes(artist.id)
+                      const active = concertForm.artist_ids.includes(artist.id)
                       return (
                         <button
                           key={artist.id}
@@ -1065,19 +1065,19 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                       <p className="adminListMeta">{account.handle}</p>
                       <div className="adminAccountMetaRow">
                         <span className="adminStatus">{roleLabel(account.role)}</span>
-                        {account.isBanned && <span className="adminStatus adminStatus-rejected">Заблокирован</span>}
-                        {account.isCurrent && <span className="adminStatus adminStatus-approved">Текущий аккаунт</span>}
+                        {account.is_banned && <span className="adminStatus adminStatus-rejected">Заблокирован</span>}
+                        {account.is_current && <span className="adminStatus adminStatus-approved">Текущий аккаунт</span>}
                       </div>
                     </div>
 
                     <div className="adminRowActions">
-                      {!account.isCurrent && (
+                      {!account.is_current && (
                         <button
                           type="button"
                           className="settingsBtn ghost"
-                          onClick={() => setAccountBanState(account.id, !account.isBanned)}
+                          onClick={() => setAccountBanState(account.id, !account.is_banned)}
                         >
-                          {account.isBanned ? 'Разбанить' : 'Забанить'}
+                          {account.is_banned ? 'Разбанить' : 'Забанить'}
                         </button>
                       )}
 
@@ -1092,7 +1092,7 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
                         </button>
                       )}
 
-                      {account.role === 'admin' && !account.isCurrent && (
+                      {account.role === 'admin' && !account.is_current && (
                         <button
                           type="button"
                           className="settingsBtn ghost"
@@ -1117,3 +1117,4 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
 }
 
 export default AdminPage
+

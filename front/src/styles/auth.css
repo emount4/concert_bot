@@ -1,0 +1,90 @@
+.authPage {
+  min-height: calc(100svh - 40px);
+  display: grid;
+  place-items: center;
+  padding: 24px 12px;
+}
+
+.authCard {
+  width: min(440px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 18px;
+}
+
+.authTitle {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.authSubtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.authForm {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.authField {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.authInput {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--fg);
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.authInput::placeholder {
+  color: var(--muted);
+}
+
+.authError {
+  margin: 0;
+  color: #ff9fa3;
+  font-size: 13px;
+}
+
+.authSubmit {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--fg);
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.authSubmit:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.authHint {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.authSwitchRow {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.authLink {
+  color: var(--fg);
+  text-decoration: underline;
+}

@@ -16,10 +16,10 @@ function formatDate(value: string): string {
 export function ProfilePage() {
   // Задание 6.3: витрина профиля в стиле дашборда с моими рецензиями.
   const profile = MOCK_PROFILE
-  const profileReviewCards = profile.recentReviews
+  const profileReviewCards = profile.recent_reviews
     .map((item) => MOCK_REVIEWS.find((review) => review.id === item.id))
     .filter((review): review is NonNullable<typeof review> => Boolean(review))
-    .map((review) => ({ ...review, authorName: profile.displayName }))
+    .map((review) => ({ ...review, author_name: profile.displayName }))
 
   return (
     <section className="page">
@@ -33,7 +33,7 @@ export function ProfilePage() {
             <div className="profileIdentity">
               <h2 className="profileName">{profile.displayName}</h2>
               <p className="profileHandle">{profile.handle}</p>
-              <p className="profileSince">С нами с {formatDate(profile.createdAt)}</p>
+              <p className="profileSince">С нами с {formatDate(profile.created_at)}</p>
             </div>
           </div>
 
@@ -45,17 +45,17 @@ export function ProfilePage() {
 
           <div className="profileStatGrid">
             <div className="profileStatCard">
-              <p className="profileStatValue">{profile.reviewsCount}</p>
+              <p className="profileStatValue">{profile.reviews_count}</p>
               <p className="profileStatLabel">Всего рецензий</p>
             </div>
 
             <div className="profileStatCard">
-              <p className="profileStatValue">{profile.approvedCount}</p>
+              <p className="profileStatValue">{profile.approved_count}</p>
               <p className="profileStatLabel">Одобрено</p>
             </div>
 
             <div className="profileStatCard">
-              <p className="profileStatValue">{profile.pendingCount}</p>
+              <p className="profileStatValue">{profile.pending_count}</p>
               <p className="profileStatLabel">На модерации</p>
             </div>
           </div>
@@ -74,3 +74,4 @@ export function ProfilePage() {
     </section>
   )
 }
+

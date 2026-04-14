@@ -9,20 +9,21 @@ export type Venue = {
   name: string
   city: string
   address: string
-  imageUrl: string | null
+  photo_url: string | null
 }
 
 export type ConcertStats = {
-  avgOverallScore: number | null
-  reviewsCount: number
+  avg_rating_total: number | null
+  reviews_count: number
 }
 
 export type Concert = {
   id: number
   title: string | null
-  dateTime: string
-  bannerImageUrl: string | null
+  date: string
+  poster_url: string | null
   venue: Venue
   artists: Artist[]
   stats: ConcertStats
 }
+

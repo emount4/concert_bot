@@ -31,12 +31,12 @@ export function ConcertsPage() {
         return false
       }
 
-      if (onlyRated && concert.stats.avgOverallScore === null) {
+      if (onlyRated && concert.stats.avg_rating_total === null) {
         return false
       }
 
       if (upcomingOnly) {
-        const concertDate = new Date(concert.dateTime)
+        const concertDate = new Date(concert.date)
         if (Number.isNaN(concertDate.getTime()) || concertDate < now) {
           return false
         }
@@ -62,11 +62,11 @@ export function ConcertsPage() {
       let base = 0
 
       if (sortBy === 'date') {
-        base = new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+        base = new Date(b.date).getTime() - new Date(a.date).getTime()
       } else if (sortBy === 'rating') {
-        base = (b.stats.avgOverallScore ?? -1) - (a.stats.avgOverallScore ?? -1)
+        base = (b.stats.avg_rating_total ?? -1) - (a.stats.avg_rating_total ?? -1)
       } else if (sortBy === 'reviews') {
-        base = b.stats.reviewsCount - a.stats.reviewsCount
+        base = b.stats.reviews_count - a.stats.reviews_count
       } else {
         base = (b.title ?? '').localeCompare(a.title ?? '', 'ru-RU')
       }
@@ -162,3 +162,4 @@ export function ConcertsPage() {
     </section>
   )
 }
+

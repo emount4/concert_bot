@@ -2,6 +2,11 @@
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+  padding-left: var(--sidebar-collapsed);
+}
+
+.appRoot.authMode {
+  padding-left: 0;
 }
 
 .main {

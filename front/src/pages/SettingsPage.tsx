@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { logout } from '../utils/authMock'
 
 type DefaultTab = 'concerts' | 'reviews' | 'artists' | 'venues'
 
@@ -89,6 +91,7 @@ export function SettingsPage() {
   // Задание 7.1: страница настроек именно для Telegram Mini App.
   const [settings, setSettings] = useState<SettingsState>(INITIAL_SETTINGS)
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   function toggleField(field: BooleanSettingKey) {
     setSettings((prev) => ({ ...prev, [field]: !prev[field] }))
@@ -102,6 +105,11 @@ export function SettingsPage() {
   function onReset() {
     setSettings(INITIAL_SETTINGS)
     setLastSavedAt(null)
+  }
+
+  function onLogout() {
+    logout()
+    navigate('/login', { replace: true })
   }
 
   return (
@@ -252,6 +260,9 @@ export function SettingsPage() {
         <p className="settingsSummary">Вкладка по умолчанию: {defaultTabLabel(settings.defaultTab)}</p>
 
         <div className="settingsActions">
+          <button type="button" className="settingsBtn ghost" onClick={onLogout}>
+            Выйти
+          </button>
           <button type="button" className="settingsBtn ghost" onClick={onReset}>
             Сбросить
           </button>

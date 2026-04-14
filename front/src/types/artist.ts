@@ -1,7 +1,8 @@
 // Задание 3.1: тип карточки артиста для витрины.
 export type ArtistCardItem = {
   id: number
-  nickname: string
-  imageUrl: string | null
-  avgConcertScore: number | null
+  name: string
+  photo_url: string | null
+  avg_rating_total: number | null
 }
+

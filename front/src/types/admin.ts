@@ -10,10 +10,10 @@ export type AdminReviewAttachment = {
 
 export type AdminReviewModerationItem = {
   id: number
-  authorName: string
-  concertTitle: string
-  createdAt: string
-  overallScore: number
+  author_name: string
+  concert_title: string
+  created_at: string
+  rating_total: number
   status: AdminReviewStatus
   text: string
   media?: AdminReviewAttachment[]
@@ -23,7 +23,7 @@ export type AdminArtist = {
   id: number
   name: string
   description: string
-  imageUrl: string | null
+  photo_url: string | null
 }
 
 export type AdminVenue = {
@@ -32,16 +32,16 @@ export type AdminVenue = {
   city: string
   address: string
   capacity: number
-  imageUrl: string | null
+  photo_url: string | null
 }
 
 export type AdminConcert = {
   id: number
   title: string
-  dateTime: string
-  venueId: number
-  artistIds: number[]
-  bannerImageUrl: string | null
+  date: string
+  venue_id: number
+  artist_ids: number[]
+  poster_url: string | null
 }
 
 export type AdminAccountRole = 'user' | 'admin' | 'super-admin'
@@ -51,6 +51,7 @@ export type AdminAccount = {
   displayName: string
   handle: string
   role: AdminAccountRole
-  isBanned: boolean
-  isCurrent: boolean
+  is_banned: boolean
+  is_current: boolean
 }
+

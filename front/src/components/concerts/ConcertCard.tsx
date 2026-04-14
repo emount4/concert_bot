@@ -36,18 +36,18 @@ function formatReviewsCount(value: number): string {
 export function ConcertCard({ concert }: ConcertCardProps) {
   // Задание 2.2: карточка работает с API-структурой концерта.
   const artistsLabel = concert.artists.map((artist) => artist.name).join(', ') || 'Артист не указан'
-  const rating = concert.stats.avgOverallScore
+  const rating = concert.stats.avg_rating_total
   const roundedRating = rating === null ? null : Math.round(rating)
-  const hasReviews = concert.stats.reviewsCount > 0
+  const hasReviews = concert.stats.reviews_count > 0
 
   return (
     <article className="concertCard">
       {/* Задание 2.3: заменить заглушку афиши на реальное изображение (если есть URL). */}
       <div className="concertPoster" aria-label="Постер концерта">
-        {concert.bannerImageUrl && (
+        {concert.poster_url && (
           <img
             className="concertPosterImg"
-            src={concert.bannerImageUrl}
+            src={concert.poster_url}
             alt=""
             loading="lazy"
             decoding="async"
@@ -58,7 +58,7 @@ export function ConcertCard({ concert }: ConcertCardProps) {
 
       <div className="concertBottom">
         <div className="concertInfo">
-          <h2 className="concertTitle">{concert.title ?? 'Без названия'}</h2>
+          <h2 className="concert_title">{concert.title ?? 'Без названия'}</h2>
 
           <p className="concertMeta">
             <InfoIcon kind="artist" />
@@ -67,7 +67,7 @@ export function ConcertCard({ concert }: ConcertCardProps) {
 
           <p className="concertMeta">
             <InfoIcon kind="date" />
-            <span className="metaText">{formatConcertDate(concert.dateTime)}</span>
+            <span className="metaText">{formatConcertDate(concert.date)}</span>
           </p>
 
           <p className="concertMeta">
@@ -84,10 +84,11 @@ export function ConcertCard({ concert }: ConcertCardProps) {
               </div>
             )}
 
-            {hasReviews && <p className="reviewsCount">{formatReviewsCount(concert.stats.reviewsCount)}</p>}
+            {hasReviews && <p className="reviews_count">{formatReviewsCount(concert.stats.reviews_count)}</p>}
           </div>
         )}
       </div>
     </article>
   )
 }
+

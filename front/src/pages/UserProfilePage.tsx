@@ -25,17 +25,17 @@ export function UserProfilePage() {
   const displayName = decodeURIComponent(params.displayName ?? '').trim()
 
   const userReviews = useMemo(
-    () => MOCK_REVIEWS.filter((review) => review.authorName === displayName),
+    () => MOCK_REVIEWS.filter((review) => review.author_name === displayName),
     [displayName],
   )
   const avgScore =
     userReviews.length > 0
-      ? Math.round(userReviews.reduce((sum, review) => sum + review.overallScore, 0) / userReviews.length)
+      ? Math.round(userReviews.reduce((sum, review) => sum + review.rating_total, 0) / userReviews.length)
       : null
   const mediaReviewsCount = userReviews.filter((review) => (review.media?.length ?? 0) > 0).length
 
   const isOwnProfileData = displayName === MOCK_PROFILE.displayName
-  const profileSince = isOwnProfileData ? formatDate(MOCK_PROFILE.createdAt) : 'дата регистрации неизвестна'
+  const profileSince = isOwnProfileData ? formatDate(MOCK_PROFILE.created_at) : 'дата регистрации неизвестна'
   const profileBio = isOwnProfileData
     ? MOCK_PROFILE.bio
     : 'Пользователь публикует рецензии на концерты и делится впечатлениями о выступлениях.'
@@ -112,3 +112,4 @@ export function UserProfilePage() {
     </section>
   )
 }
+

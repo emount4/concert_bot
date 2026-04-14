@@ -50,13 +50,13 @@ export function ReviewCard({ review }: ReviewCardProps) {
   return (
     <article className="reviewCard">
       <header className="reviewHeader">
-        <Link to={`/users/${encodeURIComponent(review.authorName)}`} className="reviewAuthor reviewAuthorLink">
+        <Link to={`/users/${encodeURIComponent(review.author_name)}`} className="reviewAuthor reviewAuthorLink">
           {/* Задание 10.4: маленькая афиша и аватар пользователя в карточке рецензии. */}
           <div className="reviewAvatar" aria-hidden="true">
-            {review.authorAvatarUrl && (
+            {review.author_avatar_url && (
               <img
                 className="reviewAvatarImg"
-                src={review.authorAvatarUrl}
+                src={review.author_avatar_url}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -64,11 +64,11 @@ export function ReviewCard({ review }: ReviewCardProps) {
               />
             )}
           </div>
-          <p className="reviewAuthorName">{review.authorName}</p>
+          <p className="reviewAuthorName">{review.author_name}</p>
         </Link>
 
         <div className="reviewScoreWrap">
-          <div className="ratingCircle reviewRatingCircle">{review.overallScore}</div>
+          <div className="ratingCircle reviewRatingCircle">{review.rating_total}</div>
 
           <div className="reviewParamRow" aria-label="Оценки по параметрам">
             {scoreRow(review).map((item, idx) => (
@@ -87,10 +87,10 @@ export function ReviewCard({ review }: ReviewCardProps) {
           onClick={() => navigate(`/concerts/${review.concertId}/rate`)}
         >
           <div className="reviewConcertPosterMedia">
-            {review.concertPosterUrl ? (
+            {review.concert_poster_url ? (
               <img
                 className="reviewConcertPosterImg"
-                src={review.concertPosterUrl}
+                src={review.concert_poster_url}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -102,14 +102,14 @@ export function ReviewCard({ review }: ReviewCardProps) {
           </div>
 
           <div className="reviewPosterTooltip">
-            <p className="reviewPosterTooltipTitle">{review.concertTitle}</p>
-            <p className="reviewPosterTooltipArtist">{review.concertArtist}</p>
+            <p className="reviewPosterTooltipTitle">{review.concert_title}</p>
+            <p className="reviewPosterTooltipArtist">{review.concert_artist}</p>
           </div>
         </button>
       </header>
 
       <div className="reviewBody">
-        <h2 className="reviewConcertTitle">{review.concertTitle}</h2>
+        <h2 className="reviewConcertTitle">{review.concert_title}</h2>
 
         <p className={expanded ? 'reviewText expanded' : 'reviewText'}>{review.text}</p>
 
@@ -192,3 +192,4 @@ export function ReviewCard({ review }: ReviewCardProps) {
     </article>
   )
 }
+
