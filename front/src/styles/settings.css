@@ -312,3 +312,38 @@
   font-size: 12px;
   color: #a7f3d0;
 }
+
+.settingsModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 18, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 120;
+}
+
+.settingsModalCard {
+  width: min(720px, 100%);
+  max-height: min(80vh, 760px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.settingsModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settingsModalTitle {
+  margin: 0;
+  font-size: 16px;
+}

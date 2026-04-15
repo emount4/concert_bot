@@ -4,6 +4,7 @@ import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
+import { buildPaginationItems } from '../utils/pagination'
 
 type ScoreState = {
   performance: number
@@ -18,6 +19,8 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
 }
+
+const RATE_REVIEWS_PAGE_SIZE = 10
 
 export function RateConcertPage() {
   // Задание 11.1: первичный экран оценивания концерта с ползунками и списком рецензий.
@@ -124,6 +127,22 @@ export function RateConcertPage() {
     () => reviews.filter((review) => review.concertId === numericConcertId),
     [numericConcertId, reviews],
   )
+
+  const [reviewsPage, setReviewsPage] = useState(1)
+
+  useEffect(() => {
+    setReviewsPage(1)
+  }, [numericConcertId, concertReviews.length])
+
+  const rateReviewsPageCount = Math.ceil(concertReviews.length / RATE_REVIEWS_PAGE_SIZE)
+  const rateReviewsPaginationItems = useMemo(
+    () => buildPaginationItems(reviewsPage, rateReviewsPageCount),
+    [reviewsPage, rateReviewsPageCount],
+  )
+  const pagedConcertReviews = useMemo(() => {
+    const offset = (reviewsPage - 1) * RATE_REVIEWS_PAGE_SIZE
+    return concertReviews.slice(offset, offset + RATE_REVIEWS_PAGE_SIZE)
+  }, [concertReviews, reviewsPage])
   // Задание 13.2: раскладка средней оценки концерта по параметрам (до десятых).
   const concertAvgScores = useMemo(() => computeAvgScoresFromReviews(concertReviews), [concertReviews])
   const concertDateLabel = useMemo(() => {
@@ -386,14 +405,43 @@ export function RateConcertPage() {
       </section>
 
       <section className="rateReviewsSection">
-        <h3 className="rateSectionTitle">Написанные рецензии</h3>
+        <div className="rateReviewsHeader" aria-label="Блок рецензий">
+          <h3 className="rateSectionTitle">Написанные рецензии</h3>
+          <span className="rateReviewsCountBadge" aria-label={`Всего рецензий: ${concertReviews.length}`}>
+            {concertReviews.length}
+          </span>
+        </div>
 
         {concertReviews.length > 0 ? (
-          <div className="rateReviewList">
-            {concertReviews.map((review) => (
-              <ReviewCard key={review.id} review={review} />
-            ))}
-          </div>
+          <>
+            <div className="rateReviewList">
+              {pagedConcertReviews.map((review) => (
+                <div key={review.id} className="rateReviewItem">
+                  <ReviewCard review={review} textMode="expanded" />
+                </div>
+              ))}
+            </div>
+
+            {rateReviewsPageCount > 1 && (
+              <div className="pagination" role="navigation" aria-label="Пагинация рецензий концерта">
+                {rateReviewsPaginationItems.map((item, index) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${index}`} className="paginationEllipsis" aria-hidden="true">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      className={item === reviewsPage ? 'settingsBtn primary' : 'settingsBtn ghost'}
+                      onClick={() => setReviewsPage(item)}
+                      aria-current={item === reviewsPage ? 'page' : undefined}
+                    >
+                      {item}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <div className="placeholder">Пока нет опубликованных рецензий по этому концерту</div>
         )}

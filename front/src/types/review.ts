@@ -13,6 +13,12 @@ export type ReviewMediaAttachment = {
   url: string
 }
 
+export type ReviewLikeUser = {
+  name: string
+  username?: string
+  avatar_url?: string | null
+}
+
 export type ReviewCardItem = {
   review_id?: string
   concert_id?: string
@@ -28,5 +34,6 @@ export type ReviewCardItem = {
   scores: ReviewScores
   text: string
   media?: ReviewMediaAttachment[]
+  likes?: ReviewLikeUser[]
 }
 

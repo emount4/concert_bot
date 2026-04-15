@@ -51,6 +51,8 @@ export function SettingsPage() {
 
   const [profileChangeRequests, setProfileChangeRequests] = useState<AdminProfileChangeRequest[]>([])
 
+  const [isModerationModalOpen, setIsModerationModalOpen] = useState(false)
+
   const initialUsername = useMemo(() => normalizeUsername(profile?.handle ?? ''), [profile?.handle])
   const initialBio = useMemo(() => profile?.bio ?? '', [profile?.bio])
 
@@ -122,6 +124,19 @@ export function SettingsPage() {
     setBannerPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [bannerFile])
+
+  useEffect(() => {
+    if (!isModerationModalOpen) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsModerationModalOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isModerationModalOpen])
 
   async function checkUsernameUnique() {
     // Задание 7.3: проверка уникальности username (мок).
@@ -441,18 +456,12 @@ export function SettingsPage() {
               </div>
 
               <div className="settingsControl">
-                {profileChangeRequests.length === 0 ? (
-                  <p className="settingsHint">Пока нет заявок.</p>
-                ) : (
-                  <ul className="settingsList" aria-label="Заявки на модерацию">
-                    {profileChangeRequests.map((item) => (
-                      <li key={item.id} className="settingsListItem">
-                        <span className="settingsListTitle">{changeTypeTitle(item.type)}</span>
-                        <span className="settingsBadge">{moderationStatusRu(item.status)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="settingsInline settingsInlineWide">
+                  <p className="settingsHint">Заявок: {profileChangeRequests.length}</p>
+                  <button type="button" className="settingsBtn ghost" onClick={() => setIsModerationModalOpen(true)}>
+                    Открыть
+                  </button>
+                </div>
               </div>
             </div>
           </article>
@@ -680,6 +689,38 @@ export function SettingsPage() {
                 support@concert.bot
               </a>
             </div>
+          </article>
+        </div>
+      )}
+
+      {isModerationModalOpen && (
+        <div className="settingsModalBackdrop" onClick={() => setIsModerationModalOpen(false)}>
+          <article
+            className="settingsModalCard"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Статус модерации"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="settingsModalHeader">
+              <h3 className="settingsModalTitle">Статус модерации</h3>
+              <button type="button" className="settingsBtn ghost" onClick={() => setIsModerationModalOpen(false)}>
+                Закрыть
+              </button>
+            </div>
+
+            {profileChangeRequests.length === 0 ? (
+              <p className="settingsHint">Пока нет заявок.</p>
+            ) : (
+              <ul className="settingsList" aria-label="Заявки на модерацию">
+                {profileChangeRequests.map((item) => (
+                  <li key={item.id} className="settingsListItem">
+                    <span className="settingsListTitle">{changeTypeTitle(item.type)}</span>
+                    <span className="settingsBadge">{moderationStatusRu(item.status)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </article>
         </div>
       )}

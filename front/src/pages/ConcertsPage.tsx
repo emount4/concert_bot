@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { useAppData } from '../api/AppDataProvider'
+import { buildPaginationItems } from '../utils/pagination'
 
 type ConcertSortBy = 'date' | 'rating' | 'reviews' | 'title'
 type SortDirection = 'desc' | 'asc'
+const CONCERTS_PAGE_SIZE = 12
 
 export function ConcertsPage() {
   // Задание 9.1: фильтрация и сортировка списка концертов на фронтенде.
@@ -15,6 +17,7 @@ export function ConcertsPage() {
   // Задание 12.4: единый контрол сортировки (поле + стрелка направления).
   const [sortBy, setSortBy] = useState<ConcertSortBy>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const { data, isLoading, error } = useAppData()
   const concerts = data?.concerts ?? []
@@ -77,6 +80,17 @@ export function ConcertsPage() {
       return sortDirection === 'desc' ? base : -base
     })
   }, [cityFilter, concerts, onlyRated, search, sortBy, sortDirection, upcomingOnly])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, cityFilter, onlyRated, upcomingOnly, sortBy, sortDirection])
+
+  const pageCount = Math.ceil(filteredConcerts.length / CONCERTS_PAGE_SIZE)
+  const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
+  const pagedConcerts = useMemo(() => {
+    const offset = (currentPage - 1) * CONCERTS_PAGE_SIZE
+    return filteredConcerts.slice(offset, offset + CONCERTS_PAGE_SIZE)
+  }, [currentPage, filteredConcerts])
 
   if (isLoading) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
@@ -160,13 +174,35 @@ export function ConcertsPage() {
 
       {/* Задание 1: карточки концертов с пустым местом под афишу и рейтингом справа. */}
       {filteredConcerts.length > 0 ? (
-        <div className="concertGrid">
-          {filteredConcerts.map((concert) => (
-            <Link key={concert.id} to={`/concerts/${concert.id}/rate`} className="concertCardLink">
-              <ConcertCard concert={concert} />
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="concertGrid">
+            {pagedConcerts.map((concert) => (
+              <Link key={concert.id} to={`/concerts/${concert.id}/rate`} className="concertCardLink">
+                <ConcertCard concert={concert} />
+              </Link>
+            ))}
+          </div>
+
+          {pageCount > 1 && (
+            <div className="pagination" role="navigation" aria-label="Пагинация концертов">
+              {paginationItems.map((item, index) =>
+                item === 'ellipsis' ? (
+                  <span key={`ellipsis-${index}`} className="paginationEllipsis" aria-hidden="true">…</span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className={item === currentPage ? 'settingsBtn primary' : 'settingsBtn ghost'}
+                    onClick={() => setCurrentPage(item)}
+                    aria-current={item === currentPage ? 'page' : undefined}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
+            </div>
+          )}
+        </>
       ) : (
         <div className="placeholder">По выбранным фильтрам концертов не найдено</div>
       )}

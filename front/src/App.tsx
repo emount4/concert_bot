@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { TopBar } from './components/layout/TopBar'
 import { Header } from './components/layout/Header'
+import { Footer } from './components/layout/Footer'
 import { ConcertsPage } from './pages/ConcertsPage'
 import { ArtistsPage } from './pages/ArtistsPage'
 import { ReviewsPage } from './pages/ReviewsPage'
@@ -44,6 +45,7 @@ function App() {
   const isAdmin = resolveIsAdmin() || isAdminRole
   const loggedIn = isAuthenticated()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
+  const hideFooter = location.pathname === '/login'
 
   return (
     <div className={isAuthPage ? 'appRoot authMode' : 'appRoot'}>
@@ -146,6 +148,8 @@ function App() {
           <Route path="*" element={<Navigate to={loggedIn ? '/concerts' : '/login'} replace />} />
         </Routes>
       </main>
+
+      {!hideFooter && <Footer />}
     </div>
   )
 }

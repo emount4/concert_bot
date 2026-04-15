@@ -6,6 +6,7 @@ import { VenueCard } from '../components/venues/VenueCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
+import { buildPaginationItems } from '../utils/pagination'
 
 type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
 type SortDirection = 'desc' | 'asc'
@@ -85,6 +86,7 @@ export function VenuesPage() {
   }, [search, cityFilter, capacityFrom, capacityTo, sortBy, sortDirection])
 
   const pageCount = Math.ceil(filteredVenues.length / VENUES_PAGE_SIZE)
+  const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
   const pagedVenues = useMemo(() => {
     const start = (currentPage - 1) * VENUES_PAGE_SIZE
     return filteredVenues.slice(start, start + VENUES_PAGE_SIZE)
@@ -311,25 +313,21 @@ export function VenuesPage() {
 
           {pageCount > 1 && (
             <div className="pagination" role="navigation" aria-label="Пагинация площадок">
-              <button
-                type="button"
-                className="settingsBtn ghost"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                Назад
-              </button>
-              <span className="paginationInfo">
-                Страница {currentPage} из {pageCount}
-              </span>
-              <button
-                type="button"
-                className="settingsBtn ghost"
-                onClick={() => setCurrentPage((prev) => Math.min(pageCount, prev + 1))}
-                disabled={currentPage === pageCount}
-              >
-                Вперед
-              </button>
+              {paginationItems.map((item, index) =>
+                item === 'ellipsis' ? (
+                  <span key={`ellipsis-${index}`} className="paginationEllipsis" aria-hidden="true">…</span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className={item === currentPage ? 'settingsBtn primary' : 'settingsBtn ghost'}
+                    onClick={() => setCurrentPage(item)}
+                    aria-current={item === currentPage ? 'page' : undefined}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
             </div>
           )}
         </>

@@ -22,7 +22,7 @@
 }
 
 .pageTitle {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 600;
   margin: 0 0 12px;
 }
@@ -33,4 +33,24 @@
   border-radius: 12px;
   padding: 18px;
   font-size: 14px;
+}
+
+.pagination {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.paginationInfo {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.paginationEllipsis {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 0 2px;
 }

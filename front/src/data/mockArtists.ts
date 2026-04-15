@@ -58,6 +58,54 @@ const RAW_ARTISTS: ArtistCardItem[] = [
     photo_url: null,
     avg_rating_total: 77.5,
   },
+  {
+    id: 109,
+    name: 'Вечерний Лес',
+    photo_url: null,
+    avg_rating_total: 81.2,
+  },
+  {
+    id: 110,
+    name: 'Синий Мост',
+    photo_url: null,
+    avg_rating_total: 84.9,
+  },
+  {
+    id: 111,
+    name: 'Кварц',
+    photo_url: null,
+    avg_rating_total: null,
+  },
+  {
+    id: 112,
+    name: 'Тихий Шторм',
+    photo_url: null,
+    avg_rating_total: 79.8,
+  },
+  {
+    id: 113,
+    name: 'Паруса',
+    photo_url: null,
+    avg_rating_total: 86.1,
+  },
+  {
+    id: 114,
+    name: 'Полярный Звук',
+    photo_url: null,
+    avg_rating_total: 83.7,
+  },
+  {
+    id: 115,
+    name: 'Городской Сад',
+    photo_url: null,
+    avg_rating_total: 75.9,
+  },
+  {
+    id: 116,
+    name: 'Линия Ночи',
+    photo_url: null,
+    avg_rating_total: 82.6,
+  },
 ]
 
 export const MOCK_ARTISTS: ArtistCardItem[] = RAW_ARTISTS.map((artist, index) => ({
