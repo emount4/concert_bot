@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { TopBar } from './components/layout/TopBar'
+import { Header } from './components/layout/Header'
 import { ConcertsPage } from './pages/ConcertsPage'
 import { ArtistsPage } from './pages/ArtistsPage'
 import { ReviewsPage } from './pages/ReviewsPage'
@@ -13,6 +14,7 @@ import { resolveIsAdmin } from './utils/adminAccess'
 import { LoginPage } from './pages/LoginPage'
 import { isAuthenticated } from './utils/authMock'
 import { RegisterPage } from './pages/RegisterPage'
+import { useAppData } from './api/AppDataProvider'
 import './App.css'
 
 type GuardProps = {
@@ -31,13 +33,26 @@ function GuardedRoute({ children }: GuardProps) {
 
 function App() {
   const location = useLocation()
-  const isAdmin = resolveIsAdmin()
+  const { data } = useAppData()
+
+  // Задание 19.3: доступ к админке определяется ролью (admin/super_admin) с dev-фоллбеком.
+  const isAdminRole =
+    data?.admin?.accounts?.some(
+      (account) =>
+        account.is_current && (account.role === 'admin' || account.role === 'super-admin' || account.role === 'super_admin'),
+    ) ?? false
+  const isAdmin = resolveIsAdmin() || isAdminRole
   const loggedIn = isAuthenticated()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
 
   return (
     <div className={isAuthPage ? 'appRoot authMode' : 'appRoot'}>
-      {!isAuthPage && <TopBar isAdmin={isAdmin} />}
+      {!isAuthPage && (
+        <>
+          <TopBar />
+          <Header />
+        </>
+      )}
       <main className="main">
         <Routes>
           <Route path="/" element={<Navigate to={loggedIn ? '/concerts' : '/login'} replace />} />
@@ -97,6 +112,14 @@ function App() {
           />
           <Route
             path="/profile"
+            element={
+              <GuardedRoute>
+                <ProfilePage />
+              </GuardedRoute>
+            }
+          />
+          <Route
+            path="/profile/:username"
             element={
               <GuardedRoute>
                 <ProfilePage />

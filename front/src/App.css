@@ -1,5 +1,6 @@
 @import './styles/layout.css';
 @import './styles/topbar.css';
+@import './styles/header.css';
 @import './styles/concerts.css';
 @import './styles/artists.css';
 @import './styles/reviews.css';

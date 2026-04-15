@@ -1,0 +1,164 @@
+:root {
+  --header-height: 56px;
+}
+
+.appHeader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  z-index: 15;
+
+  display: flex;
+  align-items: center;
+
+  padding-left: var(--sidebar-collapsed);
+}
+
+.appHeaderInner {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.profileMenu {
+  position: relative;
+}
+
+.profileMenuBtn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+
+  display: grid;
+  place-items: center;
+
+  cursor: pointer;
+}
+
+.profileMenuBtn:hover {
+  background: var(--hover);
+}
+
+.profileMenuBtn:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.profileMenuAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  overflow: hidden;
+
+  display: grid;
+  place-items: center;
+
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.profileMenuAvatarImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profileMenuAvatarFallback {
+  width: 22px;
+  height: 22px;
+}
+
+.profileMenuPopover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+
+  min-width: 220px;
+
+  display: grid;
+  gap: 6px;
+
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+
+  z-index: 30;
+}
+
+.profileMenuInfo {
+  padding: 10px 12px 6px;
+}
+
+.profileMenuName {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profileMenuDivider {
+  height: 1px;
+  background: var(--border);
+}
+
+.profileMenuItem {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 10px 12px;
+
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+
+  text-decoration: none;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+
+  cursor: pointer;
+  font: inherit;
+}
+
+.profileMenuItem:hover {
+  background: var(--hover);
+  border-color: var(--border);
+}
+
+.profileMenuItem:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.profileMenuItem.admin {
+  color: #fde68a;
+}
+
+.profileMenuItemIcon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --header-height: 52px;
+  }
+}

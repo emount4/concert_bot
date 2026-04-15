@@ -81,6 +81,52 @@ function seededConcertSuggestions(): AdminConcertSuggestion[] {
   ]
 }
 
+function seededProfileChanges(): AdminProfileChangeRequest[] {
+  // Задание 19.4: seed-моки заявок на модерацию профиля (для демо админ-очереди).
+  return [
+    {
+      id: randomId('pch'),
+      created_at: '2026-04-13T09:40:00Z',
+      requested_by_username: 'mark_reviews',
+      requested_by_displayName: 'Марк Колосов',
+      type: 'username',
+      status: 'pending',
+      old_username: 'mark_reviews',
+      new_username: 'mark_kolosov',
+    },
+    {
+      id: randomId('pch'),
+      created_at: '2026-04-12T18:10:00Z',
+      requested_by_username: 'mark_reviews',
+      requested_by_displayName: 'Марк Колосов',
+      type: 'bio',
+      status: 'pending',
+      old_bio: 'Хожу на живые концерты с 2017 года. Пишу рецензии без спойлеров и стараюсь отмечать сильные стороны сета.',
+      new_bio: 'Пишу рецензии про звук, подачу и зал. Люблю честные лайвы без лишнего пафоса.',
+    },
+    {
+      id: randomId('pch'),
+      created_at: '2026-04-11T12:25:00Z',
+      requested_by_username: 'mark_reviews',
+      requested_by_displayName: 'Марк Колосов',
+      type: 'banner',
+      status: 'pending',
+      old_banner_url: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
+      new_banner_url: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80',
+    },
+    {
+      id: randomId('pch'),
+      created_at: '2026-04-10T08:15:00Z',
+      requested_by_username: 'mark_reviews',
+      requested_by_displayName: 'Марк Колосов',
+      type: 'avatar',
+      status: 'pending',
+      old_avatar_url: null,
+      new_avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+    },
+  ]
+}
+
 export function ensureAdminStoreSeeded(): void {
   const currentCities = loadCities()
   if (currentCities.length === 0) {
@@ -99,7 +145,7 @@ export function ensureAdminStoreSeeded(): void {
 
   const currentProfileChanges = loadProfileChangeRequests()
   if (currentProfileChanges.length === 0) {
-    saveProfileChangeRequests([])
+    saveProfileChangeRequests(seededProfileChanges())
   }
 }
 
