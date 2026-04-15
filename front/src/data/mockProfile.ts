@@ -11,9 +11,9 @@ export const MOCK_PROFILE: UserProfile = {
   reviews_count: 3,
   approved_count: 1,
   pending_count: 1,
-  avatar_url: null,
+  avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80',
   banner_url:
-    'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=960&h=300&q=80',
   is_active: true,
   recent_reviews: [
     {

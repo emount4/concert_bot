@@ -54,7 +54,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
         <Link to={`/users/${authorLinkParam}`} className="reviewAuthor reviewAuthorLink">
           {/* Задание 10.4: маленькая афиша и аватар пользователя в карточке рецензии. */}
           <div className="reviewAvatar" aria-hidden="true">
-            {review.author_avatar_url && (
+            {review.author_avatar_url ? (
               <img
                 className="reviewAvatarImg"
                 src={review.author_avatar_url}
@@ -63,6 +63,22 @@ export function ReviewCard({ review }: ReviewCardProps) {
                 decoding="async"
                 referrerPolicy="no-referrer"
               />
+            ) : (
+              <svg className="reviewAvatarFallback" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 12.2a4.2 4.2 0 1 0-4.2-4.2A4.2 4.2 0 0 0 12 12.2Z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="M5 20.5a7 7 0 0 1 14 0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
             )}
           </div>
           <p className="reviewAuthorName">{review.author_name}</p>

@@ -43,6 +43,7 @@ type ReviewVm = {
 type ProfileBundle = {
   username: string
   is_active: boolean
+  createdAt: string | null
   avatarUrl: string | null
   bannerUrl: string | null
   bio: string | null
@@ -60,6 +61,23 @@ type ProfileBundle = {
 
 function normalizeUsername(value: string): string {
   return value.trim().replace(/^@+/, '').toLowerCase()
+}
+
+function normalizeOptionalUrl(value: string | null | undefined): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+function formatShortDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleDateString('ru-RU', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 }
 
 function sleep(ms: number): Promise<void> {
@@ -174,6 +192,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
           bio: data.profile.bio,
           avatar_url: data.profile.avatar_url,
           banner_url: data.profile.banner_url ?? null,
+          created_at: data.profile.created_at,
           is_active: data.profile.is_active ?? true,
         }
       }
@@ -182,19 +201,21 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
       const is_active = userFromDirectory.is_active
 
+      const createdAt = is_active ? (isOwn ? data.profile.created_at : userFromDirectory.created_at) : null
+
       const avatarUrl =
         !is_active
           ? null
           : isOwn
-            ? (data.profile.avatar_url ?? userFromDirectory.avatar_url)
-            : userFromDirectory.avatar_url
+            ? (normalizeOptionalUrl(data.profile.avatar_url) ?? normalizeOptionalUrl(userFromDirectory.avatar_url))
+            : normalizeOptionalUrl(userFromDirectory.avatar_url)
 
       const bannerUrl =
         !is_active
           ? null
           : isOwn
-            ? (data.profile.banner_url ?? userFromDirectory.banner_url)
-            : userFromDirectory.banner_url
+            ? (normalizeOptionalUrl(data.profile.banner_url) ?? normalizeOptionalUrl(userFromDirectory.banner_url))
+            : normalizeOptionalUrl(userFromDirectory.banner_url)
 
       const bio = !is_active ? null : isOwn ? data.profile.bio : userFromDirectory.bio
 
@@ -277,6 +298,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
       return {
         username,
         is_active,
+        createdAt,
         avatarUrl,
         bannerUrl,
         bio,
@@ -325,10 +347,10 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
       <div className="profileLayout">
         <div className="profileSidebar">
-          <article className="profileCard">
+          <article className="profileCard profileIdentityCard">
             {bundle.is_active ? (
               <div className="profileAvatar" aria-label="Аватар пользователя">
-                {bundle.avatarUrl && (
+                {bundle.avatarUrl ? (
                   <img
                     className="profileAvatarImg"
                     src={bundle.avatarUrl}
@@ -337,6 +359,22 @@ export function ProfileScreen(props: ProfileScreenProps) {
                     decoding="async"
                     referrerPolicy="no-referrer"
                   />
+                ) : (
+                  <svg className="profileAvatarFallback" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 12.2a4.2 4.2 0 1 0-4.2-4.2A4.2 4.2 0 0 0 12 12.2Z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    />
+                    <path
+                      d="M5 20.5a7 7 0 0 1 14 0"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
                 )}
               </div>
             ) : (
@@ -348,12 +386,8 @@ export function ProfileScreen(props: ProfileScreenProps) {
               {bundle.showAdminBadge && <span className="profileRoleBadge">Админ</span>}
             </div>
 
-            {bundle.isOwn && bundle.is_active && (
-              <div className="profileActionRow">
-                <Link to="/settings" className="profileEditBtn">
-                  Редактировать
-                </Link>
-              </div>
+            {bundle.is_active && bundle.createdAt && (
+              <p className="profileRegisteredAt">На сайте с {formatShortDate(bundle.createdAt)}</p>
             )}
 
             {bundle.is_active && bundle.bio && bundle.bio.trim() && <p className="profileBio">{bundle.bio}</p>}

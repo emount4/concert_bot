@@ -6,6 +6,7 @@ export type MockUserDirectoryItem = {
   bio: string | null
   avatar_url: string | null
   banner_url: string | null
+  created_at: string
   is_active: boolean
 }
 
@@ -52,6 +53,7 @@ export const MOCK_USERS: MockUserDirectoryItem[] = [
     bio: 'Хожу на живые концерты с 2017 года. Пишу рецензии без спойлеров и стараюсь отмечать сильные стороны сета.',
     avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
     banner_url: DEFAULT_BANNER_URL,
+    created_at: '2026-02-09T12:00:00Z',
     is_active: true,
   },
   {
@@ -61,6 +63,7 @@ export const MOCK_USERS: MockUserDirectoryItem[] = [
     avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
     banner_url:
       'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80',
+    created_at: '2025-11-21T18:20:00Z',
     is_active: true,
   },
   {
@@ -70,6 +73,7 @@ export const MOCK_USERS: MockUserDirectoryItem[] = [
     avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80',
     banner_url:
       'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80',
+    created_at: '2025-08-02T10:05:00Z',
     is_active: true,
   },
   {
@@ -78,6 +82,7 @@ export const MOCK_USERS: MockUserDirectoryItem[] = [
     bio: null,
     avatar_url: null,
     banner_url: null,
+    created_at: '2025-01-01T00:00:00Z',
     is_active: false,
   },
 ]
@@ -97,6 +102,7 @@ export function getMockUserByUsername(username: string): MockUserDirectoryItem |
     avatar_url:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80',
     banner_url: DEFAULT_BANNER_URL,
+    created_at: '2025-06-12T09:00:00Z',
     is_active: true,
   }
 }

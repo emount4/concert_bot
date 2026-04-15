@@ -150,12 +150,11 @@
 .settingsMediaRow {
   display: flex;
   gap: 10px;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .settingsMediaPreview {
-  width: 52px;
-  height: 52px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
@@ -164,9 +163,15 @@
   overflow: hidden;
 }
 
+.settingsMediaPreviewAvatar {
+  width: 150px;
+  height: 150px;
+}
+
 .settingsMediaPreviewBanner {
-  width: 140px;
-  height: 52px;
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 960 / 300;
 }
 
 .settingsMediaPlaceholder {

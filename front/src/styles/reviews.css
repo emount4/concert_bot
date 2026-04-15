@@ -48,6 +48,9 @@
     linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
     var(--hover);
   flex: 0 0 36px;
+
+  display: grid;
+  place-items: center;
 }
 
 .reviewAvatarImg {
@@ -55,6 +58,12 @@
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+.reviewAvatarFallback {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
 }
 
 .reviewAuthorName {

@@ -372,7 +372,7 @@ export function SettingsPage() {
 
               <div className="settingsControl">
                 <div className="settingsMediaRow">
-                  <div className="settingsMediaPreview">
+                  <div className="settingsMediaPreview settingsMediaPreviewAvatar">
                     {avatarPreviewUrl ? (
                       <img className="settingsAvatarImg" src={avatarPreviewUrl} alt="Новая аватарка" />
                     ) : profile?.avatar_url ? (
@@ -410,6 +410,8 @@ export function SettingsPage() {
                   <div className="settingsMediaPreview settingsMediaPreviewBanner">
                     {bannerPreviewUrl ? (
                       <img className="settingsBannerImg" src={bannerPreviewUrl} alt="Новый баннер" />
+                    ) : profile?.banner_url ? (
+                      <img className="settingsBannerImg" src={profile.banner_url} alt="Текущий баннер" />
                     ) : (
                       <div className="settingsMediaPlaceholder">Нет</div>
                     )}
