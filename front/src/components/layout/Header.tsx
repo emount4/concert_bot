@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppData } from '../../api/AppDataProvider'
 import { logout } from '../../utils/authMock'
@@ -35,6 +35,21 @@ function ShieldIcon() {
   )
 }
 
+function SuggestIcon() {
+  return (
+    <svg className="suggestConcertBtnIcon" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 21a9 9 0 1 0-9-9 9 9 0 0 0 9 9Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path d="M12 8v8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8 12h8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function Header() {
   // Задание 19.2: фиксированный Header с dropdown профиля и логаутом.
   const { data } = useAppData()
@@ -42,6 +57,19 @@ export function Header() {
 
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [isSuggestOpen, setIsSuggestOpen] = useState(false)
+
+  const suggestTitleId = useId()
+
+  const [suggestDraft, setSuggestDraft] = useState({
+    artist: '',
+    concert: '',
+    city: '',
+    venue: '',
+    date: '',
+    link: '',
+    note: '',
+  })
 
   const displayName = data?.profile?.displayName ?? 'Профиль'
   const avatarUrl = data?.profile?.avatar_url ?? null
@@ -84,10 +112,33 @@ export function Header() {
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (!isSuggestOpen) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsSuggestOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isSuggestOpen])
+
   function onLogout() {
     setIsOpen(false)
     logout()
     navigate('/login', { replace: true })
+  }
+
+  function openSuggestModal() {
+    setIsOpen(false)
+    setIsSuggestOpen(true)
+  }
+
+  function closeSuggestModal() {
+    setIsSuggestOpen(false)
+    setSuggestDraft({ artist: '', concert: '', city: '', venue: '', date: '', link: '', note: '' })
   }
 
   return (
@@ -96,11 +147,11 @@ export function Header() {
         <button
           type="button"
           className="suggestConcertBtn"
-          style={{ marginRight: 16 }}
           aria-label="Предложить концерт"
-          onClick={() => {}}
+          onClick={openSuggestModal}
         >
-          Предложить концерт
+          <SuggestIcon />
+          <span>Предложить концерт</span>
         </button>
         <div className="profileMenu" ref={rootRef}>
           <button
@@ -185,6 +236,99 @@ export function Header() {
           )}
         </div>
       </div>
+
+      {isSuggestOpen && (
+        <div
+          className="settingsModalBackdrop"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeSuggestModal()
+          }}
+        >
+          <div className="settingsModalCard" role="dialog" aria-modal="true" aria-labelledby={suggestTitleId}>
+            <div className="settingsModalHeader">
+              <h3 className="settingsModalTitle" id={suggestTitleId}>
+                Предложить концерт
+              </h3>
+              <button type="button" className="settingsBtn ghost" onClick={closeSuggestModal}>
+                Закрыть
+              </button>
+            </div>
+
+            <p className="settingsHint">Все поля — свободного ввода. Отправка пока работает как заглушка (без API).</p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                closeSuggestModal()
+              }}
+            >
+              <div className="settingsControl" style={{ width: '100%', maxWidth: 560 }}>
+                <input
+                  className="settingsInput"
+                  type="text"
+                  placeholder="Артист"
+                  value={suggestDraft.artist}
+                  onChange={(e) => setSuggestDraft((prev) => ({ ...prev, artist: e.target.value }))}
+                />
+                <input
+                  className="settingsInput"
+                  type="text"
+                  placeholder="Концерт / тур / название события"
+                  value={suggestDraft.concert}
+                  onChange={(e) => setSuggestDraft((prev) => ({ ...prev, concert: e.target.value }))}
+                />
+                <div className="settingsInline">
+                  <input
+                    className="settingsInput"
+                    type="text"
+                    placeholder="Город"
+                    value={suggestDraft.city}
+                    onChange={(e) => setSuggestDraft((prev) => ({ ...prev, city: e.target.value }))}
+                  />
+                  <input
+                    className="settingsInput"
+                    type="text"
+                    placeholder="Площадка"
+                    value={suggestDraft.venue}
+                    onChange={(e) => setSuggestDraft((prev) => ({ ...prev, venue: e.target.value }))}
+                  />
+                </div>
+                <input
+                  className="settingsInput"
+                  type="text"
+                  placeholder="Дата и время (как удобно)"
+                  value={suggestDraft.date}
+                  onChange={(e) => setSuggestDraft((prev) => ({ ...prev, date: e.target.value }))}
+                />
+                <input
+                  className="settingsInput"
+                  type="text"
+                  placeholder="Ссылка на афишу / источник"
+                  value={suggestDraft.link}
+                  onChange={(e) => setSuggestDraft((prev) => ({ ...prev, link: e.target.value }))}
+                />
+                <textarea
+                  className="settingsTextarea"
+                  rows={4}
+                  placeholder="Комментарий (необязательно)"
+                  value={suggestDraft.note}
+                  onChange={(e) => setSuggestDraft((prev) => ({ ...prev, note: e.target.value }))}
+                />
+
+                <div className="settingsActions">
+                  <button type="button" className="settingsBtn ghost" onClick={closeSuggestModal}>
+                    Отмена
+                  </button>
+                  <button type="submit" className="settingsBtn primary">
+                    Отправить
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   )
 }
