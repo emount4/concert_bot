@@ -294,6 +294,9 @@ export function ReviewCard({ review, textMode = 'collapsible' }: ReviewCardProps
                 aria-label={`Открыть вложения рецензии (${media.length})`}
               >
                 <MediaIcon />
+                <span className="reviewIconBadge" aria-hidden="true">
+                  {media.length}
+                </span>
               </button>
             )}
           </div>

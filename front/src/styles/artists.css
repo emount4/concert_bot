@@ -188,7 +188,29 @@
   display: flex;
   gap: 12px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #3e4f76 rgba(255, 255, 255, 0.04);
+}
+
+.detailReviewScroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.detailReviewScroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.detailReviewScroll::-webkit-scrollbar-thumb {
+  background: #3e4f76;
+  border-radius: 999px;
+}
+
+.detailReviewScroll::-webkit-scrollbar-thumb:hover {
+  background: #4a6fb8;
 }
 
 .detailReviewItem {

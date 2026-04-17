@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { useAppData } from '../api/AppDataProvider'
 import { buildPaginationItems } from '../utils/pagination'
+import { scrollToTop } from '../utils/scrollToTop'
 
 type ConcertSortBy = 'date' | 'rating' | 'reviews' | 'title'
 type SortDirection = 'desc' | 'asc'
@@ -193,7 +194,10 @@ export function ConcertsPage() {
                     key={item}
                     type="button"
                     className={item === currentPage ? 'settingsBtn primary' : 'settingsBtn ghost'}
-                    onClick={() => setCurrentPage(item)}
+                    onClick={() => {
+                      setCurrentPage(item)
+                      scrollToTop()
+                    }}
                     aria-current={item === currentPage ? 'page' : undefined}
                   >
                     {item}

@@ -93,6 +93,15 @@ export function Header() {
   return (
     <header className="appHeader" aria-label="Шапка">
       <div className="appHeaderInner">
+        <button
+          type="button"
+          className="suggestConcertBtn"
+          style={{ marginRight: 16 }}
+          aria-label="Предложить концерт"
+          onClick={() => {}}
+        >
+          Предложить концерт
+        </button>
         <div className="profileMenu" ref={rootRef}>
           <button
             type="button"

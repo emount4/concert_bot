@@ -168,7 +168,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--panel);
-  padding: 14px;
+  padding: 16px;
 }
 
 .rateSectionTitle {
@@ -413,7 +413,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 16px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--panel);
@@ -439,11 +439,11 @@
   margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
 }
 
 .rateReviewItem {
-  width: min(860px, 100%);
+  width: min(740px, 100%);
   margin: 0 auto;
 }
 

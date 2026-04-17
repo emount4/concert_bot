@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { useAppData } from '../api/AppDataProvider'
 import { buildPaginationItems } from '../utils/pagination'
+import { scrollToTop } from '../utils/scrollToTop'
 
 const REVIEWS_PAGE_SIZE = 18
 
@@ -53,7 +54,10 @@ export function ReviewsPage() {
                     key={item}
                     type="button"
                     className={item === currentPage ? 'settingsBtn primary' : 'settingsBtn ghost'}
-                    onClick={() => setCurrentPage(item)}
+                    onClick={() => {
+                      setCurrentPage(item)
+                      scrollToTop()
+                    }}
                     aria-current={item === currentPage ? 'page' : undefined}
                   >
                     {item}

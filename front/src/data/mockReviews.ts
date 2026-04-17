@@ -30,8 +30,8 @@ const RAW_REVIEWS: ReviewCardItem[] = [
     scores: { performance: 9, setlist: 8, crowd: 9, sound: 8, vibe: 9 },
     text: 'Концерт получился очень плотным по эмоции и динамике. Группа уверенно держала темп, не теряя контакта с залом, а переходы между треками были почти без провалов. По звуку местами не хватало читаемости вокала в быстрых фрагментах, но в целом микс был собранный. Вайб у публики сильный, особенно во второй половине сета, когда зал уже пел вместе с артистом.',
     likes: [
-      { name: 'Лина Орлова', username: 'lina_orlova', avatar_url: null },
-      { name: 'Павел Лобов', username: 'pavel_lobov', avatar_url: null },
+      { name: 'Лина Орлова', username: getMockUsernameByDisplayName('Лина Орлова') ?? undefined, avatar_url: null },
+      { name: 'Павел Лобов', username: getMockUsernameByDisplayName('Павел Лобов') ?? undefined, avatar_url: null },
     ],
     media: [
       {
@@ -69,7 +69,7 @@ const RAW_REVIEWS: ReviewCardItem[] = [
     rating_total: 79,
     scores: { performance: 8, setlist: 7, crowd: 8, sound: 7, vibe: 8 },
     text: 'Сильный старт и мощный финал, но середина показалась чуть ровной. В отдельных треках ощущалась усталость по подаче, зато публика компенсировала это энергией. По звуку были небольшие перекосы по низким частотам рядом со сценой. В целом хороший живой опыт, на который можно смело идти снова.',
-    likes: [{ name: 'Ника Тихая', username: 'nika_tikhaya', avatar_url: null }],
+    likes: [{ name: 'Ника Тихая', username: getMockUsernameByDisplayName('Ника Тихая') ?? undefined, avatar_url: null }],
     media: [
       {
         id: 'r303-1',

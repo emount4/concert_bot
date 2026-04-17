@@ -7,6 +7,7 @@ import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge
 import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
+import { scrollToTop } from '../utils/scrollToTop'
 
 type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
 type SortDirection = 'desc' | 'asc'
@@ -321,7 +322,10 @@ export function VenuesPage() {
                     key={item}
                     type="button"
                     className={item === currentPage ? 'settingsBtn primary' : 'settingsBtn ghost'}
-                    onClick={() => setCurrentPage(item)}
+                    onClick={() => {
+                      setCurrentPage(item)
+                      scrollToTop()
+                    }}
                     aria-current={item === currentPage ? 'page' : undefined}
                   >
                     {item}

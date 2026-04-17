@@ -5,6 +5,7 @@ import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge
 import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
+import { scrollToTop } from '../utils/scrollToTop'
 
 type ScoreState = {
   performance: number
@@ -432,7 +433,10 @@ export function RateConcertPage() {
                       key={item}
                       type="button"
                       className={item === reviewsPage ? 'settingsBtn primary' : 'settingsBtn ghost'}
-                      onClick={() => setReviewsPage(item)}
+                      onClick={() => {
+                        setReviewsPage(item)
+                        scrollToTop()
+                      }}
                       aria-current={item === reviewsPage ? 'page' : undefined}
                     >
                       {item}

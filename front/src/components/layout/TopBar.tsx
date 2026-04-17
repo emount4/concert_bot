@@ -4,7 +4,7 @@ import { NavLink } from 'react-router-dom'
 type SideItem = {
   label: string
   to: string
-  icon: 'concerts' | 'reviews' | 'artists' | 'venues'
+  icon: 'concerts' | 'reviews' | 'artists' | 'venues' | 'about' | 'faq'
 }
 
 function SideIcon({ kind }: { kind: SideItem['icon'] }) {
@@ -45,6 +45,43 @@ function SideIcon({ kind }: { kind: SideItem['icon'] }) {
     )
   }
 
+  if (kind === 'about') {
+    return (
+      <svg className="sideIcon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M12 21a9 9 0 1 0-9-9 9 9 0 0 0 9 9Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+        <path d="M12 10.8v6.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M12 7.7h.01" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    )
+  }
+
+  if (kind === 'faq') {
+    return (
+      <svg className="sideIcon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M7 18.5h8l3 3v-3.2a3.2 3.2 0 0 0 3-3.2V8a4 4 0 0 0-4-4H7A4 4 0 0 0 3 8v6.3a4.2 4.2 0 0 0 4 4.2Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M10.2 9.3a2.1 2.1 0 0 1 3.6 1.5c0 1.6-1.8 1.8-1.8 3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+        <path d="M12 16.8h.01" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    )
+  }
+
   return null
 }
 
@@ -56,6 +93,8 @@ export function TopBar() {
       { label: 'Рецензии', to: '/reviews', icon: 'reviews' },
       { label: 'Артисты', to: '/artists', icon: 'artists' },
       { label: 'Площадки', to: '/venues', icon: 'venues' },
+      { label: 'FAQ', to: '/faq', icon: 'faq' },
+      { label: 'О проекте', to: '/about', icon: 'about' },
     ],
     [],
   )

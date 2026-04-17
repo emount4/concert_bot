@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { TopBar } from './components/layout/TopBar'
 import { Header } from './components/layout/Header'
 import { Footer } from './components/layout/Footer'
+import { ScrollToTop } from './components/layout/ScrollToTop'
 import { ConcertsPage } from './pages/ConcertsPage'
 import { ArtistsPage } from './pages/ArtistsPage'
 import { ReviewsPage } from './pages/ReviewsPage'
@@ -11,6 +12,8 @@ import { SettingsPage } from './pages/SettingsPage'
 import AdminPage from './pages/AdminPage'
 import { RateConcertPage } from './pages/RateConcertPage'
 import { UserProfilePage } from './pages/UserProfilePage'
+import { AboutPage } from './pages/AboutPage'
+import { FaqPage } from './pages/FaqPage'
 import { resolveIsAdmin } from './utils/adminAccess'
 import { LoginPage } from './pages/LoginPage'
 import { isAuthenticated } from './utils/authMock'
@@ -49,6 +52,7 @@ function App() {
 
   return (
     <div className={isAuthPage ? 'appRoot authMode' : 'appRoot'}>
+      <ScrollToTop />
       {!isAuthPage && (
         <>
           <TopBar />
@@ -101,6 +105,23 @@ function App() {
             element={
               <GuardedRoute>
                 <VenuesPage />
+              </GuardedRoute>
+            }
+          />
+
+          <Route
+            path="/about"
+            element={
+              <GuardedRoute>
+                <AboutPage />
+              </GuardedRoute>
+            }
+          />
+          <Route
+            path="/faq"
+            element={
+              <GuardedRoute>
+                <FaqPage />
               </GuardedRoute>
             }
           />

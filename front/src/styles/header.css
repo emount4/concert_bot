@@ -1,3 +1,25 @@
+/* Кнопка "Предложить концерт" в шапке */
+.suggestConcertBtn {
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  outline: none;
+  margin-right: 8px;
+  box-shadow: none;
+}
+
+.suggestConcertBtn:hover, .suggestConcertBtn:focus-visible {
+  background: var(--hover);
+  border-color: var(--accent, #ff9800);
+  color: var(--accent-text, #222);
+}
 :root {
   --header-height: 56px;
 }
@@ -58,8 +80,8 @@
 }
 
 .profileMenuAvatar {
-  width: 32px;
-  height: 32px;
+  width: 45px;
+  height: 45px;
   border-radius: 999px;
   overflow: hidden;
 
@@ -67,6 +89,7 @@
   place-items: center;
 
   background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-2px);
 }
 
 .profileMenuAvatarImg {
