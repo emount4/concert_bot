@@ -100,6 +100,67 @@ function moderationTitle(status: ProfileReviewStatus): string {
   return ''
 }
 
+function ReviewsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M7.5 4.8h7.6l3 3V19a2.2 2.2 0 0 1-2.2 2.2H7.5A2.2 2.2 0 0 1 5.3 19V7A2.2 2.2 0 0 1 7.5 4.8Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M15.1 4.8V8h3.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8.2 11.2h7.6M8.2 14.7h7.6M8.2 18.2h5.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function LikesReceivedIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 21s-7-4.6-9.4-9.2C.8 8.6 2.3 6 5.2 5.2c2-.6 4 .1 5.2 1.6 1.2-1.5 3.2-2.2 5.2-1.6 2.9.8 4.4 3.4 2.6 6.6C19 16.4 12 21 12 21Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function LikesGivenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 21s-7-4.6-9.4-9.2C.8 8.6 2.3 6 5.2 5.2c2-.6 4 .1 5.2 1.6 1.2-1.5 3.2-2.2 5.2-1.6 2.9.8 4.4 3.4 2.6 6.6C19 16.4 12 21 12 21Z"
+        fill="currentColor"
+        opacity="0.25"
+      />
+      <path
+        d="M12 21s-7-4.6-9.4-9.2C.8 8.6 2.3 6 5.2 5.2c2-.6 4 .1 5.2 1.6 1.2-1.5 3.2-2.2 5.2-1.6 2.9.8 4.4 3.4 2.6 6.6C19 16.4 12 21 12 21Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function ProfileSkeleton({ title }: { title: string }) {
   // Задание 18.1: скелетоны профиля (пульсирующие блоки) на время загрузки.
   return (
@@ -117,18 +178,27 @@ function ProfileSkeleton({ title }: { title: string }) {
           </article>
 
           <article className="profileCard">
-            <div className="profileStatGrid">
-              <div className="profileStatCard">
-                <div className="profileStatValue skeleton" />
-                <div className="profileStatLabel skeleton" />
+            <div className="profileStatList" aria-hidden="true">
+              <div className="profileStatRow">
+                <div className="profileStatLeft">
+                  <div className="profileStatIcon skeleton" />
+                  <div className="profileStatName skeleton" />
+                </div>
+                <div className="profileStatNumber skeleton" />
               </div>
-              <div className="profileStatCard">
-                <div className="profileStatValue skeleton" />
-                <div className="profileStatLabel skeleton" />
+              <div className="profileStatRow">
+                <div className="profileStatLeft">
+                  <div className="profileStatIcon skeleton" />
+                  <div className="profileStatName skeleton" />
+                </div>
+                <div className="profileStatNumber skeleton" />
               </div>
-              <div className="profileStatCard">
-                <div className="profileStatValue skeleton" />
-                <div className="profileStatLabel skeleton" />
+              <div className="profileStatRow">
+                <div className="profileStatLeft">
+                  <div className="profileStatIcon skeleton" />
+                  <div className="profileStatName skeleton" />
+                </div>
+                <div className="profileStatNumber skeleton" />
               </div>
             </div>
           </article>
@@ -395,20 +465,35 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
           <article className="profileCard">
             <h3 className="profileBlockTitle">Статистика</h3>
-            <div className="profileStatGrid">
-              <div className="profileStatCard">
-                <p className="profileStatValue">{bundle.stats.reviews}</p>
-                <p className="profileStatLabel">Рецензии</p>
-              </div>
-              <div className="profileStatCard">
-                <p className="profileStatValue">{bundle.stats.likes_received}</p>
-                <p className="profileStatLabel">Лайки полученные</p>
-              </div>
-              <div className="profileStatCard">
-                <p className="profileStatValue">{bundle.stats.likes_given}</p>
-                <p className="profileStatLabel">Поставленные лайки</p>
-              </div>
-            </div>
+            <ul className="profileStatList" aria-label="Статистика профиля">
+              <li className="profileStatRow">
+                <span className="profileStatLeft">
+                  <span className="profileStatIcon" aria-hidden="true">
+                    <ReviewsIcon />
+                  </span>
+                  <span className="profileStatName">Рецензий</span>
+                </span>
+                <span className="profileStatNumber">{bundle.stats.reviews}</span>
+              </li>
+              <li className="profileStatRow">
+                <span className="profileStatLeft">
+                  <span className="profileStatIcon" aria-hidden="true">
+                    <LikesReceivedIcon />
+                  </span>
+                  <span className="profileStatName">Лайков получено</span>
+                </span>
+                <span className="profileStatNumber">{bundle.stats.likes_received}</span>
+              </li>
+              <li className="profileStatRow">
+                <span className="profileStatLeft">
+                  <span className="profileStatIcon" aria-hidden="true">
+                    <LikesGivenIcon />
+                  </span>
+                  <span className="profileStatName">Лайков поставлено</span>
+                </span>
+                <span className="profileStatNumber">{bundle.stats.likes_given}</span>
+              </li>
+            </ul>
           </article>
         </div>
 
@@ -457,21 +542,18 @@ export function ProfileScreen(props: ProfileScreenProps) {
                   <div className="profileReviewList reviewColumn">
                     {bundle.reviews.map((item) => (
                       <div key={item.review.id} className="profileReviewItem">
-                        {bundle.isOwn && item.moderation.status !== 'approved' && (
-                          <div className="profileModerationRow">
-                            <span className={
-                              item.moderation.status === 'pending'
-                                ? 'profileStatus profileStatus-pending'
-                                : 'profileStatus profileStatus-rejected'
-                            }>
-                              {moderationTitle(item.moderation.status)}
-                            </span>
-                            {item.moderation.status === 'rejected' && item.moderation.rejection_reason && (
-                              <span className="profileRejectionReason">{item.moderation.rejection_reason}</span>
-                            )}
-                          </div>
-                        )}
-                        <ReviewCard review={item.review} />
+                        <ReviewCard
+                          review={item.review}
+                          moderation={
+                            bundle.isOwn && item.moderation.status !== 'approved'
+                              ? {
+                                  status: item.moderation.status,
+                                  title: moderationTitle(item.moderation.status),
+                                  rejectionReason: item.moderation.rejection_reason ?? null,
+                                }
+                              : undefined
+                          }
+                        />
                       </div>
                     ))}
                   </div>

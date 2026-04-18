@@ -8,15 +8,17 @@ export type ScoreKey = keyof ReviewScores
 export const SCORE_OPTIONS: Array<{ key: ScoreKey; label: string }> = [
   { key: 'performance', label: 'Исполнение' },
   { key: 'setlist', label: 'Динамика / трек-лист' },
-  { key: 'crowd', label: 'Взаимодействие с аудиторией' },
-  { key: 'sound', label: 'Звук / продакшн' },
+  { key: 'crowd', label: 'Харизма' },
+  { key: 'sound', label: 'Звук' },
   { key: 'vibe', label: 'Вайб' },
 ]
 
 export type HomeSocialProof = {
+  usersRegistered: number
+  concertsCount: number
+  artistsCount: number
+  venuesCount: number
   reviewsWritten: number
-  artistsRated: number
-  likesGiven: number
 }
 
 export type HomeTopRow = {
@@ -98,24 +100,36 @@ export async function fetchHomeSocialProof({ signal }: { signal?: AbortSignal } 
 
   const reviewsWritten = MOCK_REVIEWS.length
 
-  const concertsById = new Map<number, Concert>(MOCK_CONCERTS.map((concert) => [concert.id, concert]))
-
+  const concertsCount = MOCK_CONCERTS.length
+  const venues = new Set<number>()
   const artists = new Set<number>()
-  let likesGiven = 0
 
-  MOCK_REVIEWS.forEach((review) => {
-    likesGiven += review.likes?.length ?? 0
-
-    const concert = concertsById.get(review.concertId)
-    if (!concert) return
-
+  MOCK_CONCERTS.forEach((concert) => {
+    venues.add(concert.venue.id)
     concert.artists.forEach((artist) => artists.add(artist.id))
   })
 
+  let usersRegistered = 1
+  if (typeof window !== 'undefined') {
+    const raw = window.localStorage.getItem('concert_bot.users')
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as unknown
+        if (Array.isArray(parsed)) {
+          usersRegistered = Math.max(1, parsed.length)
+        }
+      } catch {
+        usersRegistered = 1
+      }
+    }
+  }
+
   return {
+    usersRegistered,
+    concertsCount,
+    artistsCount: artists.size,
+    venuesCount: venues.size,
     reviewsWritten,
-    artistsRated: artists.size,
-    likesGiven,
   }
 }
 

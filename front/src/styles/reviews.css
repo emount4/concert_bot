@@ -300,6 +300,127 @@
   gap: 8px;
 }
 
+.reviewFooterRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.reviewModerationBtn {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: min(320px, 56vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewModerationBtn:hover {
+  background: var(--hover);
+}
+
+.reviewModerationBtn-pending {
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.reviewModerationBtn-rejected {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.reviewModerationBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 18, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 122;
+}
+
+.reviewModerationCard {
+  width: min(520px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.reviewModerationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reviewModerationTitle {
+  margin: 0;
+  font-size: 16px;
+}
+
+.reviewModerationClose {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.reviewModerationClose:hover {
+  background: var(--hover);
+}
+
+.reviewModerationBody {
+  display: grid;
+  gap: 10px;
+}
+
+.reviewModerationStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.reviewModerationStatus-pending {
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.reviewModerationStatus-rejected {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.reviewModerationReason {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .reviewIconBtn {
   position: relative;
   width: 34px;

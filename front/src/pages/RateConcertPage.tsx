@@ -247,7 +247,7 @@ export function RateConcertPage() {
                     ? [
                         { label: 'Исполнение', value: concertAvgScores.performance },
                         { label: 'Динамика / трек-лист', value: concertAvgScores.setlist },
-                        { label: 'Подача / зал', value: concertAvgScores.crowd },
+                        { label: 'Харизма', value: concertAvgScores.crowd },
                         { label: 'Звук', value: concertAvgScores.sound },
                         { label: 'Вайб', value: concertAvgScores.vibe },
                       ]
@@ -302,7 +302,7 @@ export function RateConcertPage() {
 
             <label className="rateSliderCard">
               <div className="rateSliderHead">
-                <span className="rateSliderLabel">Подача / зал</span>
+                <span className="rateSliderLabel">Харизма</span>
                 <span className="rateSliderValue">{scores.crowd}</span>
               </div>
               <input
@@ -336,7 +336,7 @@ export function RateConcertPage() {
           <div className="rateScoreBottom">
             <label className="rateVibeRow">
               <div className="rateSliderHead rateVibeHead">
-                <span className="rateVibeLabel">Атмосфера / вайб</span>
+                <span className="rateVibeLabel">Вайб</span>
                 <span className="rateVibeValue">{scores.vibe}</span>
               </div>
               <input
@@ -462,11 +462,15 @@ export function RateConcertPage() {
               <ul>
                 <li><strong>Исполнение:</strong> качество музыкального исполнения, вокал.</li>
                 <li><strong>Динамика / трек-лист:</strong> структура концерта, баланс хитов и нового.</li>
-                <li><strong>Подача / зал:</strong> контакт артиста с публикой, отдача зала.</li>
-                <li><strong>Звук:</strong> качество работы звукорежиссера.</li>
+                <li><strong>Харизма:</strong> подача и энергия артиста, работа со зрителем.</li>
+                <li><strong>Звук:</strong> качество звучания в зале и работа звукорежиссуры.</li>
               </ul>
               <hr />
-              <p><strong>Субъективный параметр (Вайб)</strong> от 1 до 10 рассчитывается как множитель (от 1.0 до 1.6072).</p>
+              <p>
+                <strong>Субъективный параметр (Вайб)</strong> — это всё, что не попало в четыре пункта выше: «изюминка»
+                концерта (перформансы, визуал, сюрпризы) или то, что может испортить впечатление (форс-мажоры,
+                задержки, происшествия). Оценивается от 1 до 10 и рассчитывается как множитель (от 1.0 до 1.6072).
+              </p>
               <div className="rateFormulaBox">
                 Сумма_объективных × 1.4 × Вайб = Итог (макс. 90)
               </div>

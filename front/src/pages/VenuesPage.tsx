@@ -166,7 +166,7 @@ export function VenuesPage() {
                     ? [
                         { label: 'Исполнение', value: venueAvgScores.performance },
                         { label: 'Динамика / трек-лист', value: venueAvgScores.setlist },
-                        { label: 'Подача / зал', value: venueAvgScores.crowd },
+                        { label: 'Харизма', value: venueAvgScores.crowd },
                         { label: 'Звук', value: venueAvgScores.sound },
                         { label: 'Вайб', value: venueAvgScores.vibe },
                       ]

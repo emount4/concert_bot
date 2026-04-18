@@ -73,13 +73,48 @@ function formatTopValue(value: number) {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(value)
 }
 
+function formatRank(rank: number) {
+  const ordinals = ['Первое', 'Второе', 'Третье', 'Четвертое', 'Пятое']
+  const ordinal = ordinals[rank - 1]
+  return ordinal ? `${ordinal} место` : `${rank} место`
+}
+
+function RankBadge({ rank, size = 28, emphasis = 'normal' }: { rank: number; size?: number; emphasis?: 'normal' | 'large' }) {
+  return (
+    <span
+      className={emphasis === 'large' ? 'homeRankBadge homeRankBadgeLarge' : 'homeRankBadge'}
+      style={{ width: size, height: size }}
+      aria-label={formatRank(rank)}
+      title={formatRank(rank)}
+    >
+      <svg className="homeRankBadgeIcon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" fill="var(--panel)" stroke="var(--border)" strokeWidth="1.5" />
+        <path
+          d="M8.4 9.4 6.5 6.2m9.1 3.2 1.9-3.2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          opacity="0.55"
+        />
+      </svg>
+      <span className="homeRankBadgeText" aria-hidden="true">
+        {rank}
+      </span>
+    </span>
+  )
+}
+
 function TopRows({ rows }: { rows: HomeTopRow[] }) {
   return (
     <ul className="homeTopList" aria-label="Лидеры">
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <li key={row.key} className="homeTopItem">
           <Link to={row.href} className="homeTopLink">
-            <span className="homeTopLabel">{row.label}</span>
+            <span className="homeTopLeft">
+              <RankBadge rank={index + 1} size={24} />
+              <span className="homeTopLabel">{row.label}</span>
+            </span>
             <span className="homeTopMeta">
               <span className="homeTopScore">{formatTopValue(row.value)}</span>
               <span className="homeTopScoreUnit">/10</span>
@@ -159,6 +194,19 @@ export function HomePage() {
 
   const scoreOptions = useMemo(() => SCORE_OPTIONS, [])
 
+  const statItems = useMemo(() => {
+    const data = socialProofQuery.data
+    if (!data) return [] as Array<{ key: string; label: string; value: number }>
+
+    return [
+      { key: 'users', label: 'Зарегистрированных пользователей', value: data.usersRegistered },
+      { key: 'concerts', label: 'Концертов', value: data.concertsCount },
+      { key: 'artists', label: 'Артистов', value: data.artistsCount },
+      { key: 'venues', label: 'Площадок', value: data.venuesCount },
+      { key: 'reviews', label: 'Рецензий написано', value: data.reviewsWritten },
+    ]
+  }, [socialProofQuery.data])
+
   return (
     <section className="page homePage" aria-label="Главная">
       <h1 className="pageTitle">Главная</h1>
@@ -177,7 +225,7 @@ export function HomePage() {
 
           {!bestConcertsQuery.isLoading && !bestConcertsQuery.error && (
             <div className="homeCarousel homeCarouselTop5" role="list" aria-label="Лучшие концерты">
-              {bestConcerts.map((concert) => (
+              {bestConcerts.map((concert, index) => (
                 <Link
                   key={concert.id}
                   to={`/concerts/${concert.id}/rate`}
@@ -185,7 +233,9 @@ export function HomePage() {
                   role="listitem"
                 >
                   <ConcertCard concert={concert} />
-                  <div className="homeConcertPlace homeConcertPlaceBig">{concert.venue.name} · {concert.venue.city}</div>
+                  <div className="homeRankSlot" aria-label="Место концерта в топе">
+                    <RankBadge rank={index + 1} size={56} emphasis="large" />
+                  </div>
                 </Link>
               ))}
             </div>
@@ -205,7 +255,7 @@ export function HomePage() {
 
           {!popularConcertsQuery.isLoading && !popularConcertsQuery.error && (
             <div className="homeCarousel homeCarouselTop5" role="list" aria-label="Популярные концерты">
-              {popularConcerts.map((concert) => (
+              {popularConcerts.map((concert, index) => (
                 <Link
                   key={concert.id}
                   to={`/concerts/${concert.id}/rate`}
@@ -213,7 +263,9 @@ export function HomePage() {
                   role="listitem"
                 >
                   <ConcertCard concert={concert} />
-                  <div className="homeConcertPlace homeConcertPlaceBig">{concert.venue.name} · {concert.venue.city}</div>
+                  <div className="homeRankSlot" aria-label="Место концерта в топе">
+                    <RankBadge rank={index + 1} size={56} emphasis="large" />
+                  </div>
                 </Link>
               ))}
             </div>
@@ -330,20 +382,17 @@ export function HomePage() {
         {statsInView && socialProofQuery.error && <div className="placeholder">Статистика не загрузилась</div>}
 
         {socialProofQuery.data && (
-          <ul className="homeStatList" aria-label="Счетчики платформы">
-            <li className="homeStatRow">
-              <span className="homeStatRowLabel">Написано рецензий</span>
-              <span className="homeStatRowValue">{socialProofQuery.data.reviewsWritten}</span>
-            </li>
-            <li className="homeStatRow">
-              <span className="homeStatRowLabel">Оценено артистов</span>
-              <span className="homeStatRowValue">{socialProofQuery.data.artistsRated}</span>
-            </li>
-            <li className="homeStatRow">
-              <span className="homeStatRowLabel">Поставлено лайков</span>
-              <span className="homeStatRowValue">{socialProofQuery.data.likesGiven}</span>
-            </li>
-          </ul>
+          <div className="stats-container" aria-label="Глобальная статистика платформы">
+            {statItems.map((item) => (
+              <div
+                key={item.key}
+                className={item.key === 'reviews' ? 'stat-item stat-item-emphasis' : 'stat-item'}
+              >
+                <span className="stat-value">{item.value}</span>
+                <span className="stat-label">{item.label}</span>
+              </div>
+            ))}
+          </div>
         )}
       </section>
     </section>

@@ -54,10 +54,10 @@ export function AboutPage() {
             впечатления зрителя в объективные данные с помощью математической формулы.
           </p>
           <p className="infoText">
-            Каждый параметр оценки (<span className="infoInlineCode">Звук</span>, <span className="infoInlineCode">Свет</span>,{' '}
-            <span className="infoInlineCode">Исполнение</span>, <span className="infoInlineCode">Атмосфера</span>,{' '}
-            <span className="infoInlineCode">Организация</span>) вносит свой вклад в итоговый рейтинг, формируя прозрачную
-            карту качества концертных событий.
+            Каждый параметр оценки (<span className="infoInlineCode">Исполнение</span>,{' '}
+            <span className="infoInlineCode">Динамика / трек-лист</span>, <span className="infoInlineCode">Харизма</span>,{' '}
+            <span className="infoInlineCode">Звук</span>, <span className="infoInlineCode">Вайб</span>) вносит свой вклад в итоговый
+            рейтинг, формируя прозрачную карту качества концертных событий.
           </p>
         </section>
 

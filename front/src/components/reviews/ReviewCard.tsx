@@ -5,6 +5,11 @@ import type { ReviewCardItem } from '../../types/review'
 type ReviewCardProps = {
   review: ReviewCardItem
   textMode?: 'collapsible' | 'expanded'
+  moderation?: {
+    status: 'pending' | 'rejected'
+    title: string
+    rejectionReason?: string | null
+  }
 }
 
 type ScoreChip = {
@@ -16,8 +21,8 @@ function scoreRow(review: ReviewCardItem): ScoreChip[] {
   return [
     { label: 'Исполнение', value: review.scores.performance },
     { label: 'Динамика / трек-лист', value: review.scores.setlist },
-    { label: 'Подача / взаимодействие с аудиторией', value: review.scores.crowd },
-    { label: 'Работа звукаря (продакшн)', value: review.scores.sound },
+    { label: 'Харизма', value: review.scores.crowd },
+    { label: 'Звук', value: review.scores.sound },
     { label: 'Вайб', value: review.scores.vibe },
   ]
 }
@@ -123,11 +128,12 @@ function MediaIcon() {
   )
 }
 
-export function ReviewCard({ review, textMode = 'collapsible' }: ReviewCardProps) {
+export function ReviewCard({ review, textMode = 'collapsible', moderation }: ReviewCardProps) {
   // Задание 10.2: сворачивание текста и просмотр прикрепленных медиа в карточке рецензии.
   const [expanded, setExpanded] = useState(textMode === 'expanded')
   const [isMediaOpen, setIsMediaOpen] = useState(false)
   const [isLikesOpen, setIsLikesOpen] = useState(false)
+  const [isModerationOpen, setIsModerationOpen] = useState(false)
   // Задание 10.3: просмотр вложений по одному с переключением стрелками.
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const media = review.media ?? []
@@ -177,6 +183,8 @@ export function ReviewCard({ review, textMode = 'collapsible' }: ReviewCardProps
 
     return entries
   }, [baseLikes, likedByMe])
+
+  const showModeration = Boolean(moderation)
 
   return (
     <article className="reviewCard">
@@ -301,15 +309,35 @@ export function ReviewCard({ review, textMode = 'collapsible' }: ReviewCardProps
             )}
           </div>
 
-          {allowTextToggle && (
-            <button
-              type="button"
-              className="reviewExpandBtn"
-              aria-label={expanded ? 'Свернуть текст рецензии' : 'Развернуть текст рецензии'}
-              onClick={() => setExpanded((v) => !v)}
-            >
-              <ExpandIcon expanded={expanded} />
-            </button>
+          {(showModeration || allowTextToggle) && (
+            <div className="reviewFooterRight">
+              {showModeration && moderation && (
+                <button
+                  type="button"
+                  className={
+                    moderation.status === 'rejected'
+                      ? 'reviewModerationBtn reviewModerationBtn-rejected'
+                      : 'reviewModerationBtn reviewModerationBtn-pending'
+                  }
+                  onClick={() => setIsModerationOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-expanded={isModerationOpen}
+                >
+                  Статус модерации: {moderation.title}
+                </button>
+              )}
+
+              {allowTextToggle && (
+                <button
+                  type="button"
+                  className="reviewExpandBtn"
+                  aria-label={expanded ? 'Свернуть текст рецензии' : 'Развернуть текст рецензии'}
+                  onClick={() => setExpanded((v) => !v)}
+                >
+                  <ExpandIcon expanded={expanded} />
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -414,6 +442,41 @@ export function ReviewCard({ review, textMode = 'collapsible' }: ReviewCardProps
                 </p>
               </>
             )}
+          </article>
+        </div>
+      )}
+
+      {isModerationOpen && moderation && (
+        <div className="reviewModerationBackdrop" onClick={() => setIsModerationOpen(false)}>
+          <article
+            className="reviewModerationCard"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Статус модерации"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="reviewModerationHeader">
+              <h3 className="reviewModerationTitle">Статус модерации</h3>
+              <button type="button" className="reviewModerationClose" onClick={() => setIsModerationOpen(false)}>
+                Закрыть
+              </button>
+            </div>
+
+            <div className="reviewModerationBody">
+              <div
+                className={
+                  moderation.status === 'rejected'
+                    ? 'reviewModerationStatus reviewModerationStatus-rejected'
+                    : 'reviewModerationStatus reviewModerationStatus-pending'
+                }
+              >
+                {moderation.title}
+              </div>
+
+              {moderation.status === 'rejected' && moderation.rejectionReason && (
+                <p className="reviewModerationReason">{moderation.rejectionReason}</p>
+              )}
+            </div>
           </article>
         </div>
       )}

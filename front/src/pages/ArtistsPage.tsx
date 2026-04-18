@@ -159,7 +159,7 @@ export function ArtistsPage() {
                     ? [
                         { label: 'Исполнение', value: artistAvgScores.performance },
                         { label: 'Динамика / трек-лист', value: artistAvgScores.setlist },
-                        { label: 'Подача / зал', value: artistAvgScores.crowd },
+                        { label: 'Харизма', value: artistAvgScores.crowd },
                         { label: 'Звук', value: artistAvgScores.sound },
                         { label: 'Вайб', value: artistAvgScores.vibe },
                       ]

@@ -149,6 +149,65 @@
   line-height: 1.2;
 }
 
+.profileStatList {
+  margin-top: 12px;
+  list-style: none;
+  padding: 0;
+  margin-left: 0;
+  margin-right: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.profileStatRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.profileStatRow:last-child {
+  border-bottom: none;
+}
+
+.profileStatLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.profileStatIcon {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  flex: 0 0 18px;
+  display: grid;
+  place-items: center;
+}
+
+.profileStatIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.profileStatName {
+  font-size: 13px;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileStatNumber {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  margin-left: auto;
+}
+
 .profileStatGrid {
   margin-top: 12px;
   display: grid;
