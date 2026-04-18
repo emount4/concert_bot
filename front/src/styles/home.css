@@ -1,0 +1,306 @@
+.homePage {
+  --home-gap: 16px;
+  --home-section-gap: 26px;
+  --home-radius: 14px;
+  --home-transition: 160ms ease;
+  --home-scrollbar-size: 10px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--home-section-gap);
+}
+
+.homePage .pageTitle {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.homeSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--home-gap);
+}
+
+.homeSectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.homeSectionTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.homeSectionLink {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  transition: color var(--home-transition);
+}
+
+.homeSectionLink:hover {
+  color: var(--fg);
+}
+
+.homeCarousel {
+  display: flex;
+  gap: var(--home-gap);
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.homeCarouselItem {
+  flex: 0 0 calc((100% - (2 * var(--home-gap))) / 3);
+  min-width: 210px;
+  scroll-snap-align: start;
+}
+
+.homeCarousel::-webkit-scrollbar {
+  height: var(--home-scrollbar-size);
+}
+
+.homeCarousel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.homeCarousel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.homeCarousel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.homeCarouselTop5 .homeCarouselItem {
+  flex-basis: calc((100% - (4 * var(--home-gap))) / 5);
+  min-width: 190px;
+}
+
+.homeConcertCompact .concertCard {
+  min-height: 240px;
+}
+
+.homeConcertCompact .concertPoster {
+  aspect-ratio: 16 / 9;
+}
+
+.homeConcertCompact .concertBottom {
+  padding: 10px;
+}
+
+.homeConcertCompact .concert_title {
+  font-size: 14px;
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+
+.homeConcertCompact .concertMeta {
+  font-size: 12px;
+}
+
+.homeConcertCompact .metaIcon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+.homeConcertCompact .ratingCircle:not(.reviewRatingCircle) {
+  width: 52px;
+  height: 52px;
+  flex-basis: 52px;
+  font-size: 18px;
+}
+
+.homeConcertPlace {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homeConcertPlaceBig {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.homeTopsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--home-gap);
+}
+
+.homeTopCol {
+  border: 1px solid var(--border);
+  border-radius: var(--home-radius);
+  padding: 12px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.homeTopHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.homeTopTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.homeSelect {
+  max-width: 220px;
+}
+
+.homeTopList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.homeTopItem {
+  border-radius: 12px;
+}
+
+.homeTopLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 12px;
+  transition: background var(--home-transition);
+}
+
+.homeTopLink:hover {
+  background: var(--hover);
+}
+
+.homeTopLabel {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homeTopMeta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.homeTopScore {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.homeTopScoreUnit {
+  color: var(--muted);
+}
+
+.homeTopCount {
+  color: var(--muted);
+}
+
+.homeStatList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.homeStatRow {
+  border: 1px solid var(--border);
+  border-radius: var(--home-radius);
+  padding: 12px 14px;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.homeStatRowLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.homeStatRowValue {
+  font-size: 22px;
+  font-weight: 750;
+}
+
+@media (max-width: 1024px) {
+  .homeCarouselItem {
+    flex-basis: calc((100% - var(--home-gap)) / 2);
+  }
+
+  .homeCarouselTop5 .homeCarouselItem {
+    flex-basis: calc((100% - var(--home-gap)) / 2);
+    min-width: 220px;
+  }
+
+  .homeTopsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .homeSelect {
+    max-width: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .homeCarouselItem {
+    flex-basis: 100%;
+  }
+
+  .homeTopsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .homeSectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .homeSectionLink {
+    padding: 6px 0;
+  }
+
+  .homeSelect {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .homeTopHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -78,7 +78,9 @@ function readUsers(): StoredUser[] {
   try {
     const parsed = JSON.parse(raw) as StoredUser[]
     if (Array.isArray(parsed)) return parsed
-  } catch {}
+  } catch {
+    window.localStorage.removeItem(USERS_KEY)
+  }
 
   return []
 }

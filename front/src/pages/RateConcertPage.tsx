@@ -78,7 +78,9 @@ export function RateConcertPage() {
           if (parsed.scores) setScores(parsed.scores)
           if (parsed.reviewTitle) setReviewTitle(parsed.reviewTitle)
           if (parsed.text) setText(parsed.text)
-        } catch (e) {}
+        } catch {
+          localStorage.removeItem(`draft_${numericConcertId}`)
+        }
       }
 
       setIsDraftReady(true)

@@ -14,6 +14,7 @@ import { RateConcertPage } from './pages/RateConcertPage'
 import { UserProfilePage } from './pages/UserProfilePage'
 import { AboutPage } from './pages/AboutPage'
 import { FaqPage } from './pages/FaqPage'
+import { HomePage } from './pages/HomePage'
 import { resolveIsAdmin } from './utils/adminAccess'
 import { LoginPage } from './pages/LoginPage'
 import { isAuthenticated } from './utils/authMock'
@@ -61,11 +62,20 @@ function App() {
       )}
       <main className="main">
         <Routes>
-          <Route path="/" element={<Navigate to={loggedIn ? '/concerts' : '/login'} replace />} />
-          <Route path="/login" element={loggedIn ? <Navigate to="/concerts" replace /> : <LoginPage />} />
+          <Route path="/" element={<Navigate to={loggedIn ? '/home' : '/login'} replace />} />
+          <Route path="/login" element={loggedIn ? <Navigate to="/home" replace /> : <LoginPage />} />
           <Route
             path="/register"
-            element={loggedIn ? <Navigate to="/concerts" replace /> : <RegisterPage />}
+            element={loggedIn ? <Navigate to="/home" replace /> : <RegisterPage />}
+          />
+
+          <Route
+            path="/home"
+            element={
+              <GuardedRoute>
+                <HomePage />
+              </GuardedRoute>
+            }
           />
 
           <Route
@@ -166,7 +176,7 @@ function App() {
             }
           />
 
-          <Route path="*" element={<Navigate to={loggedIn ? '/concerts' : '/login'} replace />} />
+          <Route path="*" element={<Navigate to={loggedIn ? '/home' : '/login'} replace />} />
         </Routes>
       </main>
 

@@ -4,11 +4,25 @@ import { NavLink } from 'react-router-dom'
 type SideItem = {
   label: string
   to: string
-  icon: 'concerts' | 'reviews' | 'artists' | 'venues' | 'about' | 'faq'
+  icon: 'home' | 'concerts' | 'reviews' | 'artists' | 'venues' | 'about' | 'faq'
 }
 
 function SideIcon({ kind }: { kind: SideItem['icon'] }) {
   // Задание 14.1: навигация в виде левой вертикальной полосы с иконками.
+  if (kind === 'home') {
+    return (
+      <svg className="sideIcon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M4.5 11.2 12 5l7.5 6.2V20a1.7 1.7 0 0 1-1.7 1.7h-3.6V14a2.2 2.2 0 0 0-2.2-2.2h0A2.2 2.2 0 0 0 9.8 14v7.7H6.2A1.7 1.7 0 0 1 4.5 20Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+      </svg>
+    )
+  }
+
   if (kind === 'concerts') {
     return (
       <svg className="sideIcon" viewBox="0 0 24 24" aria-hidden="true">
@@ -89,6 +103,7 @@ export function TopBar() {
   // Задание 19.1: в сайдбаре остаются только контентные разделы (без профиля/настроек/админки).
   const mainItems = useMemo<SideItem[]>(
     () => [
+      { label: 'Главная', to: '/home', icon: 'home' },
       { label: 'Концерты', to: '/concerts', icon: 'concerts' },
       { label: 'Рецензии', to: '/reviews', icon: 'reviews' },
       { label: 'Артисты', to: '/artists', icon: 'artists' },

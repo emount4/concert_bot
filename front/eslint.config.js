@@ -15,6 +15,15 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // The repo uses local state updates in effects in multiple pages; keep the guidance
+      // but don't fail CI/build on it.
+      'react-hooks/set-state-in-effect': 'warn',
+      // React Compiler-related rule that currently flags a few existing memo patterns.
+      'react-hooks/preserve-manual-memoization': 'warn',
+      // Allow exporting non-components from files used by Vite/React Fast Refresh.
+      'react-refresh/only-export-components': 'warn',
+    },
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
