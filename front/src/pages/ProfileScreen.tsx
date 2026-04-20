@@ -24,10 +24,9 @@ type ProfileScreenProps =
 
 type ProfileTab = 'reviews' | 'favorites' | 'liked'
 
-type FavoriteCardVm = {
+type FavoriteIconVm = {
   key: string
   title: string
-  subtitle: string
   imageUrl: string | null
   to: string
 }
@@ -55,7 +54,11 @@ type ProfileBundle = {
     likes_given: number
   }
   reviews: ReviewVm[]
-  favorites: FavoriteCardVm[]
+  favorites: {
+    concerts: FavoriteIconVm[]
+    artists: FavoriteIconVm[]
+    venues: FavoriteIconVm[]
+  }
   liked: ReviewCardItem[]
 }
 
@@ -325,38 +328,35 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
       const favoritesIds = MOCK_FAVORITES_BY_USERNAME[stableSocialKey] ?? { artists: [], venues: [], concerts: [] }
 
-      const favorites: FavoriteCardVm[] = [
-        ...favoritesIds.artists
-          .map((id) => data.artists.find((artist) => artist.id === id) ?? null)
-          .filter((v): v is NonNullable<typeof v> => Boolean(v))
-          .map((artist) => ({
-            key: `artist-${artist.id}`,
-            title: artist.name,
-            subtitle: 'Артист',
-            imageUrl: artist.photo_url,
-            to: `/artists?artistId=${artist.id}`,
-          })),
-        ...favoritesIds.venues
-          .map((id) => data.venues.find((venue) => venue.id === id) ?? null)
-          .filter((v): v is NonNullable<typeof v> => Boolean(v))
-          .map((venue) => ({
-            key: `venue-${venue.id}`,
-            title: venue.name,
-            subtitle: venue.city,
-            imageUrl: venue.photo_url,
-            to: `/venues?venue_id=${venue.id}`,
-          })),
-        ...favoritesIds.concerts
-          .map((id) => data.concerts.find((concert) => concert.id === id) ?? null)
-          .filter((v): v is NonNullable<typeof v> => Boolean(v))
-          .map((concert) => ({
-            key: `concert-${concert.id}`,
-            title: concert.title ?? 'Концерт',
-            subtitle: concert.venue.name,
-            imageUrl: concert.poster_url,
-            to: `/concerts/${concert.id}/rate`,
-          })),
-      ]
+      const favoriteArtists: FavoriteIconVm[] = favoritesIds.artists
+        .map((id) => data.artists.find((artist) => artist.id === id) ?? null)
+        .filter((v): v is NonNullable<typeof v> => Boolean(v))
+        .map((artist) => ({
+          key: `artist-${artist.id}`,
+          title: artist.name,
+          imageUrl: artist.photo_url,
+          to: `/artists?artistId=${artist.id}`,
+        }))
+
+      const favoriteVenues: FavoriteIconVm[] = favoritesIds.venues
+        .map((id) => data.venues.find((venue) => venue.id === id) ?? null)
+        .filter((v): v is NonNullable<typeof v> => Boolean(v))
+        .map((venue) => ({
+          key: `venue-${venue.id}`,
+          title: venue.name,
+          imageUrl: venue.photo_url,
+          to: `/venues?venue_id=${venue.id}`,
+        }))
+
+      const favoriteConcerts: FavoriteIconVm[] = favoritesIds.concerts
+        .map((id) => data.concerts.find((concert) => concert.id === id) ?? null)
+        .filter((v): v is NonNullable<typeof v> => Boolean(v))
+        .map((concert) => ({
+          key: `concert-${concert.id}`,
+          title: concert.title ?? 'Концерт',
+          imageUrl: concert.poster_url,
+          to: `/concerts/${concert.id}/rate`,
+        }))
 
       const likedReviewIds = MOCK_LIKED_REVIEW_IDS_BY_USERNAME[stableSocialKey] ?? []
       const liked = likedReviewIds
@@ -376,7 +376,11 @@ export function ProfileScreen(props: ProfileScreenProps) {
         showAdminBadge,
         stats: { reviews: reviewsCount, likes_received, likes_given },
         reviews: visibleReviews,
-        favorites,
+        favorites: {
+          concerts: favoriteConcerts,
+          artists: favoriteArtists,
+          venues: favoriteVenues,
+        },
         liked,
       }
     },
@@ -565,32 +569,55 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
             {activeTab === 'favorites' && (
               <>
-                {bundle.favorites.length > 0 ? (
-                  <div className="profileFavoritesGrid" role="list">
-                    {bundle.favorites.map((item) => (
-                      <Link key={item.key} to={item.to} className="profileFavoriteCard" role="listitem">
-                        <div className="profileFavoriteMedia" aria-hidden="true">
-                          {item.imageUrl && (
-                            <img
-                              className="profileFavoriteImg"
-                              src={item.imageUrl}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                              referrerPolicy="no-referrer"
-                            />
-                          )}
-                        </div>
-                        <div className="profileFavoriteBody">
-                          <p className="profileFavoriteTitle">{item.title}</p>
-                          <p className="profileFavoriteSubtitle">{item.subtitle}</p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="placeholder">Пока пусто</div>
-                )}
+                <div className="profileFavoritesBlocks" aria-label="Избранное">
+                  {(
+                    [
+                      { title: 'Концерты', items: bundle.favorites.concerts },
+                      { title: 'Артисты', items: bundle.favorites.artists },
+                      { title: 'Площадки', items: bundle.favorites.venues },
+                    ] as const
+                  ).map((block) => (
+                    <article key={block.title} className="profileFavoritesBlock">
+                      <div className="profileFavoritesHeader">
+                        <h3 className="profileFavoritesTitle">{block.title}</h3>
+                        <div className="profileFavoritesLine" aria-hidden="true" />
+                      </div>
+
+                      <div className="profileFavoritesRow" role="list" aria-label={block.title}>
+                        {block.items.length === 0 && (
+                          <div className="profileFavoritesEmpty" role="listitem">
+                            нет избранных
+                          </div>
+                        )}
+                        {block.items.slice(0, 5).map((item) => (
+                          <Link
+                            key={item.key}
+                            to={item.to}
+                            className="profileFavoriteCircleItem profileFavoriteCircleLink"
+                            role="listitem"
+                            aria-label={item.title}
+                          >
+                            <div className="profileFavoriteCircle" aria-hidden="true">
+                              {item.imageUrl ? (
+                                <img
+                                  className="profileFavoriteCircleImg"
+                                  src={item.imageUrl}
+                                  alt=""
+                                  loading="lazy"
+                                  decoding="async"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="profileFavoriteCircleFallback" />
+                              )}
+                            </div>
+                            <div className="profileFavoriteCaption">{item.title}</div>
+                          </Link>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </>
             )}
 

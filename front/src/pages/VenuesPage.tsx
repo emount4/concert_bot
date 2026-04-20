@@ -26,6 +26,7 @@ export function VenuesPage() {
   const [sortBy, setSortBy] = useState<VenueSortBy>('rating')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
+  const [isFavorite, setIsFavorite] = useState(false)
 
   const { data, isLoading, error } = useAppData()
   const venues = data?.venues ?? []
@@ -37,6 +38,10 @@ export function VenuesPage() {
   const selectedVenue = Number.isFinite(venue_id)
     ? venues.find((item) => item.id === venue_id) ?? null
     : null
+
+  useEffect(() => {
+    setIsFavorite(false)
+  }, [selectedVenue?.id])
 
   const availableCities = useMemo(() => {
     return Array.from(new Set(venues.map((venue) => venue.city))).sort((a, b) =>
@@ -141,7 +146,18 @@ export function VenuesPage() {
             )}
           </div>
           <div className="detailHeroBody">
-            <h2 className="detailHeroTitle">{selectedVenue.name}</h2>
+            <div className="detailHeroTitleRow">
+              <h2 className="detailHeroTitle">{selectedVenue.name}</h2>
+              <button
+                type="button"
+                className={`rateHeroFavoriteBtn detailFavoriteBtn ${isFavorite ? 'active' : ''}`}
+                onClick={() => setIsFavorite((v) => !v)}
+                aria-label="В избранное"
+                title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+              >
+                {isFavorite ? '♥' : '♡'}
+              </button>
+            </div>
             <div className="detailStatsRow">
               <p className="detailStatItem">
                 Город: <strong>{selectedVenue.city}</strong>

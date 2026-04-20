@@ -128,6 +128,16 @@
   line-height: 1.1;
 }
 
+.detailHeroTitleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.detailFavoriteBtn {
+  margin-left: auto;
+}
+
 .detailStatsRow {
   margin-top: 12px;
   display: flex;

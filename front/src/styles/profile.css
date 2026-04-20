@@ -322,6 +322,113 @@
   gap: 10px;
 }
 
+.profileFavoritesBlocks {
+  display: grid;
+  gap: 10px;
+}
+
+.profileFavoritesBlock {
+  width: 100%;
+  padding: 6px 0;
+}
+
+.profileFavoritesHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profileFavoritesTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.profileFavoritesLine {
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+  opacity: 0.6;
+}
+
+.profileFavoritesRow {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  justify-items: center;
+  align-items: start;
+  gap: 10px;
+  min-height: 124px;
+}
+
+.profileFavoritesEmpty {
+  grid-column: 1 / -1;
+  justify-self: center;
+  align-self: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.profileFavoriteCircleItem {
+  width: 108px;
+  text-decoration: none;
+  color: inherit;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.profileFavoriteCircleLink:hover .profileFavoriteCircle {
+  background: var(--hover);
+}
+
+.profileFavoriteCircle {
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    var(--hover);
+  display: grid;
+  place-items: center;
+}
+
+.profileFavoriteCircleImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profileFavoriteCircleFallback {
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.profileFavoriteCaption {
+  width: 100%;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.15;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .profileFavoritesRow {
+    grid-template-columns: repeat(5, 108px);
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+}
+
 .profileFavoriteCard {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);

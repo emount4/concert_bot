@@ -21,6 +21,7 @@ export function ArtistsPage() {
   const [sortBy, setSortBy] = useState<ArtistSortBy>('rating')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
+  const [isFavorite, setIsFavorite] = useState(false)
 
   const { data, isLoading, error } = useAppData()
   const artists = data?.artists ?? []
@@ -32,6 +33,10 @@ export function ArtistsPage() {
   const selectedArtist = Number.isFinite(artistId)
     ? artists.find((item) => item.id === artistId) ?? null
     : null
+
+  useEffect(() => {
+    setIsFavorite(false)
+  }, [selectedArtist?.id])
 
   const artistStats = useMemo(() => {
     const reviewsByConcertId = new Map<number, number>()
@@ -140,7 +145,18 @@ export function ArtistsPage() {
             )}
           </div>
           <div className="detailHeroBody">
-            <h2 className="detailHeroTitle">{selectedArtist.name}</h2>
+            <div className="detailHeroTitleRow">
+              <h2 className="detailHeroTitle">{selectedArtist.name}</h2>
+              <button
+                type="button"
+                className={`rateHeroFavoriteBtn detailFavoriteBtn ${isFavorite ? 'active' : ''}`}
+                onClick={() => setIsFavorite((v) => !v)}
+                aria-label="В избранное"
+                title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+              >
+                {isFavorite ? '♥' : '♡'}
+              </button>
+            </div>
             <div className="detailStatsRow">
               <p className="detailStatItem">
                 Концертов: <strong>{artistConcerts.length}</strong>

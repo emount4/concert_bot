@@ -121,8 +121,16 @@ export type MockFavorites = {
 
 // Задание 17.2: мок-избранное по пользователю.
 export const MOCK_FAVORITES_BY_USERNAME: Record<string, MockFavorites> = {
-  mark_reviews: { artists: [101, 102], venues: [201], concerts: [1, 4] },
-  lina_orlova: { artists: [103], venues: [202], concerts: [2] },
+  mark_reviews: {
+    artists: [101, 102, 103, 104, 105],
+    venues: [201, 202, 203, 204, 205],
+    concerts: [1, 2, 3, 4, 5],
+  },
+  lina_orlova: { artists: [103, 110], venues: [202], concerts: [2, 10] },
+  igor_tumanov: { artists: [107], venues: [205, 214, 206], concerts: [7] },
+  sonya_belkina: { artists: [101, 106, 108, 112], venues: [201, 208], concerts: [4, 8, 14] },
+  // Пользователи для теста пустого избранного.
+  pavel_lobov: { artists: [], venues: [], concerts: [] },
   [DELETED_USERNAME]: { artists: [], venues: [], concerts: [] },
 }
 
