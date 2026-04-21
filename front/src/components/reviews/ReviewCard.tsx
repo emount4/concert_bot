@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { ReviewCardItem } from '../../types/review'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
+import { getMockUserByDisplayName, getMockUserByUsername } from '../../data/mockUsers'
 
 type ReviewCardProps = {
   review: ReviewCardItem
@@ -175,12 +176,15 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
 
     baseLikes.forEach((user, index) => {
       const handle = (user.username ?? user.name).trim()
+      const fallbackByUsername = handle ? getMockUserByUsername(handle) : null
+      const fallbackByName = user.name ? getMockUserByDisplayName(user.name) : null
+      const resolvedAvatar = user.avatar_url ?? fallbackByUsername?.avatar_url ?? fallbackByName?.avatar_url ?? null
       const href = `/users/${encodeURIComponent(handle)}`
       entries.push({
         key: `${handle}-${index}`,
         name: user.name,
         href,
-        avatarUrl: user.avatar_url ?? null,
+        avatarUrl: resolvedAvatar,
       })
     })
 

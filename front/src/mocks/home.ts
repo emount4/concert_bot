@@ -2,6 +2,7 @@ import type { Concert } from '../types/concert'
 import type { ReviewCardItem, ReviewScores } from '../types/review'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_REVIEWS } from '../data/mockReviews'
+import { MOCK_VENUES } from '../data/mockVenues'
 
 export type ScoreKey = keyof ReviewScores
 
@@ -224,21 +225,40 @@ export async function fetchTopVenuesByParam(
 
   const averages = buildAverages(rows)
 
-  const byId = new Map<number, { label: string }>()
-  MOCK_CONCERTS.forEach((concert) => {
-    if (!byId.has(concert.venue.id)) {
-      byId.set(concert.venue.id, { label: `${concert.venue.name} · ${concert.venue.city}` })
-    }
+  const venueByKey = new Map<string, { id: number; label: string }>()
+  MOCK_VENUES.forEach((venue) => {
+    const key = `${venue.name}::${venue.city}`
+    venueByKey.set(key, { id: venue.id, label: `${venue.name} · ${venue.city}` })
   })
 
   return Array.from(averages.entries())
-    .map(([id, agg]) => ({
-      key: `venue-${id}`,
-      label: byId.get(id)?.label ?? `Площадка ${id}`,
-      value: roundTo(agg.avg, 1),
-      count: agg.count,
-      href: `/venues?venue_id=${id}`,
-    }))
+    .map(([id, agg]) => {
+      const fallbackLabel = `Площадка ${id}`
+      const fallbackHref = `/venues?venue_id=${id}`
+
+      const concertVenue = MOCK_CONCERTS.find((concert) => concert.venue.id === id)?.venue
+      if (!concertVenue) {
+        return {
+          key: `venue-${id}`,
+          label: fallbackLabel,
+          value: roundTo(agg.avg, 1),
+          count: agg.count,
+          href: fallbackHref,
+        }
+      }
+
+      const match = venueByKey.get(`${concertVenue.name}::${concertVenue.city}`)
+      const resolvedId = match?.id ?? id
+      const resolvedLabel = match?.label ?? `${concertVenue.name} · ${concertVenue.city}`
+
+      return {
+        key: `venue-${resolvedId}`,
+        label: resolvedLabel,
+        value: roundTo(agg.avg, 1),
+        count: agg.count,
+        href: `/venues?venue_id=${resolvedId}`,
+      }
+    })
     .sort((a, b) => b.value - a.value)
     .slice(0, 8)
 }
