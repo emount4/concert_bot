@@ -103,3 +103,9 @@
     --sidebar-expanded: 180px;
   }
 }
+
+@media (max-width: 1024px) {
+  .sideBar {
+    display: none;
+  }
+}

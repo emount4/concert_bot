@@ -54,3 +54,17 @@
   font-size: 14px;
   padding: 0 2px;
 }
+
+@media (max-width: 1024px) {
+  .appRoot {
+    padding-left: 0;
+  }
+
+  .main {
+    padding-bottom: calc(20px + var(--bottom-tab-height) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pageTitle {
+    display: none;
+  }
+}

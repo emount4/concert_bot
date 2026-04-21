@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppData } from '../../api/AppDataProvider'
 import { logout } from '../../utils/authMock'
 import { resolveIsAdmin } from '../../utils/adminAccess'
@@ -11,6 +11,21 @@ function normalizeUsername(value: string): string {
 
 function isAdminRole(role: AdminAccountRole | null): boolean {
   return role === 'admin' || role === 'super-admin' || role === 'super_admin'
+}
+
+function resolveSectionTitle(pathname: string): string {
+  if (pathname === '/home' || pathname.startsWith('/home/')) return 'Главная'
+  if (pathname === '/concerts' || pathname.startsWith('/concerts/')) return 'Концерты'
+  if (pathname === '/reviews' || pathname.startsWith('/reviews/')) return 'Рецензии'
+  if (pathname === '/artists' || pathname.startsWith('/artists/')) return 'Артисты'
+  if (pathname === '/venues' || pathname.startsWith('/venues/')) return 'Площадки'
+  if (pathname === '/about' || pathname.startsWith('/about/')) return 'О проекте'
+  if (pathname === '/faq' || pathname.startsWith('/faq/')) return 'FAQ'
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) return 'Админ‑панель'
+  if (pathname === '/settings' || pathname.startsWith('/settings/')) return 'Настройки'
+  if (pathname === '/profile' || pathname.startsWith('/profile/')) return 'Профиль'
+  if (pathname === '/users' || pathname.startsWith('/users/')) return 'Профиль'
+  return ''
 }
 
 function ShieldIcon() {
@@ -54,6 +69,7 @@ export function Header() {
   // Задание 19.2: фиксированный Header с dropdown профиля и логаутом.
   const { data } = useAppData()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -80,6 +96,8 @@ export function Header() {
   }, [data?.profile?.handle])
 
   const profileHref = myUsername ? `/profile/${encodeURIComponent(myUsername)}` : '/profile'
+
+  const sectionTitle = useMemo(() => resolveSectionTitle(location.pathname), [location.pathname])
 
   const showAdminPanel = useMemo(() => {
     const role = data?.admin?.accounts?.find((account) => account.is_current)?.role ?? null
@@ -144,6 +162,7 @@ export function Header() {
   return (
     <header className="appHeader" aria-label="Шапка">
       <div className="appHeaderInner">
+        {sectionTitle ? <h2 className="appHeaderSectionTitle">{sectionTitle}</h2> : null}
         <button
           type="button"
           className="suggestConcertBtn"

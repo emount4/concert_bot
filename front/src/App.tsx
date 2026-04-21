@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { TopBar } from './components/layout/TopBar'
 import { Header } from './components/layout/Header'
+import { BottomTabBar } from './components/layout/BottomTabBar'
 import { Footer } from './components/layout/Footer'
 import { ScrollToTop } from './components/layout/ScrollToTop'
 import { ConcertsPage } from './pages/ConcertsPage'
@@ -58,6 +59,7 @@ function App() {
         <>
           <TopBar />
           <Header />
+          <BottomTabBar />
         </>
       )}
       <main className="main">

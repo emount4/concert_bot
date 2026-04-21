@@ -1,6 +1,7 @@
 @import './styles/layout.css';
 @import './styles/topbar.css';
 @import './styles/header.css';
+@import './styles/bottom_tab_bar.css';
 @import './styles/footer.css';
 @import './styles/home.css';
 @import './styles/concerts.css';

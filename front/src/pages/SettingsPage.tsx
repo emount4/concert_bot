@@ -654,6 +654,22 @@ export function SettingsPage() {
 
             <div className="settingRow">
               <div className="settingText">
+                <p className="settingTitle">Дополнительные страницы</p>
+                <p className="settingDescription">То, что не поместилось в нижнюю навигацию на мобильных устройствах.</p>
+              </div>
+
+              <div className="settingsInline">
+                <Link to="/faq" className="settingsBtn ghost">
+                  FAQ
+                </Link>
+                <Link to="/about" className="settingsBtn ghost">
+                  О проекте
+                </Link>
+              </div>
+            </div>
+
+            <div className="settingRow">
+              <div className="settingText">
                 <p className="settingTitle">Версия приложения</p>
                 <p className="settingDescription">v1.0.0-mvp</p>
               </div>

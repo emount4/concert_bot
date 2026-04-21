@@ -26,6 +26,22 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.appHeaderSectionTitle {
+  display: none;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: var(--fg);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
 }
 
 .suggestConcertBtn {
@@ -199,4 +215,25 @@
   :root {
     --header-height: 52px;
   }
+}
+
+@media (max-width: 1024px) {
+  .appHeader {
+    padding-left: 0;
+  }
+
+  .appHeaderInner {
+    justify-content: space-between;
+  }
+
+  .appHeaderSectionTitle {
+    display: block;
+  }
+}
+
+@media (max-width: 767px) {
+  .suggestConcertBtn {
+    display: none;
+  }
+
 }

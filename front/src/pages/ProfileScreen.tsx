@@ -171,6 +171,8 @@ function ProfileSkeleton({ title }: { title: string }) {
       <h1 className="pageTitle">{title}</h1>
 
       <div className="profileLayout">
+        <div className="profileBanner skeleton" />
+
         <div className="profileSidebar">
           <article className="profileCard">
             <div className="profileAvatarSkeleton skeleton" />
@@ -208,8 +210,6 @@ function ProfileSkeleton({ title }: { title: string }) {
         </div>
 
         <div className="profileMain">
-          <div className="profileBanner skeleton" />
-
           <div className="profileTabs">
             <div className="profileTab skeleton" />
             <div className="profileTab skeleton" />
@@ -420,6 +420,19 @@ export function ProfileScreen(props: ProfileScreenProps) {
       <h1 className="pageTitle">{title}</h1>
 
       <div className="profileLayout">
+        <article className="profileBanner" aria-label="Баннер профиля">
+          {bundle.bannerUrl && (
+            <img
+              className="profileBannerImg"
+              src={bundle.bannerUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          )}
+        </article>
+
         <div className="profileSidebar">
           <article className="profileCard profileIdentityCard">
             {bundle.is_active ? (
@@ -502,19 +515,6 @@ export function ProfileScreen(props: ProfileScreenProps) {
         </div>
 
         <div className="profileMain">
-          <article className="profileBanner" aria-label="Баннер профиля">
-            {bundle.bannerUrl && (
-              <img
-                className="profileBannerImg"
-                src={bundle.bannerUrl}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-              />
-            )}
-          </article>
-
           <nav className="profileTabs" aria-label="Навигация по контенту профиля">
             <button
               type="button"
