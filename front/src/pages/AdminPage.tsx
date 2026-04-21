@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useAppData } from '../api/AppDataProvider'
 import { setDevAdmin } from '../utils/adminAccess'
+import { useBodyScrollLock } from '../utils/useBodyScrollLock'
 import {
   appendAuditLog,
   ensureAdminStoreSeeded,
@@ -153,6 +154,8 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
   const [approveDraftReview, setApproveDraftReview] = useState<AdminReviewModerationItem | null>(null)
   const [approveDraftText, setApproveDraftText] = useState('')
   const [approveDraftMediaIds, setApproveDraftMediaIds] = useState<string[]>([])
+
+  useBodyScrollLock(Boolean(activeModerationMedia || approveDraftReview || isVenueModalOpen || isArtistsModalOpen))
 
   const pending_count = useMemo(
     () => reviews.filter((review) => review.status === 'pending').length,

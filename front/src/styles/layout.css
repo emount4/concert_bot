@@ -6,6 +6,10 @@
   padding-top: var(--header-height);
 }
 
+body.modalOpen {
+  overflow: hidden;
+}
+
 .appRoot.authMode {
   padding-left: 0;
   padding-top: 0;

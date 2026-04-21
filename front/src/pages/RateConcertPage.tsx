@@ -6,6 +6,7 @@ import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
+import { useBodyScrollLock } from '../utils/useBodyScrollLock'
 
 type ScoreState = {
   performance: number
@@ -53,6 +54,8 @@ export function RateConcertPage() {
   const [isDraftReady, setIsDraftReady] = useState(false)
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
   const [attachedMedia, setAttachedMedia] = useState<File[]>([])
+
+  useBodyScrollLock(isCriteriaOpen || isConfirmClearOpen || isMediaModalOpen)
 
   // Задание 11.5: выбор и управление прикрепленными медиа-файлами.
   const handleMediaSelect = (event: ChangeEvent<HTMLInputElement>) => {

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppData } from '../../api/AppDataProvider'
 import { logout } from '../../utils/authMock'
 import { resolveIsAdmin } from '../../utils/adminAccess'
+import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
 import type { AdminAccountRole } from '../../types/admin'
 
 function normalizeUsername(value: string): string {
@@ -103,6 +104,8 @@ export function Header() {
     const role = data?.admin?.accounts?.find((account) => account.is_current)?.role ?? null
     return resolveIsAdmin() || isAdminRole(role)
   }, [data?.admin?.accounts])
+
+  useBodyScrollLock(isSuggestOpen)
 
   useEffect(() => {
     if (!isOpen) return

@@ -510,16 +510,6 @@
   }
 }
 
-@media (max-width: 460px) {
-  .profileFavoritesRow {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .profileFavoriteCircle {
-    max-width: 72px;
-  }
-}
-
 .profileFavoriteCard {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { ReviewCardItem } from '../../types/review'
+import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
 
 type ReviewCardProps = {
   review: ReviewCardItem
@@ -148,6 +149,8 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
       setExpanded(true)
     }
   }, [textMode])
+
+  useBodyScrollLock(isMediaOpen || isLikesOpen || isModerationOpen)
 
   const baseLikes = review.likes ?? []
   const storageKey = `concert_bot.review_like.${review.id}`

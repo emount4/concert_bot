@@ -4,6 +4,7 @@ import { useAppData } from '../api/AppDataProvider'
 import { enqueueProfileChangeRequest, loadProfileChangeRequests } from '../data/adminStore'
 import type { AdminProfileChangeRequest } from '../types/admin'
 import { changePasswordMock, deleteAccountMock, getCurrentUserEmail, logout } from '../utils/authMock'
+import { useBodyScrollLock } from '../utils/useBodyScrollLock'
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -52,6 +53,8 @@ export function SettingsPage() {
   const [profileChangeRequests, setProfileChangeRequests] = useState<AdminProfileChangeRequest[]>([])
 
   const [isModerationModalOpen, setIsModerationModalOpen] = useState(false)
+
+  useBodyScrollLock(isModerationModalOpen)
 
   const initialUsername = useMemo(() => normalizeUsername(profile?.handle ?? ''), [profile?.handle])
   const initialBio = useMemo(() => profile?.bio ?? '', [profile?.bio])
