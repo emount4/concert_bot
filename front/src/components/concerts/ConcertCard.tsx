@@ -18,19 +18,32 @@ function formatConcertDate(value: string): string {
   }).format(date)
 }
 
-function formatReviewsCount(value: number): string {
-  const mod10 = value % 10
-  const mod100 = value % 100
-
-  if (mod10 === 1 && mod100 !== 11) {
-    return `${value} рецензия`
-  }
-
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
-    return `${value} рецензии`
-  }
-
-  return `${value} рецензий`
+function ReviewsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M7.5 4.8h7.6l3 3V19a2.2 2.2 0 0 1-2.2 2.2H7.5A2.2 2.2 0 0 1 5.3 19V7A2.2 2.2 0 0 1 7.5 4.8Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M15.1 4.8V8h3.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8.2 11.2h7.6M8.2 14.7h7.6M8.2 18.2h5.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
 }
 
 export function ConcertCard({ concert }: ConcertCardProps) {
@@ -84,7 +97,18 @@ export function ConcertCard({ concert }: ConcertCardProps) {
               </div>
             )}
 
-            {hasReviews && <p className="reviews_count">{formatReviewsCount(concert.stats.reviews_count)}</p>}
+            {hasReviews && (
+              <div
+                className="concertReviewsBadge"
+                aria-label={`Рецензий: ${concert.stats.reviews_count}`}
+                title={`Рецензий: ${concert.stats.reviews_count}`}
+              >
+                <span className="concertReviewsIcon" aria-hidden="true">
+                  <ReviewsIcon />
+                </span>
+                <span className="concertReviewsValue">{concert.stats.reviews_count}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -224,10 +224,33 @@
   flex: 0 0 64px;
 }
 
-.reviewsCount {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.2;
+.concertReviewsBadge {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
   white-space: nowrap;
+  align-self: flex-end;
+}
+
+.concertReviewsIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: grid;
+  place-items: center;
+}
+
+.concertReviewsIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.concertReviewsValue {
+  font-weight: 700;
+  color: var(--fg);
 }
