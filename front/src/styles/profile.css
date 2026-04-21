@@ -421,27 +421,29 @@
 
 .profileFavoritesRow {
   margin-top: 12px;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  justify-items: center;
-  align-items: start;
-  gap: 10px;
-  min-height: 124px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  --fav-gap: clamp(8px, 2.2vw, 12px);
+  gap: var(--fav-gap);
+
+  overflow: hidden;
   max-width: 100%;
   min-width: 0;
 }
 
 .profileFavoritesEmpty {
-  grid-column: 1 / -1;
-  justify-self: center;
-  align-self: center;
+  flex: 1 1 100%;
+  text-align: center;
+  padding: 18px 0;
   color: var(--muted);
   font-size: 13px;
 }
 
 .profileFavoriteCircleItem {
-  width: 100%;
-  max-width: 100%;
+  flex: 0 0 auto;
+  width: calc((100% - (4 * var(--fav-gap))) / 5);
+  max-width: 200px;
   min-width: 0;
   text-decoration: none;
   color: inherit;
@@ -457,7 +459,6 @@
 .profileFavoriteCircle {
   width: 100%;
   height: auto;
-  max-width: 104px;
   aspect-ratio: 1 / 1;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -497,12 +498,11 @@
 
 @media (max-width: 720px) {
   .profileFavoritesRow {
-    gap: 6px;
-    min-height: 0;
+    --fav-gap: clamp(6px, 3vw, 10px);
   }
 
   .profileFavoriteCircle {
-    max-width: 64px;
+    /* size is controlled by .profileFavoriteCircleItem */
   }
 
   .profileFavoriteCaption {
