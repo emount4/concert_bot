@@ -347,3 +347,53 @@
   margin: 0;
   font-size: 16px;
 }
+
+@media (max-width: 1024px) {
+  .settingsControl {
+    width: 100%;
+  }
+
+  .settingRow {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .settingText {
+    flex: 1 1 260px;
+  }
+
+  .settingRowSelect {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .selectWrap {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .settingsInline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settingsInlineWide {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settingsMediaPreviewAvatar {
+    width: 120px;
+    height: 120px;
+  }
+
+  .settingsModalBackdrop {
+    padding: 10px;
+  }
+
+  .settingsModalCard {
+    max-height: 88vh;
+  }
+}
