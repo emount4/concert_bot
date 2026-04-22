@@ -1,404 +1,558 @@
-# Frontend API Contract (derived from current frontend code)
+# API контракт фронтенда (актуально по текущему коду)
 
-This document is generated from the current frontend implementation under `front/src` and reflects what the UI expects when `VITE_DATA_SOURCE=api`.
-The backend in `back/` is explicitly ignored (per request).
+Документ собран по реальному коду фронтенда в `front/src`.
+Код в `back/` не используется и сознательно игнорируется.
 
-## Base URL and transport
-- Base URL: `VITE_API_BASE_URL` (default: `http://127.0.0.1:8080/api/v1`)
-- Requests use JSON bodies when present and set `Content-Type: application/json`
-- Requests include cookies: `credentials: include` (cookie/session auth)
-- Non-2xx responses: UI reads `{ "message": "..." }` if present
-- HTTP 204 is treated as `null`
+## 1. Режимы и транспорт
 
-## List response envelope
-The frontend only uses a minimal list envelope:
+### Переключение режима
+- `VITE_DATA_SOURCE=mock|api`
+- В режиме `api` фронт реально вызывает только то, что перечислено в разделе **2**.
+
+### Base URL и формат запросов
+- Base URL: `VITE_API_BASE_URL` (по умолчанию `http://127.0.0.1:8080/api/v1`)
+- JSON-тело: если есть body, то ставится `Content-Type: application/json`
+- Аутентификация: `credentials: include` (cookie/session)
+- 204: считается `null`
+- Ошибки: если ответ не 2xx, фронт читает `{ "message": "..." }`
+
+### Формат списков
 ```ts
 type ListResponse<T> = { items: T[] }
 ```
-Notes:
-- `meta` exists in `src/api/dto/contracts.ts` but is not used by UI.
+Примечание: `meta` есть в `src/api/dto/contracts.ts`, но фронтом не используется.
 
-## Identifier nuances
-Many entities carry both numeric `id` and optional string `*_id`:
-- UI logic uses numeric `id` for lookup/filtering
-- For review-related URLs, UI uses `review.review_id ?? review.id`
-- Recommendation: always return numeric `id` and string `*_id` when using UUIDs
+### Нюансы ID
+- Почти везде есть числовой `id` и опциональный строковый `*_id`
+- В ссылках на лайки фронт использует `review.review_id ?? review.id`
+- Рекомендация: всегда возвращайте числовой `id` и строковый `*_id` (если UUID)
 
-## Data models (UI-facing types)
+### Формат дат
+- Везде ISO строки, которые проходят через `new Date(...)`
 
-```ts
-// concerts
-export type Artist = {
-  artist_id?: string
-  id: number
-  name: string
+## 2. Что фронт реально вызывает в режиме API (без правок фронта)
+
+Эти запросы идут автоматически при загрузке приложения.
+
+### GET /concerts
+Принимает: ничего (query не используется).
+Отдает: `{ items: Concert[] }`
+
+### GET /artists
+Принимает: ничего.
+Отдает: `{ items: ArtistCardItem[] }`
+
+### GET /venues
+Принимает: ничего.
+Отдает: `{ items: VenueCardItem[] }`
+
+### GET /reviews
+Принимает: ничего.
+Отдает: `{ items: ReviewCardItem[] }`
+Нюансы:
+- `review.concertId` должен совпадать с `concert.id` (иначе фильтры не работают)
+- `review.scores` обязательны (UI отображает все 5 значений)
+- `review.rating_total` обязателен (UI показывает число)
+- `review.author_username` очень желателен (нужен для профилей)
+
+### GET /users/me
+Принимает: ничего.
+Отдает: `UserProfile`
+Нюансы:
+- `handle` используется как username; допускается формат `@name`
+- `recent_reviews` управляет статусом модерации в профиле
+
+### GET /admin/reviews/pending
+Принимает: ничего.
+Отдает: `{ items: AdminReviewModerationItem[] }`
+Нюанс: UI сам фильтрует по `status` (pending/approved/rejected), поэтому можно отдавать все статусы.
+
+### GET /admin/artists
+Принимает: ничего.
+Отдает: `{ items: AdminArtist[] }`
+
+### GET /admin/venues
+Принимает: ничего.
+Отдает: `{ items: AdminVenue[] }`
+
+### GET /admin/concerts
+Принимает: ничего.
+Отдает: `{ items: AdminConcert[] }`
+
+### GET /admin/users
+Принимает: ничего.
+Отдает: `{ items: AdminAccount[] }`
+Нюансы:
+- `is_current=true` нужен, чтобы определить текущего админа
+- `role` проверяется на `admin`, `super-admin`, `super_admin`
+
+### GET /reviews/{reviewId}/likers
+Принимает: `reviewId` (строка или число).
+Отдает: либо `ReviewLikeUser[]`, либо `{ items: ReviewLikeUser[] }`.
+Нюансы:
+- `ReviewLikeUser.name` обязателен
+- `username` нужен для ссылки на профиль (если нет, будет ссылка по `name`)
+
+## 3. Что сейчас на моках (нужно реализовать и подключить в фронте)
+
+Ниже перечислены фичи, которые в UI есть, но работают через mock. Чтобы заменить моки на API, нужно:
+1) реализовать эндпоинты; 2) заменить mock-функции на вызовы API.
+
+### 3.1 Авторизация и регистрация
+
+#### POST /auth/register
+Принимает:
+```json
+{ "displayName": "...", "email": "...", "password": "..." }
+```
+Отдает (сейчас ждется логика как у mock):
+```json
+{ "ok": true }
+```
+или
+```json
+{ "ok": false, "message": "..." }
+```
+
+#### POST /auth/verify-email
+Принимает:
+```json
+{ "email": "...", "code": "123456" }
+```
+Отдает:
+```json
+{ "ok": true }
+```
+или
+```json
+{ "ok": false, "message": "..." }
+```
+
+#### POST /auth/login
+Принимает:
+```json
+{ "email": "...", "password": "..." }
+```
+Отдает:
+```json
+{ "ok": true }
+```
+или
+```json
+{ "ok": false, "message": "..." }
+```
+
+#### POST /auth/refresh
+Принимает: нет.
+Отдает: новый session/cookie.
+
+#### POST /auth/logout
+Принимает: нет.
+Отдает: 204.
+
+#### POST /auth/tg-web-app/login
+#### POST /auth/tg-web-app/bind
+В фронте нет параметров, но страницы настроек ожидают привязку Telegram.
+Рекомендуется возвращать `tg_username` или аналог, чтобы показать в UI.
+
+### 3.2 Профиль и настройки
+
+#### PATCH /users/me
+В `api/endpoints.ts` объявлен, но не используется.
+Рекомендуемый body (минимум для UI):
+```json
+{ "handle": "@name", "bio": "...", "avatar_url": "...", "banner_url": "..." }
+```
+Отдает: `UserProfile`.
+
+#### Изменения профиля через модерацию
+В UI есть очередь изменений профиля (тип `AdminProfileChangeRequest`).
+Сейчас заявки создаются локально. Для продакшена нужен эндпоинт создания заявок, например:
+```
+POST /users/profile-change
+```
+Принимает:
+```json
+{
+  "requested_by_username": "...",
+  "requested_by_displayName": "...",
+  "type": "username|bio|avatar|banner",
+  "old_username": "...",
+  "new_username": "...",
+  "old_bio": "...",
+  "new_bio": "...",
+  "old_avatar_url": "...",
+  "new_avatar_url": "...",
+  "old_banner_url": "...",
+  "new_banner_url": "..."
 }
+```
+Отдает: `AdminProfileChangeRequest`.
 
-export type Venue = {
-  venue_id?: string
-  id: number
-  name: string
-  city: string
-  address: string
-  photo_url: string | null
+#### Смена пароля
+В UI есть форма смены пароля, сейчас mock.
+Рекомендуемый эндпоинт:
+```
+POST /auth/change-password
+```
+Принимает:
+```json
+{ "oldPassword": "...", "newPassword": "...", "newPasswordRepeat": "..." }
+```
+Отдает:
+```json
+{ "ok": true }
+```
+или
+```json
+{ "ok": false, "message": "..." }
+```
+
+#### Удаление аккаунта
+Рекомендуемый эндпоинт:
+```
+POST /auth/delete-account
+```
+Принимает:
+```json
+{ "password": "..." }
+```
+Отдает:
+```json
+{ "ok": true }
+```
+или
+```json
+{ "ok": false, "message": "..." }
+```
+
+### 3.3 Рецензии
+
+#### POST /reviews
+Форма на странице оценки уже есть.
+Принимает:
+```json
+{
+  "concertId": 123,
+  "title": "...",
+  "text": "...",
+  "scores": { "performance": 1, "setlist": 1, "crowd": 1, "sound": 1, "vibe": 1 },
+  "media_ids": ["..."]
 }
+```
+Отдает: созданный `ReviewCardItem`.
+Нюансы:
+- UI показывает счетчик символов (ориентир 300–8500)
+- `rating_total` можно посчитать на бэке (формула есть в UI)
 
-export type ConcertStats = {
-  avg_rating_total: number | null
-  reviews_count: number
+#### POST /reviews/media/presign-upload
+В UI есть прикрепление файлов и модалка.
+Рекомендуемый формат:
+Принимает:
+```json
+{ "files": [{ "name": "...", "size": 123, "type": "image/png" }] }
+```
+Отдает:
+```json
+{
+  "items": [
+    { "id": "...", "type": "image", "upload_url": "...", "url": "..." }
+  ]
 }
+```
+`id/type/url` должны совпадать с `ReviewMediaAttachment`.
 
-export type Concert = {
-  concert_id?: string
-  id: number
-  title: string | null
-  date: string
-  poster_url: string | null
-  venue: Venue
-  artists: Artist[]
-  stats: ConcertStats
+#### POST /reviews/{id}/like
+В UI сейчас лайк локальный. Для сервера нужен toggle.
+Принимает: пусто или `{ "liked": true }`.
+Отдает: например `{ "liked": true, "likes_count": 12 }`.
+
+### 3.4 Избранное
+В UI избранное сейчас из моков.
+Эндпоинты из `api/endpoints.ts`:
+
+#### GET /favorites
+Отдает список `FavoriteDto` (см. ниже) или `{ items: FavoriteDto[] }`.
+
+#### POST /favorites
+Принимает:
+```json
+{ "target_id": "...", "target_type": "concert|artist|venue" }
+```
+Отдает: созданный Favorite.
+
+#### DELETE /favorites/{targetId}
+Принимает: `targetId`.
+Отдает: 204.
+
+### 3.5 Предложения концертов
+В UI есть админ-очередь предложений, сейчас mock.
+Эндпоинт объявлен:
+
+#### POST /concerts/suggest
+Принимает:
+```json
+{
+  "artist_name": "...",
+  "venue_name": "...",
+  "city_name": "...",
+  "date": "2026-05-14T19:30:00Z",
+  "info": "..."
 }
+```
+Отдает: `AdminConcertSuggestion` (обычно со статусом `pending`).
 
-// artist cards
-export type ArtistCardItem = {
-  artist_id?: string
-  id: number
-  name: string
-  photo_url: string | null
-  avg_rating_total: number | null
-}
+### 3.6 Админка (модерация и CRUD)
 
-// venue cards
-export type VenueCardItem = {
-  venue_id?: string
-  id: number
-  name: string
-  city: string
-  capacity: number
-  photo_url: string | null
-  avg_rating_total: number | null
-}
+#### POST/PATCH /admin/reviews/{id}/approve
+Принимает:
+```json
+{ "text": "...", "media_ids": ["..."] }
+```
+Отдает: обновленный `AdminReviewModerationItem`.
 
-// reviews
-export type ReviewScores = {
-  performance: number
-  setlist: number
-  crowd: number
-  sound: number
-  vibe: number
-}
+#### POST/PATCH /admin/reviews/{id}/reject
+Принимает (рекомендовано):
+```json
+{ "rejection_reason": "..." }
+```
+Отдает: обновленный `AdminReviewModerationItem`.
 
-export type ReviewMediaAttachment = {
-  id: string
-  type: 'image' | 'video'
-  url: string
-}
+#### GET /admin/profiles/pending
+Отдает: `{ items: AdminProfileChangeRequest[] }`.
 
-export type ReviewLikeUser = {
-  name: string
-  username?: string
-  avatar_url?: string | null
-}
+#### POST/PATCH /admin/profiles/{moderationId}/resolve
+Принимает:
+```json
+{ "status": "approved|rejected" }
+```
+Отдает: обновленный `AdminProfileChangeRequest`.
 
-export type ReviewCardItem = {
-  review_id?: string
-  concert_id?: string
-  id: number
-  concertId: number
-  author_name: string
-  author_username?: string
-  author_avatar_url: string | null
-  concert_title: string
-  concert_artist: string
-  concert_poster_url: string | null
-  rating_total: number
-  scores: ReviewScores
-  text: string
-  media?: ReviewMediaAttachment[]
-  likes?: ReviewLikeUser[]
-}
+#### CRUD артистов/площадок/концертов
+Эндпоинты объявлены частично (list + byId). Для UI нужны операции:
+- создать
+- обновить
+- удалить
 
-// profile
-export type ProfileReviewStatus = 'approved' | 'pending' | 'rejected'
+Рекомендуемые тела:
+```json
+// AdminArtist
+{ "name": "...", "description": "...", "photo_url": "..." }
 
-export type ProfileReviewItem = {
-  review_id?: string
-  id: number
-  concert_title: string
-  created_at: string
-  status: ProfileReviewStatus
-  rejection_reason?: string | null
-  rating_total: number
-}
+// AdminVenue
+{ "name": "...", "city": "...", "address": "...", "capacity": 1200, "photo_url": "..." }
 
-export type UserProfile = {
-  user_id?: string
-  id: number
-  displayName: string
-  handle: string
-  created_at: string
-  bio: string
-  reviews_count: number
-  approved_count: number
-  pending_count: number
-  avatar_url: string | null
-  banner_url?: string | null
-  is_active?: boolean
-  recent_reviews: ProfileReviewItem[]
-}
+// AdminConcert
+{ "title": "...", "date": "2026-05-10T19:30:00Z", "venue_id": 201, "artist_ids": [101], "poster_url": "..." }
+```
 
-// admin
-export type AdminReviewStatus = 'pending' | 'approved' | 'rejected'
+#### Управление аккаунтами
+Эндпоинты объявлены:
+- POST/PATCH /admin/users/{id}/ban  (body `{ "is_banned": true|false }`)
+- POST/PATCH /admin/users/{id}/role (body `{ "role": "admin"|"user" }`)
 
-export type AdminReviewAttachment = {
-  id: string
-  type: 'image' | 'video'
-  url: string
-}
+#### Логи
+#### GET /admin/logs
+Отдает: `{ items: AdminAuditLogEntry[] }`.
 
-export type AdminReviewModerationItem = {
-  review_id?: string
-  id: number
-  author_name: string
-  author_username?: string
-  concert_title: string
-  created_at: string
-  rating_total: number
-  status: AdminReviewStatus
-  text: string
-  media?: AdminReviewAttachment[]
-}
+### 3.7 Города
+#### GET /cities
+Отдает: `{ items: AdminCity[] }`.
 
-export type AdminArtist = {
-  artist_id?: string
-  id: number
-  name: string
-  description: string
-  photo_url: string | null
-}
+В админке есть CRUD городов, но API для создания/редактирования/удаления не объявлен.
+Рекомендуемые операции:
+- POST /admin/cities
+- PATCH /admin/cities/{id}
+- DELETE /admin/cities/{id}
 
-export type AdminVenue = {
-  venue_id?: string
-  id: number
-  name: string
-  city: string
-  address: string
-  capacity: number
-  photo_url: string | null
-}
+## 4. Статические файлы (не API)
 
-export type AdminConcert = {
-  concert_id?: string
-  id: number
-  title: string
-  date: string
-  venue_id: number
-  artist_ids: number[]
-  poster_url: string | null
-}
+Фронт напрямую запрашивает/открывает эти файлы:
 
-export type AdminAccountRole = 'user' | 'admin' | 'super_admin' | 'super-admin'
-
-export type AdminAccount = {
-  user_id?: string
-  id: number
-  displayName: string
-  handle: string
-  role: AdminAccountRole
-  is_banned: boolean
-  is_current: boolean
-}
-
-// admin queue and logs (used in UI, currently mock-only)
-export type AdminProfileChangeType = 'username' | 'bio' | 'avatar' | 'banner'
-export type AdminProfileChangeStatus = 'pending' | 'approved' | 'rejected'
-
-export type AdminProfileChangeRequest = {
-  id: string
-  created_at: string
-  requested_by_username: string
-  requested_by_displayName: string
-  type: AdminProfileChangeType
-  status: AdminProfileChangeStatus
-  old_username?: string | null
-  new_username?: string | null
-  old_bio?: string | null
-  new_bio?: string | null
-  old_avatar_url?: string | null
-  new_avatar_url?: string | null
-  old_banner_url?: string | null
-  new_banner_url?: string | null
-}
-
-export type AdminConcertSuggestionStatus = 'pending' | 'created' | 'rejected'
-
-export type AdminConcertSuggestion = {
-  id: string
-  created_at: string
-  status: AdminConcertSuggestionStatus
-  suggested_by_username: string
-  suggested_by_displayName: string
-  artist_name: string
-  venue_name: string
-  city_name: string
-  date: string
-}
-
-export type AdminCity = {
-  id: number
-  name: string
-  slug: string
-  timezone: string
-}
-
-export type AdminAuditLogEntry = {
-  id: string
-  created_at: string
-  actor_displayName: string
-  actor_role: AdminAccountRole
-  message: string
+### GET /faq.json
+Ожидаемый формат:
+```json
+{
+  "categories": [
+    { "id": "...", "title": "...", "items": [{ "q": "...", "a": "..." }] }
+  ]
 }
 ```
 
-## Endpoints actually called in API mode
-These are the only endpoints the current frontend calls when `VITE_DATA_SOURCE=api`:
+### GET /terms.html
+### GET /privacy.html
+### GET /moderation.html
 
-### GET /concerts
-Response: `ListResponse<Concert>`
+## 5. Справочник типов (UI)
 
-### GET /artists
-Response: `ListResponse<ArtistCardItem>`
+### Concert
+- `id: number`
+- `concert_id?: string`
+- `title: string | null`
+- `date: string` (ISO)
+- `poster_url: string | null`
+- `venue: Venue`
+- `artists: Artist[]`
+- `stats: { avg_rating_total: number | null, reviews_count: number }`
 
-### GET /venues
-Response: `ListResponse<VenueCardItem>`
+### Venue
+- `id: number`
+- `venue_id?: string`
+- `name: string`
+- `city: string`
+- `address: string`
+- `photo_url: string | null`
 
-### GET /reviews
-Response: `ListResponse<ReviewCardItem>`
-Notes:
-- `review.rating_total` is required (UI displays it directly)
-- `review.scores` is required (UI renders all five values)
-- `review.concertId` must match `concert.id` for filtering
+### Artist
+- `id: number`
+- `artist_id?: string`
+- `name: string`
 
-### GET /users/me
-Response: `UserProfile`
-Notes:
-- `handle` is used as the username (often includes '@' in mocks)
-- `recent_reviews` drives moderation status in profile UI
+### ArtistCardItem
+- `id: number`
+- `artist_id?: string`
+- `name: string`
+- `photo_url: string | null`
+- `avg_rating_total: number | null`
 
-### GET /admin/reviews/pending
-Response: `ListResponse<AdminReviewModerationItem>`
+### VenueCardItem
+- `id: number`
+- `venue_id?: string`
+- `name: string`
+- `city: string`
+- `capacity: number`
+- `photo_url: string | null`
+- `avg_rating_total: number | null`
 
-### GET /admin/artists
-Response: `ListResponse<AdminArtist>`
+### ReviewCardItem
+- `id: number`
+- `review_id?: string`
+- `concertId: number`
+- `concert_id?: string`
+- `author_name: string`
+- `author_username?: string`
+- `author_avatar_url: string | null`
+- `concert_title: string`
+- `concert_artist: string`
+- `concert_poster_url: string | null`
+- `rating_total: number`
+- `scores: { performance, setlist, crowd, sound, vibe }`
+- `text: string`
+- `media?: ReviewMediaAttachment[]`
+- `likes?: ReviewLikeUser[]`
 
-### GET /admin/venues
-Response: `ListResponse<AdminVenue>`
+### ReviewMediaAttachment
+- `id: string`
+- `type: "image" | "video"`
+- `url: string`
 
-### GET /admin/concerts
-Response: `ListResponse<AdminConcert>`
+### ReviewLikeUser
+- `name: string`
+- `username?: string`
+- `avatar_url?: string | null`
 
-### GET /admin/users
-Response: `ListResponse<AdminAccount>`
-Notes:
-- `is_current` is used to find the current admin account
-- roles are checked against `admin`, `super-admin`, or `super_admin`
+### UserProfile
+- `id: number`
+- `user_id?: string`
+- `displayName: string`
+- `handle: string`
+- `created_at: string`
+- `bio: string`
+- `reviews_count: number`
+- `approved_count: number`
+- `pending_count: number`
+- `avatar_url: string | null`
+- `banner_url?: string | null`
+- `is_active?: boolean`
+- `recent_reviews: ProfileReviewItem[]`
 
-### GET /reviews/{reviewId}/likers
-Response: `ReviewLikeUser[]` OR `ListResponse<ReviewLikeUser>`
-Notes:
-- Frontend accepts either a plain array or `{ items: [...] }`
-- `reviewId` can be a number or string; endpoint uses encoded path
-- `ReviewLikeUser.name` is required; `username` is used for profile links if provided
+### ProfileReviewItem
+- `id: number`
+- `review_id?: string`
+- `concert_title: string`
+- `created_at: string`
+- `status: "approved" | "pending" | "rejected"`
+- `rejection_reason?: string | null`
+- `rating_total: number`
 
-## Endpoints declared but NOT used by frontend yet
-These exist in `src/api/endpoints.ts` but are not called by current UI. Use them for future wiring.
-Where possible, request/response shapes are inferred from mock code or DTOs.
+### AdminReviewModerationItem
+- `id: number`
+- `review_id?: string`
+- `author_name: string`
+- `author_username?: string`
+- `concert_title: string`
+- `created_at: string`
+- `rating_total: number`
+- `status: "pending" | "approved" | "rejected"`
+- `text: string`
+- `media?: { id, type, url }[]`
 
-### Auth
-- POST /auth/register
-  - Suggested body (from `authMock`): `{ displayName, email, password }`
-  - Suggested response: `{ ok: true }` or `{ ok: false, message }`
+### AdminArtist
+- `id: number`
+- `artist_id?: string`
+- `name: string`
+- `description: string`
+- `photo_url: string | null`
 
-- POST /auth/verify-email
-  - Suggested body (from `authMock`): `{ email, code }`
-  - Suggested response: `{ ok: true }` or `{ ok: false, message }`
+### AdminVenue
+- `id: number`
+- `venue_id?: string`
+- `name: string`
+- `city: string`
+- `address: string`
+- `capacity: number`
+- `photo_url: string | null`
 
-- POST /auth/login
-  - Suggested body (from `authMock`): `{ email, password }`
-  - Suggested response: `{ ok: true }` or `{ ok: false, message }`
+### AdminConcert
+- `id: number`
+- `concert_id?: string`
+- `title: string`
+- `date: string`
+- `venue_id: number`
+- `artist_ids: number[]`
+- `poster_url: string | null`
 
-- POST /auth/refresh
-  - Body: not specified in UI
+### AdminAccount
+- `id: number`
+- `user_id?: string`
+- `displayName: string`
+- `handle: string`
+- `role: "user" | "admin" | "super_admin" | "super-admin"`
+- `is_banned: boolean`
+- `is_current: boolean`
 
-- POST /auth/logout
-  - Body: not specified in UI (204 is safe)
+### AdminProfileChangeRequest
+- `id: string`
+- `created_at: string`
+- `requested_by_username: string`
+- `requested_by_displayName: string`
+- `type: "username" | "bio" | "avatar" | "banner"`
+- `status: "pending" | "approved" | "rejected"`
+- `old_username?`, `new_username?`
+- `old_bio?`, `new_bio?`
+- `old_avatar_url?`, `new_avatar_url?`
+- `old_banner_url?`, `new_banner_url?`
 
-- POST /auth/tg-web-app/login
-- POST /auth/tg-web-app/bind
-  - Not specified in UI
+### AdminConcertSuggestion
+- `id: string`
+- `created_at: string`
+- `status: "pending" | "created" | "rejected"`
+- `suggested_by_username: string`
+- `suggested_by_displayName: string`
+- `artist_name: string`
+- `venue_name: string`
+- `city_name: string`
+- `date: string`
 
-### Users
-- GET /users/profile/{username}
-  - Not used by UI. Profile UI currently builds data locally from app bootstrap.
+### AdminCity
+- `id: number`
+- `name: string`
+- `slug: string`
+- `timezone: string`
 
-- PATCH /users/me
-  - Not used by UI. Settings page updates are mock-only.
-
-- GET /users/notifications
-  - Not used by UI.
-
-### Cities
-- GET /cities
-  - Not used by UI (admin city management is mock-only).
-
-### Concerts
-- GET /concerts/{id}
-  - Not used by UI (details are derived from bootstrap list).
-
-- POST /concerts/suggest
-  - Not used by UI. Related UI for suggestions is mock-only in admin queue.
-
-### Reviews
-- GET /reviews/{id}
-  - Not used by UI.
-
-- POST /reviews
-  - Not used by UI yet. If you wire it, Rate page collects:
-    - `concertId`
-    - `scores` (performance, setlist, crowd, sound, vibe)
-    - `text`
-    - optional `title` (currently unused)
-    - optional media attachments (see presign below)
-
-- POST /reviews/{id}/like
-  - Not used by UI. Like toggling is local-only for now.
-
-- POST /reviews/media/presign-upload
-  - Not used by UI. If implemented, should return upload URLs and final `ReviewMediaAttachment` URLs.
-
-### Favorites
-- GET /favorites
-- POST /favorites
-- DELETE /favorites/{targetId}
-  - Not used by UI. Favorites are built from mocks in profile screen.
-
-### Admin
-- GET /admin/profiles/pending
-- POST/PATCH /admin/profiles/{moderationId}/resolve
-- GET /admin/artists/{id}
-- GET /admin/venues/{id}
-- GET /admin/concerts/{id}
-- POST/PATCH /admin/reviews/{id}/approve
-- POST/PATCH /admin/reviews/{id}/reject
-- POST/PATCH /admin/users/{id}/ban
-- POST/PATCH /admin/users/{id}/role
-- GET /admin/logs
-
-None of the above are called by UI yet; admin actions are mock-only. If you wire them, align payloads with the admin types above.
-
-## Quick checklist for backend compatibility
-- Serve list endpoints with `{ items: [...] }`
-- Include both numeric `id` and string `*_id` if you use UUIDs
-- Keep date/time as ISO strings (UI parses with `new Date()`)
-- Ensure `ReviewCardItem` contains all required fields (`scores`, `rating_total`, `author_name`, `concertId`)
-- For likers endpoint, accept string or numeric path id and return array or `{ items }`
+### AdminAuditLogEntry
+- `id: string`
+- `created_at: string`
+- `actor_displayName: string`
+- `actor_role: "user" | "admin" | "super_admin" | "super-admin"`
+- `message: string`
