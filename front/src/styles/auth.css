@@ -1,8 +1,9 @@
 .authPage {
-  min-height: calc(100svh - 40px);
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px 12px;
+  box-sizing: border-box;
 }
 
 .authCard {
@@ -87,4 +88,65 @@
 .authLink {
   color: var(--fg);
   text-decoration: underline;
+}
+
+.authConsent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.authConsent input {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .authPage {
+    padding: 20px 12px;
+  }
+
+  .authCard {
+    width: min(520px, 100%);
+  }
+}
+
+@media (max-width: 640px) {
+  .authPage {
+    min-height: 100dvh;
+    padding: 10px 8px 16px;
+    place-items: center;
+  }
+
+  .authCard {
+    width: 100%;
+    border-radius: 12px;
+    padding: 14px;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  .authTitle {
+    font-size: 24px;
+  }
+
+  .authSubtitle {
+    font-size: 13px;
+  }
+
+  .authForm {
+    margin-top: 12px;
+    gap: 10px;
+  }
+
+  .authInput {
+    padding: 9px 10px;
+  }
+
+  .authSubmit {
+    width: 100%;
+  }
 }

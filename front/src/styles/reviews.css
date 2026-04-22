@@ -265,6 +265,9 @@
   margin: 0 0 8px;
   font-size: 18px;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reviewText {

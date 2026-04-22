@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
@@ -46,16 +46,19 @@ export function RateConcertPage() {
   })
   const [reviewTitle, setReviewTitle] = useState('')
   const [text, setText] = useState('')
+  const [isTextDirty, setIsTextDirty] = useState(false)
+  const lastSavedTextRef = useRef('')
 
   const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
   const [isFavorite, setIsFavorite] = useState(false)
   const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false)
+  const [isConfirmSubmitOpen, setIsConfirmSubmitOpen] = useState(false)
   const [isDraftToastVisible, setIsDraftToastVisible] = useState(false)
   const [isDraftReady, setIsDraftReady] = useState(false)
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
   const [attachedMedia, setAttachedMedia] = useState<File[]>([])
 
-  useBodyScrollLock(isCriteriaOpen || isConfirmClearOpen || isMediaModalOpen)
+  useBodyScrollLock(isCriteriaOpen || isConfirmClearOpen || isConfirmSubmitOpen || isMediaModalOpen)
 
   // Задание 11.5: выбор и управление прикрепленными медиа-файлами.
   const handleMediaSelect = (event: ChangeEvent<HTMLInputElement>) => {
@@ -73,14 +76,23 @@ export function RateConcertPage() {
   // Задание 11.3: загрузка черновика для выбранного концерта.
   useEffect(() => {
     setIsDraftReady(false)
+
+    setScores({ performance: 5, setlist: 5, crowd: 5, sound: 5, vibe: 1 })
+    setReviewTitle('')
+    setText('')
+    setAttachedMedia([])
+    setIsTextDirty(false)
+    lastSavedTextRef.current = ''
+
     if (numericConcertId) {
       const stored = localStorage.getItem(`draft_${numericConcertId}`)
       if (stored) {
         try {
           const parsed = JSON.parse(stored)
-          if (parsed.scores) setScores(parsed.scores)
-          if (parsed.reviewTitle) setReviewTitle(parsed.reviewTitle)
-          if (parsed.text) setText(parsed.text)
+          if (typeof parsed?.text === 'string' && parsed.text.trim().length > 0) {
+            setText(parsed.text)
+            lastSavedTextRef.current = parsed.text
+          }
         } catch {
           localStorage.removeItem(`draft_${numericConcertId}`)
         }
@@ -95,16 +107,26 @@ export function RateConcertPage() {
 
   // Задание 11.4: автосохранение черновика после паузы ввода.
   useEffect(() => {
-    if (!numericConcertId || !isDraftReady) return
+    if (!numericConcertId || !isDraftReady || !isTextDirty) return
 
     const saveTimerId = window.setTimeout(() => {
-      const draft = { scores, reviewTitle, text }
-      localStorage.setItem(`draft_${numericConcertId}`, JSON.stringify(draft))
+      const trimmed = text.trim()
+
+      if (!trimmed) {
+        localStorage.removeItem(`draft_${numericConcertId}`)
+        lastSavedTextRef.current = ''
+        return
+      }
+
+      if (text === lastSavedTextRef.current) return
+
+      localStorage.setItem(`draft_${numericConcertId}`, JSON.stringify({ text }))
+      lastSavedTextRef.current = text
       setIsDraftToastVisible(true)
     }, 1200)
 
     return () => window.clearTimeout(saveTimerId)
-  }, [numericConcertId, scores, reviewTitle, text, isDraftReady])
+  }, [numericConcertId, text, isDraftReady, isTextDirty])
 
   useEffect(() => {
     if (!isDraftToastVisible) return
@@ -124,9 +146,19 @@ export function RateConcertPage() {
     setScores({ performance: 5, setlist: 5, crowd: 5, sound: 5, vibe: 1 })
     setReviewTitle('')
     setText('')
+    setIsTextDirty(false)
+    lastSavedTextRef.current = ''
     localStorage.removeItem(`draft_${numericConcertId}`)
     setIsConfirmClearOpen(false)
     setIsDraftToastVisible(false)
+  }
+
+  const requestSubmitReview = () => {
+    setIsConfirmSubmitOpen(true)
+  }
+
+  const confirmSubmitReview = () => {
+    setIsConfirmSubmitOpen(false)
   }
 
   const concertReviews = useMemo(
@@ -371,7 +403,10 @@ export function RateConcertPage() {
             className="rateTextarea"
             placeholder="Текст рецензии (от 300 до 8500 символов)"
             value={text}
-            onChange={(event) => setText(event.target.value)}
+            onChange={(event) => {
+              setText(event.target.value)
+              setIsTextDirty(true)
+            }}
           />
         </label>
 
@@ -404,7 +439,12 @@ export function RateConcertPage() {
             <p className="rateOverallLimit">/90</p>
           </div>
 
-          <button type="button" className="rateSubmitButton" aria-label="Отправить рецензию">
+          <button
+            type="button"
+            className="rateSubmitButton"
+            aria-label="Отправить рецензию"
+            onClick={requestSubmitReview}
+          >
             ✓
           </button>
         </div>
@@ -512,6 +552,30 @@ export function RateConcertPage() {
                 onClick={confirmClearDraft}
               >
                 Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isConfirmSubmitOpen && (
+        <div className="rateModalOverlay" onClick={() => setIsConfirmSubmitOpen(false)}>
+          <div className="rateModalContent" onClick={(e) => e.stopPropagation()}>
+            <h3 className="rateModalTitle">Отправить рецензию?</h3>
+            <div className="rateModalBody">
+              <p>Перед отправкой проверьте, что рецензия соответствует правилам:</p>
+              <ul>
+                <li><strong>Без мата:</strong> если есть — запикайте.</li>
+                <li><strong>Содержательно:</strong> больше конкретики по звуку, подаче, сет-листу, атмосфере.</li>
+                <li><strong>Без оскорблений:</strong> уважение к артистам и другим людям.</li>
+              </ul>
+            </div>
+            <div className="rateModalActions rateModalActionsEnd">
+              <button type="button" className="rateModalBtn" onClick={() => setIsConfirmSubmitOpen(false)}>
+                Отмена
+              </button>
+              <button type="button" className="rateModalBtn" onClick={confirmSubmitReview}>
+                Отправить
               </button>
             </div>
           </div>

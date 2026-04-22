@@ -8,6 +8,7 @@ export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordRepeat, setPasswordRepeat] = useState('')
+  const [isTermsAccepted, setIsTermsAccepted] = useState(false)
   const [code, setCode] = useState('')
   const [step, setStep] = useState<'register' | 'verify'>('register')
   const [loading, setLoading] = useState(false)
@@ -21,6 +22,11 @@ export function RegisterPage() {
 
     if (password !== passwordRepeat) {
       setError('Пароли не совпадают.')
+      return
+    }
+
+    if (!isTermsAccepted) {
+      setError('Нужно согласиться с пользовательским соглашением и политикой конфиденциальности.')
       return
     }
 
@@ -108,6 +114,25 @@ export function RegisterPage() {
                   value={passwordRepeat}
                   onChange={(event) => setPasswordRepeat(event.target.value)}
                 />
+              </label>
+
+              <label className="authConsent">
+                <input
+                  type="checkbox"
+                  checked={isTermsAccepted}
+                  onChange={(event) => setIsTermsAccepted(event.target.checked)}
+                />
+                <span>
+                  Согласен с{' '}
+                  <a href="/terms.html" target="_blank" rel="noreferrer" className="authLink">
+                    пользовательским соглашением
+                  </a>{' '}
+                  и{' '}
+                  <a href="/privacy.html" target="_blank" rel="noreferrer" className="authLink">
+                    политикой конфиденциальности
+                  </a>
+                  .
+                </span>
               </label>
 
               {error && <p className="authError">{error}</p>}

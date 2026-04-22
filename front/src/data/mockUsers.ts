@@ -26,6 +26,8 @@ const USERNAME_BY_DISPLAY_NAME: Record<string, string> = {
   'Влада Ким': 'vlada_kim',
   'Олег Гринь': 'oleg_grin',
   'Кирилл Фролов': 'kirill_frolov',
+  'Елена Руднева': 'elena_rudneva',
+  'Глеб Орлов': 'gleb_orlov',
   'Удаленный пользователь': DELETED_USERNAME,
 }
 

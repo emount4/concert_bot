@@ -64,6 +64,102 @@
   .reviewRatingCircle {
     font-size: 22px;
   }
+
+  .rateHeroMain {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .rateHeroContent {
+    display: contents;
+  }
+
+  .rateHeroInfoRow {
+    order: 1;
+    position: relative;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .rateHeroPosterWrapper {
+    order: 2;
+    width: min(340px, 52vw);
+    justify-self: start;
+  }
+
+  .rateHeroPoster {
+    min-height: 0;
+  }
+
+  .rateHeroTags {
+    padding-right: 42px;
+  }
+
+  .rateHeroFavoriteBtn {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+
+  .rateHeroTitle {
+    order: 3;
+    font-size: 24px;
+  }
+
+  .rateHeroLinks {
+    order: 4;
+  }
+
+  .rateHeroAverageBadge {
+    order: 5;
+  }
+
+  .rateLinkChip {
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+
+  .rateActions {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: end;
+    align-items: end;
+    column-gap: 12px;
+  }
+
+  .rateSubmitButton {
+    order: initial;
+    grid-column: 1;
+  }
+
+  .rateSubmitMeta {
+    order: initial;
+    grid-column: 2;
+    align-self: flex-end;
+    justify-self: end;
+    text-align: right;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .rateHero {
+    padding: 18px;
+  }
+
+  .rateHeroMain {
+    gap: 14px;
+  }
+
+  .rateHeroPosterWrapper {
+    width: clamp(230px, 38vw, 320px);
+  }
+
+  .rateHeroPoster {
+    aspect-ratio: 3 / 4;
+  }
+
+  .rateHeroTitle {
+    font-size: 26px;
+  }
 }
 
 @media (max-width: 960px) {
@@ -107,6 +203,7 @@
   .profileStatGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
 }
 
 @media (max-width: 640px) {
@@ -223,13 +320,10 @@
     font-size: 20px;
   }
 
-  .rateHeroMain {
-    grid-template-columns: 1fr;
-  }
-
   .rateHeroPosterWrapper {
     width: 100%;
     min-width: 0;
+    justify-self: stretch;
   }
 
   .rateHeroPoster {
@@ -280,7 +374,11 @@
   }
 
   .rateActions {
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: end;
+    align-items: end;
+    column-gap: 10px;
   }
 
   .rateOverallValue {
@@ -293,9 +391,29 @@
   }
 
   .rateDraftToast {
+    left: 8px;
     right: 8px;
     bottom: 8px;
-    max-width: calc(100vw - 16px);
+    max-width: none;
+    text-align: center;
+  }
+
+  .rateModalContent {
+    padding: 16px;
+    max-height: calc(100vh - 24px);
+  }
+
+  .rateModalTitle {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  .rateModalBody {
+    font-size: 14px;
+  }
+
+  .rateModalActions {
+    margin-top: 16px;
   }
 }
 

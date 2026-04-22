@@ -87,6 +87,12 @@
   font-weight: 700;
 }
 
+.venueMetaName .metaText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .detailHero .venuePhoto,
 .detailHero .artistPhoto {
   border-bottom: none;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import type { ReviewCardItem } from '../../types/review'
+import type { ReviewCardItem, ReviewLikeUser } from '../../types/review'
+import { loadReviewLikers } from '../../api/reviewLikes'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
 import { getMockUserByDisplayName, getMockUserByUsername } from '../../data/mockUsers'
 
@@ -136,6 +137,8 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
   const [isMediaOpen, setIsMediaOpen] = useState(false)
   const [isLikesOpen, setIsLikesOpen] = useState(false)
   const [isModerationOpen, setIsModerationOpen] = useState(false)
+  const [likers, setLikers] = useState<ReviewLikeUser[] | null>(null)
+  const [brokenLikeAvatars, setBrokenLikeAvatars] = useState<Record<string, true>>({})
   // Задание 10.3: просмотр вложений по одному с переключением стрелками.
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const media = review.media ?? []
@@ -153,7 +156,31 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
 
   useBodyScrollLock(isMediaOpen || isLikesOpen || isModerationOpen)
 
-  const baseLikes = review.likes ?? []
+  useEffect(() => {
+    if (!isLikesOpen) return
+
+    let alive = true
+
+    setLikers((prev) => prev ?? (review.likes ?? []))
+    setBrokenLikeAvatars({})
+
+    ;(async () => {
+      try {
+        const reviewId = review.review_id ?? review.id
+        const remote = await loadReviewLikers(reviewId)
+        if (!alive) return
+        setLikers(remote)
+      } catch {
+        // silent fallback: keep already available data (mocks / embedded likes)
+      }
+    })()
+
+    return () => {
+      alive = false
+    }
+  }, [isLikesOpen, review.id, review.review_id, review.likes])
+
+  const baseLikes = likers ?? (review.likes ?? [])
   const storageKey = `concert_bot.review_like.${review.id}`
   const [likedByMe, setLikedByMe] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -364,7 +391,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
                 {likeEntries.map((entry) => (
                   <Link key={entry.key} to={entry.href} className="reviewLikesItem" role="listitem">
                     <div className="reviewLikesAvatar" aria-hidden="true">
-                      {entry.avatarUrl ? (
+                      {entry.avatarUrl && !brokenLikeAvatars[entry.key] ? (
                         <img
                           className="reviewLikesAvatarImg"
                           src={entry.avatarUrl}
@@ -372,6 +399,9 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
                           loading="lazy"
                           decoding="async"
                           referrerPolicy="no-referrer"
+                          onError={() =>
+                            setBrokenLikeAvatars((prev) => (prev[entry.key] ? prev : { ...prev, [entry.key]: true }))
+                          }
                         />
                       ) : (
                         <svg className="reviewLikesAvatarFallback" viewBox="0 0 24 24" aria-hidden="true">

@@ -50,7 +50,7 @@ function App() {
   const isAdmin = resolveIsAdmin() || isAdminRole
   const loggedIn = isAuthenticated()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
-  const hideFooter = location.pathname === '/login'
+  const hideFooter = location.pathname === '/login' || location.pathname === '/register'
 
   return (
     <div className={isAuthPage ? 'appRoot authMode' : 'appRoot'}>
