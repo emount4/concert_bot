@@ -1,10 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppData } from '../../api/AppDataProvider'
-import { logout } from '../../utils/authMock'
 import { resolveIsAdmin } from '../../utils/adminAccess'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
 import type { AdminAccountRole } from '../../types/admin'
+import { useAuthStore } from '../../store/useAuthStore'
 
 function normalizeUsername(value: string): string {
   return value.trim().replace(/^@+/, '').toLowerCase()
@@ -90,6 +90,7 @@ export function Header() {
 
   const displayName = data?.profile?.displayName ?? 'Профиль'
   const avatarUrl = data?.profile?.avatar_url ?? null
+  const purge = useAuthStore((state) => state.purge)
 
   const myUsername = useMemo(() => {
     const handle = data?.profile?.handle
@@ -148,7 +149,7 @@ export function Header() {
 
   function onLogout() {
     setIsOpen(false)
-    logout()
+    purge()
     navigate('/login', { replace: true })
   }
 

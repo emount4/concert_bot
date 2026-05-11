@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAppData } from '../api/AppDataProvider'
 import { enqueueProfileChangeRequest, loadProfileChangeRequests } from '../data/adminStore'
 import type { AdminProfileChangeRequest } from '../types/admin'
-import { changePasswordMock, deleteAccountMock, getCurrentUserEmail, logout } from '../utils/authMock'
+import { changePasswordMock, deleteAccountMock, getCurrentUserEmail } from '../utils/authMock'
 import { useBodyScrollLock } from '../utils/useBodyScrollLock'
+import { useAuthStore } from '../store/useAuthStore'
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -49,6 +50,7 @@ export function SettingsPage() {
 
   const profile = data?.profile ?? null
   const currentEmail = useMemo(() => getCurrentUserEmail() ?? 'demo@concert.bot', [])
+  const purge = useAuthStore((state) => state.purge)
 
   const [profileChangeRequests, setProfileChangeRequests] = useState<AdminProfileChangeRequest[]>([])
 
@@ -245,7 +247,7 @@ export function SettingsPage() {
   }
 
   function onLogout() {
-    logout()
+    purge()
     navigate('/login', { replace: true })
   }
 
@@ -305,6 +307,8 @@ export function SettingsPage() {
       setDeleteError(result.message)
       return
     }
+
+    purge()
 
     navigate('/login', { replace: true })
   }

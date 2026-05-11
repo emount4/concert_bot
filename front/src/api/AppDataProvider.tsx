@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { loadAppBootstrapData, type AppBootstrapData } from './repository'
+import { useAuthStore } from '../store/useAuthStore'
 
 type AppDataContextValue = {
   data: AppBootstrapData | null
@@ -14,6 +15,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppBootstrapData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const isAuth = useAuthStore((state) => state.isAuth)
+  const isInitializing = useAuthStore((state) => state.isInitializing)
 
   const refresh = async () => {
     setIsLoading(true)
@@ -29,8 +32,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    if (isInitializing) return
+
+    if (!isAuth) {
+      setData(null)
+      setError(null)
+      setIsLoading(false)
+      return
+    }
+
     void refresh()
-  }, [])
+  }, [isAuth, isInitializing])
 
   const value = useMemo<AppDataContextValue>(
     () => ({

@@ -25,6 +25,7 @@ export type Concert = {
   title: string | null
   date: string
   poster_url: string | null
+  poster_source?: string | null
   venue: Venue
   artists: Artist[]
   stats: ConcertStats

@@ -128,5 +128,6 @@ export const MOCK_VENUES: VenueCardItem[] = RAW_VENUES.map((venue, index) => ({
   ...venue,
   venue_id: String(venue.id),
   photo_url: VENUE_IMAGES[index % VENUE_IMAGES.length] ?? null,
+  photo_source: `Источник фото: соцсети площадки «${venue.name}»`,
 }))
 

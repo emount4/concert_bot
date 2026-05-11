@@ -6,6 +6,7 @@ export type VenueCardItem = {
   city: string
   capacity: number
   photo_url: string | null
+  photo_source?: string | null
   avg_rating_total: number | null
 }
 

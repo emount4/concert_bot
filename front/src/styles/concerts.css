@@ -133,10 +133,9 @@
 }
 
 .concertPoster {
-  aspect-ratio: 4 / 5;
-  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
   position: relative;
-  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
     repeating-linear-gradient(
@@ -146,6 +145,13 @@
       transparent 10px,
       transparent 20px
     );
+}
+
+.concertPosterMedia {
+  aspect-ratio: 4 / 5;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
 }
 
 .concertPosterImg {
@@ -261,6 +267,14 @@
 .concertReviewsValue {
   font-weight: 700;
   color: var(--fg);
+}
+
+.photoSource {
+  margin: 0;
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--muted);
 }
 
 @media (max-width: 640px) {

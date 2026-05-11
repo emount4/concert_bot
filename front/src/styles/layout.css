@@ -39,6 +39,52 @@ body.modalOpen {
   font-size: 14px;
 }
 
+.appBootstrap {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px 12px;
+}
+
+.appBootstrapCard {
+  width: min(420px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  padding: 20px 18px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.appBootstrapSpinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--fg);
+  animation: appBootstrapSpin 0.9s linear infinite;
+}
+
+.appBootstrapTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.appBootstrapText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@keyframes appBootstrapSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .pagination {
   margin-top: 14px;
   display: flex;

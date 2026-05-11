@@ -4,6 +4,7 @@ export type ArtistCardItem = {
   id: number
   name: string
   photo_url: string | null
+  photo_source?: string | null
   avg_rating_total: number | null
 }
 

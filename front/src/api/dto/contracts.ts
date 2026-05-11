@@ -77,6 +77,7 @@ export type VenueDto = {
   capacity: number | null
   social_links: Record<string, string> | null
   photo_url: string | null
+  photo_source: string | null
   description: string | null
   status: ContentStatus
   created_at: string
@@ -88,6 +89,7 @@ export type ArtistDto = {
   name: string
   description: string | null
   photo_url: string | null
+  photo_source: string | null
   social_links: Record<string, string> | null
   status: ContentStatus
   created_at: string
@@ -100,6 +102,7 @@ export type ConcertDto = {
   title: string | null
   date: string
   poster_url: string | null
+  poster_source: string | null
   is_verified: boolean
   created_by_user_id: UUID | null
   created_at: string

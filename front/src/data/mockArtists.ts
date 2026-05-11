@@ -112,5 +112,6 @@ export const MOCK_ARTISTS: ArtistCardItem[] = RAW_ARTISTS.map((artist, index) =>
   ...artist,
   artist_id: String(artist.id),
   photo_url: ARTIST_IMAGES[index % ARTIST_IMAGES.length] ?? null,
+  photo_source: `Источник фото: соцсети артиста «${artist.name}»`,
 }))
 

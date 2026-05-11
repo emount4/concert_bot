@@ -134,15 +134,20 @@ export function VenuesPage() {
         <article className="detailHero">
           {/* Задание 4.4: реальные изображения в карточке площадки (детальная шапка). */}
           <div className="detailHeroMedia venuePhoto" aria-hidden="true">
+            <div className="venuePhotoMedia">
+              {selectedVenue.photo_url && (
+                <img
+                  className="venuePhotoImg"
+                  src={selectedVenue.photo_url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+            </div>
             {selectedVenue.photo_url && (
-              <img
-                className="venuePhotoImg"
-                src={selectedVenue.photo_url}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-              />
+              <p className="photoSource">Источник фото: соцсети площадки «{selectedVenue.name}»</p>
             )}
           </div>
           <div className="detailHeroBody">

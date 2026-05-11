@@ -1,175 +1,188 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getMockVerificationCodeHint, registerWithEmail, verifyEmailCode } from '../utils/authMock'
+import { register } from '../api/services/authService'
+import { useAuthStore } from '../store/useAuthStore'
+
+function validateEmail(email: string): string | null {
+  const trimmed = email.trim()
+  if (!trimmed) return 'Email обязателен'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'Некорректный email'
+  return null
+}
+
+function validateUsername(username: string): string | null {
+  const trimmed = username.trim()
+  if (!trimmed) return 'Имя пользователя обязательно'
+  if (trimmed.length < 3) return 'Имя должно содержать минимум 3 символа'
+  if (trimmed.length > 20) return 'Имя должно содержать максимум 20 символов'
+  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) return 'Только буквы, цифры и подчеркивание'
+  return null
+}
+
+function validatePassword(password: string): string | null {
+  if (!password) return 'Пароль обязателен'
+  if (password.length < 6) return 'Пароль должен содержать минимум 6 символов'
+  return null
+}
 
 export function RegisterPage() {
-  // Задание 15.5: регистрация и подтверждение email кодом на моках.
-  const [displayName, setDisplayName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordRepeat, setPasswordRepeat] = useState('')
   const [isTermsAccepted, setIsTermsAccepted] = useState(false)
-  const [code, setCode] = useState('')
-  const [step, setStep] = useState<'register' | 'verify'>('register')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
+  const setCredentials = useAuthStore((state) => state.setCredentials)
   const navigate = useNavigate()
 
-  async function onRegisterSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
+  function validateForm(): boolean {
+    const errors: Record<string, string> = {}
+
+    const usernameError = validateUsername(username)
+    if (usernameError) errors.username = usernameError
+
+    const emailError = validateEmail(email)
+    if (emailError) errors.email = emailError
+
+    const passwordError = validatePassword(password)
+    if (passwordError) errors.password = passwordError
 
     if (password !== passwordRepeat) {
-      setError('Пароли не совпадают.')
-      return
+      errors.passwordRepeat = 'Пароли не совпадают'
     }
 
     if (!isTermsAccepted) {
-      setError('Нужно согласиться с пользовательским соглашением и политикой конфиденциальности.')
-      return
+      errors.terms = 'Нужно согласиться с условиями'
     }
 
-    setLoading(true)
-    const result = await registerWithEmail({ displayName, email, password })
-    setLoading(false)
-
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-
-    setStep('verify')
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
-  async function onVerifySubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
-    setLoading(true)
 
-    const result = await verifyEmailCode({ email, code })
-    setLoading(false)
-
-    if (!result.ok) {
-      setError(result.message)
+    if (!validateForm()) {
       return
     }
 
-    navigate('/concerts', { replace: true })
+    setLoading(true)
+
+    try {
+      const response = await register({ username: username.trim(), email: email.trim(), password })
+      setCredentials(response)
+      navigate('/concerts', { replace: true })
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Не удалось зарегистрироваться')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <section className="authPage">
       <article className="authCard">
         <h1 className="authTitle">Регистрация</h1>
+        <p className="authSubtitle">Создайте аккаунт и сразу войдите в приложение.</p>
 
-        {step === 'register' ? (
-          <>
-            <p className="authSubtitle">Создайте аккаунт, затем подтвердите email кодом из 6 цифр.</p>
+        <form className="authForm" onSubmit={onSubmit}>
+          <label className="authField">
+            <span>Имя пользователя</span>
+            <input
+              className="authInput"
+              type="text"
+              autoComplete="username"
+              placeholder="Ваше имя пользователя"
+              value={username}
+              onChange={(event) => {
+                setUsername(event.target.value)
+                if (fieldErrors.username) setFieldErrors({ ...fieldErrors, username: '' })
+              }}
+            />
+            {fieldErrors.username && <p className="authError">{fieldErrors.username}</p>}
+          </label>
 
-            <form className="authForm" onSubmit={onRegisterSubmit}>
-              <label className="authField">
-                <span>Имя</span>
-                <input
-                  className="authInput"
-                  type="text"
-                  autoComplete="name"
-                  placeholder="Ваше имя"
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                />
-              </label>
+          <label className="authField">
+            <span>Email</span>
+            <input
+              className="authInput"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' })
+              }}
+            />
+            {fieldErrors.email && <p className="authError">{fieldErrors.email}</p>}
+          </label>
 
-              <label className="authField">
-                <span>Email</span>
-                <input
-                  className="authInput"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </label>
+          <label className="authField">
+            <span>Пароль</span>
+            <input
+              className="authInput"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Минимум 6 символов"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value)
+                if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' })
+              }}
+            />
+            {fieldErrors.password && <p className="authError">{fieldErrors.password}</p>}
+          </label>
 
-              <label className="authField">
-                <span>Пароль</span>
-                <input
-                  className="authInput"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Минимум 6 символов"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </label>
+          <label className="authField">
+            <span>Повторите пароль</span>
+            <input
+              className="authInput"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Повторите пароль"
+              value={passwordRepeat}
+              onChange={(event) => {
+                setPasswordRepeat(event.target.value)
+                if (fieldErrors.passwordRepeat) setFieldErrors({ ...fieldErrors, passwordRepeat: '' })
+              }}
+            />
+            {fieldErrors.passwordRepeat && <p className="authError">{fieldErrors.passwordRepeat}</p>}
+          </label>
 
-              <label className="authField">
-                <span>Повторите пароль</span>
-                <input
-                  className="authInput"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Повторите пароль"
-                  value={passwordRepeat}
-                  onChange={(event) => setPasswordRepeat(event.target.value)}
-                />
-              </label>
+          <label className="authConsent">
+            <input
+              type="checkbox"
+              checked={isTermsAccepted}
+              onChange={(event) => {
+                setIsTermsAccepted(event.target.checked)
+                if (fieldErrors.terms) setFieldErrors({ ...fieldErrors, terms: '' })
+              }}
+            />
+            <span>
+              Согласен с{' '}
+              <a href="/terms.html" target="_blank" rel="noreferrer" className="authLink">
+                пользовательским соглашением
+              </a>{' '}
+              и{' '}
+              <a href="/privacy.html" target="_blank" rel="noreferrer" className="authLink">
+                политикой конфиденциальности
+              </a>
+              .
+            </span>
+          </label>
+          {fieldErrors.terms && <p className="authError">{fieldErrors.terms}</p>}
 
-              <label className="authConsent">
-                <input
-                  type="checkbox"
-                  checked={isTermsAccepted}
-                  onChange={(event) => setIsTermsAccepted(event.target.checked)}
-                />
-                <span>
-                  Согласен с{' '}
-                  <a href="/terms.html" target="_blank" rel="noreferrer" className="authLink">
-                    пользовательским соглашением
-                  </a>{' '}
-                  и{' '}
-                  <a href="/privacy.html" target="_blank" rel="noreferrer" className="authLink">
-                    политикой конфиденциальности
-                  </a>
-                  .
-                </span>
-              </label>
+          {error && <p className="authError">{error}</p>}
 
-              {error && <p className="authError">{error}</p>}
-
-              <button type="submit" className="authSubmit" disabled={loading}>
-                {loading ? 'Создаём аккаунт...' : 'Зарегистрироваться'}
-              </button>
-            </form>
-          </>
-        ) : (
-          <>
-            <p className="authSubtitle">Введите код подтверждения, отправленный на {email}.</p>
-
-            <form className="authForm" onSubmit={onVerifySubmit}>
-              <label className="authField">
-                <span>Код подтверждения</span>
-                <input
-                  className="authInput"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="6 цифр"
-                  value={code}
-                  onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                />
-              </label>
-
-              {error && <p className="authError">{error}</p>}
-
-              <button type="submit" className="authSubmit" disabled={loading}>
-                {loading ? 'Проверяем код...' : 'Подтвердить email'}
-              </button>
-            </form>
-
-            <p className="authHint">Мок-код подтверждения: {getMockVerificationCodeHint()}</p>
-          </>
-        )}
+          <button type="submit" className="authSubmit" disabled={loading}>
+            {loading ? 'Создаём аккаунт...' : 'Зарегистрироваться'}
+          </button>
+        </form>
 
         <p className="authSwitchRow">
           Уже есть аккаунт?{' '}

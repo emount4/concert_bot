@@ -133,15 +133,20 @@ export function ArtistsPage() {
         <article className="detailHero">
           {/* Задание 3.4: реальные изображения в карточке артиста (детальная шапка). */}
           <div className="detailHeroMedia artistPhoto" aria-hidden="true">
+            <div className="artistPhotoMedia">
+              {selectedArtist.photo_url && (
+                <img
+                  className="artistPhotoImg"
+                  src={selectedArtist.photo_url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+            </div>
             {selectedArtist.photo_url && (
-              <img
-                className="artistPhotoImg"
-                src={selectedArtist.photo_url}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-              />
+              <p className="photoSource">Источник фото: соцсети артиста «{selectedArtist.name}»</p>
             )}
           </div>
           <div className="detailHeroBody">

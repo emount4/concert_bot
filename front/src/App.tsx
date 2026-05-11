@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { TopBar } from './components/layout/TopBar'
 import { Header } from './components/layout/Header'
 import { BottomTabBar } from './components/layout/BottomTabBar'
@@ -18,9 +19,10 @@ import { FaqPage } from './pages/FaqPage'
 import { HomePage } from './pages/HomePage'
 import { resolveIsAdmin } from './utils/adminAccess'
 import { LoginPage } from './pages/LoginPage'
-import { isAuthenticated } from './utils/authMock'
 import { RegisterPage } from './pages/RegisterPage'
 import { useAppData } from './api/AppDataProvider'
+import { refresh, tgLogin } from './api/services/authService'
+import { useAuthStore } from './store/useAuthStore'
 import './App.css'
 
 type GuardProps = {
@@ -29,8 +31,9 @@ type GuardProps = {
 
 function GuardedRoute({ children }: GuardProps) {
   const location = useLocation()
+  const isAuth = useAuthStore((state) => state.isAuth)
 
-  if (!isAuthenticated()) {
+  if (!isAuth) {
     return <Navigate to="/login" replace state={{ from: { pathname: location.pathname } }} />
   }
 
@@ -39,7 +42,17 @@ function GuardedRoute({ children }: GuardProps) {
 
 function App() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { data } = useAppData()
+  const isAuth = useAuthStore((state) => state.isAuth)
+  const isInitializing = useAuthStore((state) => state.isInitializing)
+  const [showBootstrap, setShowBootstrap] = useState(false)
+  const showTimerRef = useRef<number | null>(null)
+  const hideTimerRef = useRef<number | null>(null)
+  const shownAtRef = useRef<number | null>(null)
+  const setInitializing = useAuthStore((state) => state.setInitializing)
+  const setCredentials = useAuthStore((state) => state.setCredentials)
+  const purge = useAuthStore((state) => state.purge)
 
   // Задание 19.3: доступ к админке определяется ролью (admin/super_admin) с dev-фоллбеком.
   const isAdminRole =
@@ -48,9 +61,135 @@ function App() {
         account.is_current && (account.role === 'admin' || account.role === 'super-admin' || account.role === 'super_admin'),
     ) ?? false
   const isAdmin = resolveIsAdmin() || isAdminRole
-  const loggedIn = isAuthenticated()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
   const hideFooter = location.pathname === '/login' || location.pathname === '/register'
+
+  useEffect(() => {
+    const showDelayMs = 150
+    const minVisibleMs = 350
+
+    if (isInitializing) {
+      if (hideTimerRef.current !== null) {
+        clearTimeout(hideTimerRef.current)
+        hideTimerRef.current = null
+      }
+
+      if (showTimerRef.current === null) {
+        showTimerRef.current = window.setTimeout(() => {
+          shownAtRef.current = Date.now()
+          setShowBootstrap(true)
+          showTimerRef.current = null
+        }, showDelayMs)
+      }
+
+      return
+    }
+
+    if (showTimerRef.current !== null) {
+      clearTimeout(showTimerRef.current)
+      showTimerRef.current = null
+    }
+
+    if (!showBootstrap) {
+      return
+    }
+
+    const elapsed = shownAtRef.current ? Date.now() - shownAtRef.current : minVisibleMs
+    const remaining = Math.max(minVisibleMs - elapsed, 0)
+
+    hideTimerRef.current = window.setTimeout(() => {
+      setShowBootstrap(false)
+      hideTimerRef.current = null
+    }, remaining)
+
+    return () => {
+      if (hideTimerRef.current !== null) {
+        clearTimeout(hideTimerRef.current)
+        hideTimerRef.current = null
+      }
+    }
+  }, [isInitializing, showBootstrap])
+
+  useEffect(() => {
+    let active = true
+
+    async function bootstrapAuth() {
+      try {
+        setInitializing(true)
+        console.log('[Auth] Starting bootstrap...')
+
+        const initData = window.Telegram?.WebApp?.initData?.trim()
+        if (initData) {
+          console.log('[Auth] Found initData, attempting tgLogin')
+          try {
+            const response = await tgLogin({ init_data: initData })
+            console.log('[Auth] tgLogin successful')
+            if (active) {
+              setCredentials(response)
+            }
+            return
+          } catch (error) {
+            console.warn('[Auth] tgLogin failed, falling back to refresh token:', error)
+          }
+        }
+
+        console.log('[Auth] Attempting refresh')
+        try {
+          const response = await refresh()
+          console.log('[Auth] Refresh successful')
+          if (active) {
+            setCredentials(response)
+          }
+        } catch (error) {
+          console.warn('[Auth] Refresh failed:', error)
+          if (active) {
+            purge()
+            navigate('/login', { replace: true })
+          }
+        }
+      } catch (error) {
+        console.error('[Auth] Bootstrap error:', error)
+        if (active) {
+          purge()
+          navigate('/login', { replace: true })
+        }
+      } finally {
+        if (active) {
+          console.log('[Auth] Bootstrap complete')
+          setInitializing(false)
+        }
+      }
+    }
+
+    // Таймаут 8 секунд для защиты от зависаний
+    const timeoutId = window.setTimeout(() => {
+      if (active) {
+        console.error('[Auth] Bootstrap timeout - too long to complete')
+        purge()
+        setInitializing(false)
+        navigate('/login', { replace: true })
+      }
+    }, 8000)
+
+    void bootstrapAuth()
+
+    return () => {
+      active = false
+      clearTimeout(timeoutId)
+    }
+  }, [navigate, purge, setCredentials, setInitializing])
+
+  if (showBootstrap) {
+    return (
+      <div className="appBootstrap">
+        <div className="appBootstrapCard" role="status" aria-live="polite">
+          <div className="appBootstrapSpinner" aria-hidden="true" />
+          <p className="appBootstrapTitle">Входим в аккаунт...</p>
+          <p className="appBootstrapText">Проверяем сессию и обновляем токены.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={isAuthPage ? 'appRoot authMode' : 'appRoot'}>
@@ -64,11 +203,11 @@ function App() {
       )}
       <main className="main">
         <Routes>
-          <Route path="/" element={<Navigate to={loggedIn ? '/home' : '/login'} replace />} />
-          <Route path="/login" element={loggedIn ? <Navigate to="/home" replace /> : <LoginPage />} />
+          <Route path="/" element={<Navigate to={isAuth ? '/home' : '/login'} replace />} />
+          <Route path="/login" element={isAuth ? <Navigate to="/home" replace /> : <LoginPage />} />
           <Route
             path="/register"
-            element={loggedIn ? <Navigate to="/home" replace /> : <RegisterPage />}
+            element={isAuth ? <Navigate to="/home" replace /> : <RegisterPage />}
           />
 
           <Route
@@ -178,7 +317,7 @@ function App() {
             }
           />
 
-          <Route path="*" element={<Navigate to={loggedIn ? '/home' : '/login'} replace />} />
+          <Route path="*" element={<Navigate to={isAuth ? '/home' : '/login'} replace />} />
         </Routes>
       </main>
 

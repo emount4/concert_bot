@@ -343,6 +343,7 @@ export const MOCK_CONCERTS: Concert[] = RAW_CONCERTS.map((concert, index) => ({
   ...concert,
   concert_id: String(concert.id),
   poster_url: CONCERT_POSTERS[index % CONCERT_POSTERS.length] ?? null,
+  poster_source: `Источник фото: соцсети артиста «${concert.artists[0]?.name ?? concert.title ?? 'артиста'}»`,
   venue: {
     ...concert.venue,
     venue_id: String(concert.venue.id),

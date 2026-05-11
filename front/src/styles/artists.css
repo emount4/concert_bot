@@ -32,10 +32,9 @@
 }
 
 .artistPhoto {
-  aspect-ratio: 1 / 1;
-  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
   position: relative;
-  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
     repeating-linear-gradient(
@@ -45,6 +44,13 @@
       transparent 10px,
       transparent 20px
     );
+}
+
+.artistPhotoMedia {
+  aspect-ratio: 1 / 1;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
 }
 
 .artistPhotoImg {
@@ -84,6 +90,14 @@
   align-items: end;
 }
 
+.photoSource {
+  margin: 0;
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
 .detailHeaderRow {
   display: flex;
   align-items: center;
@@ -118,7 +132,7 @@
 
 .detailHeroMedia {
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .detailHeroBody {

@@ -239,7 +239,12 @@ export function RateConcertPage() {
         <div className="rateHeroMain">
           <div className="rateHeroPosterWrapper">
             <div className="rateHeroPoster" aria-hidden="true">
-              {concert.poster_url ? <img src={concert.poster_url} alt="" /> : <div className="rateHeroPosterFallback" />}
+              <div className="rateHeroPosterMedia">
+                {concert.poster_url ? <img src={concert.poster_url} alt="" /> : <div className="rateHeroPosterFallback" />}
+              </div>
+              {concert.poster_url && (
+                <p className="photoSource">{concert.poster_source ?? 'Источник фото: соцсети артиста'}</p>
+              )}
             </div>
           </div>
 

@@ -33,10 +33,9 @@
 }
 
 .venuePhoto {
-  aspect-ratio: 16 / 10;
-  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
   position: relative;
-  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
     repeating-linear-gradient(
@@ -46,6 +45,13 @@
       transparent 10px,
       transparent 20px
     );
+}
+
+.venuePhotoMedia {
+  aspect-ratio: 16 / 10;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
 }
 
 .venuePhotoImg {
@@ -91,6 +97,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.photoSource {
+  margin: 0;
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--muted);
 }
 
 .detailHero .venuePhoto,
