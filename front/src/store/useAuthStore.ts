@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { removeRefreshToken } from '../api/tokenService'
+import { getRoleFromToken } from '../utils/tokenDecoder'
 import type { AuthResponse, AuthUser } from '../types/auth'
 
 type AuthState = {
@@ -13,29 +14,78 @@ type AuthState = {
   purge: () => void
 }
 
+const ACCESS_TOKEN_KEY = 'concert_bot.access_token'
+const USER_KEY = 'concert_bot.user'
+
 function toUser(response: AuthResponse): AuthUser {
+  const role = getRoleFromToken(response.access_token)
   return {
     id: response.user_id,
     username: response.username,
+    roleId: role?.roleId,
+    roleName: role?.roleName,
   }
 }
 
+function getStoredAccessToken(): string | null {
+  try {
+    return localStorage.getItem(ACCESS_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+function getStoredUser(): AuthUser | null {
+  try {
+    const stored = localStorage.getItem(USER_KEY)
+    return stored ? JSON.parse(stored) : null
+  } catch {
+    return null
+  }
+}
+
+// Initialize with stored credentials if available
+const storedToken = getStoredAccessToken()
+const storedUser = getStoredUser()
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  accessToken: null,
-  isAuth: false,
+  user: storedUser,
+  accessToken: storedToken,
+  isAuth: Boolean(storedToken),
   isInitializing: false,
   setInitializing: (value) => set({ isInitializing: value }),
   setCredentials: (response) => {
+    const user = toUser(response)
+    try {
+      localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token)
+      localStorage.setItem(USER_KEY, JSON.stringify(user))
+    } catch {
+      // localStorage not available
+    }
     set({
-      user: toUser(response),
+      user,
       accessToken: response.access_token,
       isAuth: true,
     })
   },
-  setAccessToken: (token) => set({ accessToken: token, isAuth: Boolean(token) }),
+  setAccessToken: (token) => {
+    if (token) {
+      try {
+        localStorage.setItem(ACCESS_TOKEN_KEY, token)
+      } catch {
+        // localStorage not available
+      }
+    }
+    set({ accessToken: token, isAuth: Boolean(token) })
+  },
   purge: () => {
     removeRefreshToken()
+    try {
+      localStorage.removeItem(ACCESS_TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+    } catch {
+      // localStorage not available
+    }
     set({
       user: null,
       accessToken: null,

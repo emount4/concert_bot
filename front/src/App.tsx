@@ -18,9 +18,9 @@ import { AboutPage } from './pages/AboutPage'
 import { FaqPage } from './pages/FaqPage'
 import { HomePage } from './pages/HomePage'
 import { resolveIsAdmin } from './utils/adminAccess'
+import { isAdminByRole } from './utils/tokenDecoder'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
-import { useAppData } from './api/AppDataProvider'
 import { refresh, tgLogin } from './api/services/authService'
 import { useAuthStore } from './store/useAuthStore'
 import './App.css'
@@ -43,9 +43,9 @@ function GuardedRoute({ children }: GuardProps) {
 function App() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { data } = useAppData()
   const isAuth = useAuthStore((state) => state.isAuth)
   const isInitializing = useAuthStore((state) => state.isInitializing)
+  const accessToken = useAuthStore((state) => state.accessToken)
   const [showBootstrap, setShowBootstrap] = useState(false)
   const showTimerRef = useRef<number | null>(null)
   const hideTimerRef = useRef<number | null>(null)
@@ -54,15 +54,13 @@ function App() {
   const setCredentials = useAuthStore((state) => state.setCredentials)
   const purge = useAuthStore((state) => state.purge)
 
-  // Задание 19.3: доступ к админке определяется ролью (admin/super_admin) с dev-фоллбеком.
-  const isAdminRole =
-    data?.admin?.accounts?.some(
-      (account) =>
-        account.is_current && (account.role === 'admin' || account.role === 'super-admin' || account.role === 'super_admin'),
-    ) ?? false
-  const isAdmin = resolveIsAdmin() || isAdminRole
+  // Check admin role from access token (roleId > 1 = admin)
+  // Also allow dev admin flag for development
+  const isAdmin = resolveIsAdmin() || isAdminByRole(accessToken)
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
   const hideFooter = location.pathname === '/login' || location.pathname === '/register'
+
+  const didBootstrapRef = useRef(false)
 
   useEffect(() => {
     const showDelayMs = 150
@@ -111,6 +109,19 @@ function App() {
   }, [isInitializing, showBootstrap])
 
   useEffect(() => {
+    // Guard: only bootstrap once per mount
+    if (didBootstrapRef.current) {
+      return
+    }
+    didBootstrapRef.current = true
+
+    // If already authenticated, skip bootstrap
+    const authState = useAuthStore.getState()
+    if (authState.isAuth) {
+      setInitializing(false)
+      return
+    }
+
     let active = true
 
     async function bootstrapAuth() {
@@ -154,6 +165,7 @@ function App() {
           navigate('/login', { replace: true })
         }
       } finally {
+        // ALWAYS complete bootstrap, even if active=false (component unmounted)
         if (active) {
           console.log('[Auth] Bootstrap complete')
           setInitializing(false)
@@ -161,7 +173,7 @@ function App() {
       }
     }
 
-    // Таймаут 8 секунд для защиты от зависаний
+    // Timeout: if bootstrap takes more than 5s, redirect to login
     const timeoutId = window.setTimeout(() => {
       if (active) {
         console.error('[Auth] Bootstrap timeout - too long to complete')
@@ -169,15 +181,20 @@ function App() {
         setInitializing(false)
         navigate('/login', { replace: true })
       }
-    }, 8000)
+    }, 5000)
 
     void bootstrapAuth()
 
     return () => {
       active = false
       clearTimeout(timeoutId)
+      // If bootstrap never completed, force cleanup
+      setInitializing(false)
     }
-  }, [navigate, purge, setCredentials, setInitializing])
+  }, []) // Empty deps: run only once on mount
+
+
+
 
   if (showBootstrap) {
     return (

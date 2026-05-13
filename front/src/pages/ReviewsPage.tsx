@@ -40,7 +40,7 @@ export function ReviewsPage() {
         <>
           <div className="reviewGrid">
             {pagedReviews.map((review) => (
-              <ReviewCard key={review.id} review={review} />
+              <ReviewCard key={`${review.review_id ?? review.id}-${review.concertId}`} review={review} />
             ))}
           </div>
 

@@ -1,4 +1,5 @@
 import type { ReviewCardItem } from '../types/review'
+import { resolveReviewScores } from '../types/review'
 
 export type AvgScores = {
   performance: number
@@ -18,11 +19,12 @@ export function computeAvgScoresFromReviews(reviews: ReviewCardItem[]): AvgScore
 
   const sums = reviews.reduce(
     (acc, review) => {
-      acc.performance += review.scores.performance
-      acc.setlist += review.scores.setlist
-      acc.crowd += review.scores.crowd
-      acc.sound += review.scores.sound
-      acc.vibe += review.scores.vibe
+      const s = resolveReviewScores(review)
+      acc.performance += s.performance
+      acc.setlist += s.setlist
+      acc.crowd += s.crowd
+      acc.sound += s.sound
+      acc.vibe += s.vibe
       return acc
     },
     { performance: 0, setlist: 0, crowd: 0, sound: 0, vibe: 0 },

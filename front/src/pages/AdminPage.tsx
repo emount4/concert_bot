@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState } from 'react'
-import { useAppData } from '../api/AppDataProvider'
+import { useEffect, useMemo, useState } from 'react'
 import { setDevAdmin } from '../utils/adminAccess'
 import { useBodyScrollLock } from '../utils/useBodyScrollLock'
+import {
+  loadAdminAccounts,
+  loadAdminConcerts,
+  loadAdminReviews,
+} from '../api/repository'
 import {
   appendAuditLog,
   ensureAdminStoreSeeded,
@@ -14,12 +18,17 @@ import {
   setConcertSuggestionStatus,
   setProfileChangeStatus,
   upsertCity,
+  loadArtists,
+  upsertArtist,
+  removeArtist,
+  loadVenues,
+  upsertVenue,
+  removeVenue as apiRemoveVenue,
 } from '../data/adminStore'
 import { setProfileOverride } from '../data/profileStore'
 import type {
   AdminAccount,
   AdminAccountRole,
-  AdminArtist,
   AdminAuditLogEntry,
   AdminCity,
   AdminConcert,
@@ -29,16 +38,24 @@ import type {
   AdminProfileChangeRequest,
   AdminVenue,
 } from '../types/admin'
+import type { AdminArtistResponse } from '../types/artist'
 
-type AdminPageProps = {
-  isAdmin: boolean
-}
-type AdminSeed = {
-  reviews: AdminReviewModerationItem[]
-  artists: AdminArtist[]
-  venues: AdminVenue[]
-  concerts: AdminConcert[]
-  accounts: AdminAccount[]
+export function AdminPage({ isAdmin }: AdminPageProps) {
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setError('Доступ запрещен')
+      return
+    }
+    setError(null)
+  }, [isAdmin])
+
+  if (error) {
+    return <section className="page"><div className="placeholder">⚠️ {error}</div></section>
+  }
+
+  return <AdminPageContent isAdmin={isAdmin} refreshAppData={async () => {}} />
 }
 
 type AdminTab = 'moderation' | 'queue' | 'artists' | 'venues' | 'cities' | 'concerts' | 'accounts' | 'logs'
@@ -87,48 +104,200 @@ function suggestionStatusClass(status: AdminConcertSuggestion['status']): 'pendi
   return status
 }
 
-export function AdminPage({ isAdmin }: AdminPageProps) {
-  const { data, isLoading, error, refresh } = useAppData()
-
-  if (isLoading || !data) {
-    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
-  }
-
-  if (error) {
-    return <section className="page"><div className="placeholder">{error}</div></section>
-  }
-
-  return <AdminPageContent isAdmin={isAdmin} seed={data.admin} refreshAppData={refresh} />
+type AdminPageProps = {
+  isAdmin: boolean
 }
 
-function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { seed: AdminSeed; refreshAppData: () => Promise<void> }) {
+function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refreshAppData: () => Promise<void> }) {
   // Задание 9.1: модальный выбор площадки и артистов для формы концерта.
   const [tab, setTab] = useState<AdminTab>('moderation')
   const [moderationStream, setModerationStream] = useState<ModerationStream>('pending')
   const [queueStream, setQueueStream] = useState<QueueStream>('profile')
 
-  const [reviews, setReviews] = useState<AdminReviewModerationItem[]>(seed.reviews)
-  const [artists, setArtists] = useState<AdminArtist[]>(seed.artists)
-  const [venues, setVenues] = useState<AdminVenue[]>(seed.venues)
-  const [concerts, setConcerts] = useState<AdminConcert[]>(seed.concerts)
-  const [accounts, setAccounts] = useState<AdminAccount[]>(seed.accounts)
+  const [reviews, setReviews] = useState<AdminReviewModerationItem[]>([])
+  const [artists, setArtists] = useState<AdminArtistResponse[]>([])
+  const [venues, setVenues] = useState<AdminVenue[]>([])
+  const [concerts, setConcerts] = useState<AdminConcert[]>([])
+  const [accounts, setAccounts] = useState<AdminAccount[]>([])
 
   const [profileChanges, setProfileChanges] = useState<AdminProfileChangeRequest[]>(() => {
     ensureAdminStoreSeeded()
     return loadProfileChangeRequests()
   })
   const [concertSuggestions, setConcertSuggestions] = useState<AdminConcertSuggestion[]>(() => loadConcertSuggestions())
-  const [cities, setCities] = useState<AdminCity[]>(() => loadCities())
+  
+  // Loading states for each section
+  const [isLoadingModeration, setIsLoadingModeration] = useState(false)
+  const [moderationError, setModerationError] = useState<string | null>(null)
+  const [hasLoadedModeration, setHasLoadedModeration] = useState(false)
+
+  const [isLoadingCities, setIsLoadingCities] = useState(false)
+  const [citiesError, setCitiesError] = useState<string | null>(null)
+  const [citySaveError, setCitySaveError] = useState<string | null>(null)
+  const [isLoadingSavingCity, setIsLoadingSavingCity] = useState(false)
+  const [cityDeleteError, setCityDeleteError] = useState<string | null>(null)
+  const [loadingDeleteCityId, setLoadingDeleteCityId] = useState<number | null>(null)
+  const [hasLoadedCities, setHasLoadedCities] = useState(false)
+
+  const [isLoadingArtists, setIsLoadingArtists] = useState(false)
+  const [artistsError, setArtistsError] = useState<string | null>(null)
+  const [artistSaveError, setArtistSaveError] = useState<string | null>(null)
+  const [isLoadingSavingArtist, setIsLoadingSavingArtist] = useState(false)
+  const [artistDeleteError, setArtistDeleteError] = useState<string | null>(null)
+  const [loadingDeleteArtistId, setLoadingDeleteArtistId] = useState<number | null>(null)
+  const [hasLoadedArtists, setHasLoadedArtists] = useState(false)
+
+  const [isLoadingVenues, setIsLoadingVenues] = useState(false)
+  const [venuesError, setVenuesError] = useState<string | null>(null)
+  const [venueSaveError, setVenueSaveError] = useState<string | null>(null)
+  const [isLoadingSavingVenue, setIsLoadingSavingVenue] = useState(false)
+  const [loadingDeleteVenueId, setLoadingDeleteVenueId] = useState<number | null>(null)
+  const [venueDeleteError, setVenueDeleteError] = useState<string | null>(null)
+  const [hasLoadedVenues, setHasLoadedVenues] = useState(false)
+
+  const [isLoadingConcerts, setIsLoadingConcerts] = useState(false)
+  const [concertsError, setConcertsError] = useState<string | null>(null)
+  const [hasLoadedConcerts, setHasLoadedConcerts] = useState(false)
+
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
+  const [accountsError, setAccountsError] = useState<string | null>(null)
+  const [hasLoadedAccounts, setHasLoadedAccounts] = useState(false)
+  
+  const [cities, setCities] = useState<AdminCity[]>([])
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>(() => loadAuditLogs())
+
+  useEffect(() => {
+    if (tab !== 'moderation' || hasLoadedModeration || isLoadingModeration) return
+
+    setIsLoadingModeration(true)
+    setModerationError(null)
+    void loadAdminReviews()
+      .then((loadedReviews) => {
+        setReviews(loadedReviews)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load moderation reviews:', error)
+        setModerationError(error instanceof Error ? error.message : 'Failed to load moderation reviews')
+      })
+      .finally(() => {
+        setIsLoadingModeration(false)
+        setHasLoadedModeration(true)
+      })
+  }, [hasLoadedModeration, isLoadingModeration, tab])
+
+  useEffect(() => {
+    if (!['cities', 'venues'].includes(tab) || hasLoadedCities || isLoadingCities) return
+
+    setIsLoadingCities(true)
+    setCitiesError(null)
+    void loadCities()
+      .then((loadedCities) => {
+        console.log('[AdminPage] Loaded cities:', loadedCities)
+        setCities(loadedCities)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load cities:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Failed to load cities'
+        setCitiesError(errorMsg)
+        setCities([])
+      })
+      .finally(() => {
+        setIsLoadingCities(false)
+        setHasLoadedCities(true)
+      })
+  }, [hasLoadedCities, isLoadingCities, tab])
+
+  useEffect(() => {
+    if (!['artists', 'concerts'].includes(tab) || hasLoadedArtists || isLoadingArtists) return
+
+    setIsLoadingArtists(true)
+    setArtistsError(null)
+    void loadArtists()
+      .then((loadedArtists) => {
+        console.log('[AdminPage] Loaded artists:', loadedArtists)
+        setArtists(loadedArtists)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load artists:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Failed to load artists'
+        setArtistsError(errorMsg)
+        setArtists([])
+      })
+      .finally(() => {
+        setIsLoadingArtists(false)
+        setHasLoadedArtists(true)
+      })
+  }, [hasLoadedArtists, isLoadingArtists, tab])
+
+  useEffect(() => {
+    if (!['venues', 'concerts'].includes(tab) || hasLoadedVenues || isLoadingVenues) return
+
+    setIsLoadingVenues(true)
+    setVenuesError(null)
+    void loadVenues()
+      .then((loadedVenues) => {
+        setVenues(loadedVenues)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load venues:', error)
+        setVenuesError(error instanceof Error ? error.message : 'Failed to load venues')
+        setVenues([])
+      })
+      .finally(() => {
+        setIsLoadingVenues(false)
+        setHasLoadedVenues(true)
+      })
+  }, [hasLoadedVenues, isLoadingVenues, tab])
+
+  useEffect(() => {
+    if (tab !== 'concerts' || hasLoadedConcerts || isLoadingConcerts) return
+
+    setIsLoadingConcerts(true)
+    setConcertsError(null)
+    void loadAdminConcerts()
+      .then((loadedConcerts) => {
+        setConcerts(loadedConcerts)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load concerts:', error)
+        setConcertsError(error instanceof Error ? error.message : 'Failed to load concerts')
+        setConcerts([])
+      })
+      .finally(() => {
+        setIsLoadingConcerts(false)
+        setHasLoadedConcerts(true)
+      })
+  }, [hasLoadedConcerts, isLoadingConcerts, tab])
+
+  useEffect(() => {
+    if (tab !== 'accounts' || hasLoadedAccounts || isLoadingAccounts) return
+
+    setIsLoadingAccounts(true)
+    setAccountsError(null)
+    void loadAdminAccounts()
+      .then((loadedAccounts) => {
+        setAccounts(loadedAccounts)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load accounts:', error)
+        setAccountsError(error instanceof Error ? error.message : 'Failed to load accounts')
+        setAccounts([])
+      })
+      .finally(() => {
+        setIsLoadingAccounts(false)
+        setHasLoadedAccounts(true)
+      })
+  }, [hasLoadedAccounts, isLoadingAccounts, tab])
 
   const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', photo_url: '' })
   const [venueForm, setVenueForm] = useState({
     id: 0,
     name: '',
-    city: '',
+    city_id: 0,
     address: '',
     capacity: '0',
     photo_url: '',
+    description: '',
   })
   const [cityForm, setCityForm] = useState({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
   const [concertForm, setConcertForm] = useState({
@@ -204,7 +373,9 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
     if (!normalizedQuery) return venues
 
     return venues.filter((venue) =>
-      `${venue.name} ${venue.city} ${venue.address} ${venue.capacity}`.toLowerCase().includes(normalizedQuery),
+      `${venue.name} ${venue.city} ${venue.address} ${venue.capacity} ${venue.description ?? ''} ${venue.status ?? ''}`
+        .toLowerCase()
+        .includes(normalizedQuery),
     )
   }, [venueListQuery, venues])
   const filteredAdminConcerts = useMemo(() => {
@@ -391,100 +562,135 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
   function saveCity() {
     if (!cityForm.name.trim() || !cityForm.slug.trim() || !cityForm.timezone.trim()) return
 
-    const next = upsertCity({
+    setIsLoadingSavingCity(true)
+    setCitySaveError(null)
+
+    void upsertCity({
       id: cityForm.id ? cityForm.id : undefined,
       name: cityForm.name.trim(),
       slug: cityForm.slug.trim(),
       timezone: cityForm.timezone.trim(),
     })
+      .then((next) => {
+        return loadCities().then((updatedCities) => {
+          setCities(updatedCities)
 
-    setCities(loadCities())
+          if (currentAdminAccount) {
+            writeAudit(`Админ ${currentAdminAccount.displayName} сохранил город «${next.name}».`)
+          }
 
-    if (currentAdminAccount) {
-      writeAudit(`Админ ${currentAdminAccount.displayName} сохранил город «${next.name}».`)
-    }
-
-    setCityForm({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
+          setCityForm({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
+          setCitySaveError(null)
+        })
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to save city:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Ошибка при сохранении города'
+        setCitySaveError(errorMsg)
+      })
+      .finally(() => {
+        setIsLoadingSavingCity(false)
+      })
   }
 
   function deleteCity(id: number) {
     const city = cities.find((x) => x.id === id) ?? null
-    removeCity(id)
-    setCities(loadCities())
+    
+    setLoadingDeleteCityId(id)
+    setCityDeleteError(null)
 
-    if (city && currentAdminAccount) {
-      writeAudit(`Админ ${currentAdminAccount.displayName} удалил город «${city.name}».`)
-    }
+    void removeCity(id)
+      .then(() => {
+        return loadCities().then((updatedCities) => {
+          setCities(updatedCities)
+
+          if (city && currentAdminAccount) {
+            writeAudit(`Админ ${currentAdminAccount.displayName} удалил город «${city.name}».`)
+          }
+          
+          setCityDeleteError(null)
+        })
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to delete city:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Ошибка при удалении города'
+        setCityDeleteError(errorMsg)
+      })
+      .finally(() => {
+        setLoadingDeleteCityId(null)
+      })
   }
 
   function saveArtist() {
     if (!artistForm.name.trim()) return
 
-    setArtists((prev) => {
-      if (artistForm.id) {
-        return prev.map((item) =>
-          item.id === artistForm.id
-            ? {
-                ...item,
-                name: artistForm.name,
-                description: artistForm.description,
-                photo_url: artistForm.photo_url || null,
-              }
-            : item,
-        )
-      }
+    setIsLoadingSavingArtist(true)
+    setArtistSaveError(null)
 
-      const nextId = prev.length ? Math.max(...prev.map((x) => x.id)) + 1 : 1
-      return [
-        ...prev,
-        {
-          id: nextId,
-          name: artistForm.name,
-          description: artistForm.description,
-          photo_url: artistForm.photo_url || null,
-        },
-      ]
+    void upsertArtist({
+      id: artistForm.id !== 0 ? artistForm.id : undefined,
+      name: artistForm.name.trim(),
+      description: artistForm.description.trim(),
+      photo_url: artistForm.photo_url || null,
     })
+      .then((next) => {
+        return loadArtists().then((updatedArtists) => {
+          setArtists(updatedArtists)
 
-    setArtistForm({ id: 0, name: '', description: '', photo_url: '' })
+          if (currentAdminAccount) {
+            writeAudit(`Админ ${currentAdminAccount.displayName} сохранил артиста «${next.name}».`)
+          }
+
+          setArtistForm({ id: 0, name: '', description: '', photo_url: '' })
+          setArtistSaveError(null)
+        })
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to save artist:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Ошибка при сохранении артиста'
+        setArtistSaveError(errorMsg)
+      })
+      .finally(() => {
+        setIsLoadingSavingArtist(false)
+      })
   }
 
   function saveVenue() {
-    if (!venueForm.name.trim() || !venueForm.city.trim()) return
+    if (!venueForm.name.trim() || !venueForm.city_id) return
 
     const capacity = Number(venueForm.capacity) || 0
 
-    setVenues((prev) => {
-      if (venueForm.id) {
-        return prev.map((item) =>
-          item.id === venueForm.id
-            ? {
-                ...item,
-                name: venueForm.name,
-                city: venueForm.city,
-                address: venueForm.address,
-                capacity,
-                photo_url: venueForm.photo_url || null,
-              }
-            : item,
-        )
-      }
+    setIsLoadingSavingVenue(true)
+    setVenueSaveError(null)
 
-      const nextId = prev.length ? Math.max(...prev.map((x) => x.id)) + 1 : 1
-      return [
-        ...prev,
-        {
-          id: nextId,
-          name: venueForm.name,
-          city: venueForm.city,
-          address: venueForm.address,
-          capacity,
-          photo_url: venueForm.photo_url || null,
-        },
-      ]
+    void upsertVenue({
+      id: venueForm.id !== 0 ? venueForm.id : undefined,
+      city_id: venueForm.city_id,
+      name: venueForm.name.trim(),
+      address: venueForm.address.trim(),
+      capacity,
+      photo_url: venueForm.photo_url || null,
+      description: venueForm.description.trim(),
     })
+      .then((next) => {
+        return loadVenues().then((loadedVenues) => {
+          setVenues(loadedVenues)
 
-    setVenueForm({ id: 0, name: '', city: '', address: '', capacity: '0', photo_url: '' })
+          if (currentAdminAccount) {
+            writeAudit(`Админ ${currentAdminAccount.displayName} сохранил площадку «${next.name}».`)
+          }
+
+          setVenueForm({ id: 0, name: '', city_id: 0, address: '', capacity: '0', photo_url: '', description: '' })
+          setVenueSaveError(null)
+        })
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to save venue:', error)
+        setVenueSaveError(error instanceof Error ? error.message : 'Ошибка при сохранении площадки')
+      })
+      .finally(() => {
+        setIsLoadingSavingVenue(false)
+      })
   }
 
   function saveConcert() {
@@ -525,23 +731,59 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
     setConcertForm({ id: 0, title: '', date: '', venue_id: '0', artist_ids: [], poster_url: '' })
   }
 
-  function removeArtist(id: number) {
-    setArtists((prev) => prev.filter((x) => x.id !== id))
-    setConcerts((prev) => prev.map((x) => ({ ...x, artist_ids: x.artist_ids.filter((artistId) => artistId !== id) })))
-
+  function deleteArtistFromAdmin(id: number) {
     const artist = artists.find((x) => x.id === id) ?? null
-    if (artist && currentAdminAccount) {
-      writeAudit(`Админ ${currentAdminAccount.displayName} удалил артиста «${artist.name}».`)
-    }
+    
+    setLoadingDeleteArtistId(id)
+    setArtistDeleteError(null)
+
+    void removeArtist(id)
+      .then(() => {
+        return loadArtists().then((updatedArtists) => {
+          setArtists(updatedArtists)
+
+          if (artist && currentAdminAccount) {
+            writeAudit(`Админ ${currentAdminAccount.displayName} удалил артиста «${artist.name}».`)
+          }
+          
+          setArtistDeleteError(null)
+        })
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to delete artist:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Ошибка при удалении артиста'
+        setArtistDeleteError(errorMsg)
+      })
+      .finally(() => {
+        setLoadingDeleteArtistId(null)
+      })
   }
 
-  function removeVenue(id: number) {
-    setVenues((prev) => prev.filter((x) => x.id !== id))
-
+  function deleteVenueFromAdmin(id: number) {
     const venue = venues.find((x) => x.id === id) ?? null
-    if (venue && currentAdminAccount) {
-      writeAudit(`Админ ${currentAdminAccount.displayName} удалил площадку «${venue.name}».`)
-    }
+
+    setLoadingDeleteVenueId(id)
+    setVenueDeleteError(null)
+
+    void apiRemoveVenue(id)
+      .then(() => {
+        return loadVenues().then((loadedVenues) => {
+          setVenues(loadedVenues)
+
+          if (venue && currentAdminAccount) {
+            writeAudit(`Админ ${currentAdminAccount.displayName} удалил площадку «${venue.name}».`)
+          }
+
+          setVenueDeleteError(null)
+        })
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to delete venue:', error)
+        setVenueDeleteError(error instanceof Error ? error.message : 'Ошибка при удалении площадки')
+      })
+      .finally(() => {
+        setLoadingDeleteVenueId(null)
+      })
   }
 
   function removeConcert(id: number) {
@@ -894,7 +1136,13 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
             </button>
           </div>
 
-          {visibleModerationReviews.length > 0 ? (
+          {isLoadingModeration ? (
+            <div className="adminEmpty">Загрузка рецензий...</div>
+          ) : moderationError ? (
+            <div className="adminEmpty" style={{ color: '#f44336' }}>
+              ⚠️ {moderationError}
+            </div>
+          ) : visibleModerationReviews.length > 0 ? (
             visibleModerationReviews.map((review) => (
               <article key={review.id} className="adminItemCard">
                 <div className="adminItemTop">
@@ -1081,12 +1329,14 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
               placeholder="Имя артиста"
               value={artistForm.name}
               onChange={(e) => setArtistForm((prev) => ({ ...prev, name: e.target.value }))}
+              disabled={isLoadingArtists || isLoadingSavingArtist}
             />
             <textarea
               className="adminTextarea"
               placeholder="Описание"
               value={artistForm.description}
               onChange={(e) => setArtistForm((prev) => ({ ...prev, description: e.target.value }))}
+              disabled={isLoadingArtists || isLoadingSavingArtist}
             />
             <label className="adminFileLabel">
               Фото артиста
@@ -1094,17 +1344,27 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
                 type="file"
                 accept="image/*"
                 onChange={(e) => onMediaPick(e, (value) => setArtistForm((prev) => ({ ...prev, photo_url: value })))}
+                disabled={isLoadingArtists || isLoadingSavingArtist}
               />
             </label>
             {artistForm.photo_url && <img className="adminPreviewImage" src={artistForm.photo_url} alt="Превью" />}
+            {artistSaveError && (
+              <div style={{ color: '#f44336', fontSize: '14px', marginTop: '8px' }}>
+                ⚠️ {artistSaveError}
+              </div>
+            )}
             <div className="adminItemActions">
-              <button type="button" className="settingsBtn primary" onClick={saveArtist}>
-                Сохранить
+              <button type="button" className="settingsBtn primary" onClick={saveArtist} disabled={isLoadingArtists || isLoadingSavingArtist}>
+                {isLoadingSavingArtist ? 'Сохранение...' : 'Сохранить'}
               </button>
               <button
                 type="button"
                 className="settingsBtn ghost"
-                onClick={() => setArtistForm({ id: 0, name: '', description: '', photo_url: '' })}
+                onClick={() => {
+                  setArtistForm({ id: 0, name: '', description: '', photo_url: '' })
+                  setArtistSaveError(null)
+                }}
+                disabled={isLoadingArtists || isLoadingSavingArtist}
               >
                 Очистить
               </button>
@@ -1117,10 +1377,21 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
               placeholder="Поиск артистов"
               value={artistListQuery}
               onChange={(e) => setArtistListQuery(e.target.value)}
+              disabled={isLoadingArtists}
             />
 
             <div className="adminScrollableList">
-              {filteredAdminArtists.length > 0 ? (
+              {isLoadingArtists ? (
+                <div className="adminEmpty">Загрузка артистов...</div>
+              ) : artistsError ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  ⚠️ {artistsError}
+                </div>
+              ) : artistDeleteError ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  ⚠️ Ошибка удаления: {artistDeleteError}
+                </div>
+              ) : filteredAdminArtists.length > 0 ? (
                 filteredAdminArtists.map((artist) => (
                   <div key={artist.id} className="adminListRow">
                     <div>
@@ -1136,6 +1407,7 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
                             writeAudit(`Админ ${currentAdminAccount.displayName} пересчитал статистику артиста «${artist.name}» (мок).`)
                           }
                         }}
+                        disabled={loadingDeleteArtistId === artist.id}
                       >
                         Пересчитать
                       </button>
@@ -1150,11 +1422,17 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
                             photo_url: artist.photo_url ?? '',
                           })
                         }
+                        disabled={loadingDeleteArtistId === artist.id}
                       >
                         Изменить
                       </button>
-                      <button type="button" className="settingsBtn ghost" onClick={() => removeArtist(artist.id)}>
-                        Удалить
+                      <button 
+                        type="button" 
+                        className="settingsBtn ghost" 
+                        onClick={() => deleteArtistFromAdmin(artist.id)}
+                        disabled={loadingDeleteArtistId === artist.id}
+                      >
+                        {loadingDeleteArtistId === artist.id ? 'Удаление...' : 'Удалить'}
                       </button>
                     </div>
                   </div>
@@ -1179,12 +1457,12 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
             />
             <select
               className="adminInput"
-              value={venueForm.city}
-              onChange={(e) => setVenueForm((prev) => ({ ...prev, city: e.target.value }))}
+              value={venueForm.city_id || ''}
+              onChange={(e) => setVenueForm((prev) => ({ ...prev, city_id: Number(e.target.value) || 0 }))}
             >
               <option value="">Выберите город</option>
               {cities.map((city) => (
-                <option key={city.id} value={city.name}>
+                <option key={city.id} value={city.id}>
                   {city.name}
                 </option>
               ))}
@@ -1202,6 +1480,13 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
               value={venueForm.capacity}
               onChange={(e) => setVenueForm((prev) => ({ ...prev, capacity: e.target.value }))}
             />
+            <textarea
+              className="adminInput"
+              placeholder="Описание (необязательно)"
+              rows={2}
+              value={venueForm.description}
+              onChange={(e) => setVenueForm((prev) => ({ ...prev, description: e.target.value }))}
+            />
             <label className="adminFileLabel">
               Фото площадки
               <input
@@ -1211,14 +1496,24 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
               />
             </label>
             {venueForm.photo_url && <img className="adminPreviewImage" src={venueForm.photo_url} alt="Превью" />}
+            {venueSaveError && <p className="adminEmpty" style={{ color: '#f44336' }}>{venueSaveError}</p>}
             <div className="adminItemActions">
-              <button type="button" className="settingsBtn primary" onClick={saveVenue}>
-                Сохранить
+              <button
+                type="button"
+                className="settingsBtn primary"
+                onClick={saveVenue}
+                disabled={isLoadingVenues || isLoadingSavingVenue}
+              >
+                {isLoadingSavingVenue ? 'Сохранение...' : 'Сохранить'}
               </button>
               <button
                 type="button"
                 className="settingsBtn ghost"
-                onClick={() => setVenueForm({ id: 0, name: '', city: '', address: '', capacity: '0', photo_url: '' })}
+                onClick={() => {
+                  setVenueSaveError(null)
+                  setVenueForm({ id: 0, name: '', city_id: 0, address: '', capacity: '0', photo_url: '', description: '' })
+                }}
+                disabled={isLoadingVenues || isLoadingSavingVenue}
               >
                 Очистить
               </button>
@@ -1232,15 +1527,33 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
               value={venueListQuery}
               onChange={(e) => setVenueListQuery(e.target.value)}
             />
+            {venueDeleteError && (
+              <div className="adminEmpty" style={{ color: '#f44336' }}>
+                ⚠️ {venueDeleteError}
+              </div>
+            )}
 
             <div className="adminScrollableList">
-              {filteredAdminVenues.length > 0 ? (
+              {isLoadingVenues ? (
+                <div className="adminEmpty">Загрузка площадок...</div>
+              ) : venuesError ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  ⚠️ {venuesError}
+                </div>
+              ) : filteredAdminVenues.length > 0 ? (
                 filteredAdminVenues.map((venue) => (
                   <div key={venue.id} className="adminListRow">
                     <div>
                       <p className="adminListTitle">{venue.name}</p>
                       <p className="adminListMeta">
                         {venue.city} • {venue.capacity} чел
+                        {venue.status && ` • ${venue.status}`}
+                        {venue.stats && (
+                          <>
+                            {' '}
+                            • отзывов {venue.stats.reviews_count}, концертов {venue.stats.concerts_count}
+                          </>
+                        )}
                       </p>
                     </div>
                     <div className="adminRowActions">
@@ -1262,17 +1575,24 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
                           setVenueForm({
                             id: venue.id,
                             name: venue.name,
-                            city: venue.city,
+                            city_id:
+                              venue.city_id ?? cities.find((c) => c.name.trim() === venue.city.trim())?.id ?? 0,
                             address: venue.address,
                             capacity: String(venue.capacity),
                             photo_url: venue.photo_url ?? '',
+                            description: venue.description ?? '',
                           })
                         }
                       >
                         Изменить
                       </button>
-                      <button type="button" className="settingsBtn ghost" onClick={() => removeVenue(venue.id)}>
-                        Удалить
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        onClick={() => deleteVenueFromAdmin(venue.id)}
+                        disabled={loadingDeleteVenueId === venue.id}
+                      >
+                        {loadingDeleteVenueId === venue.id ? 'Удаление...' : 'Удалить'}
                       </button>
                     </div>
                   </div>
@@ -1415,10 +1735,17 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
             />
 
             <div className="adminScrollableList">
-              {filteredAdminConcerts.length > 0 ? (
+              {isLoadingConcerts ? (
+                <div className="adminEmpty">Загрузка концертов...</div>
+              ) : concertsError ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  ⚠️ {concertsError}
+                </div>
+              ) : filteredAdminConcerts.length > 0 ? (
                 filteredAdminConcerts.map((concert) => {
                   const venueName = venues.find((venue) => venue.id === concert.venue_id)?.name ?? 'Без площадки'
-                  const artistNames = concert.artist_ids
+                  const artistIds = Array.isArray(concert.artist_ids) ? concert.artist_ids : []
+                  const artistNames = artistIds
                     .map((artistId) => artists.find((artist) => artist.id === artistId)?.name)
                     .filter(Boolean)
                     .join(', ')
@@ -1442,7 +1769,7 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
                               title: concert.title,
                               date: concert.date,
                               venue_id: String(concert.venue_id),
-                              artist_ids: concert.artist_ids,
+                              artist_ids: artistIds,
                               poster_url: concert.poster_url ?? '',
                             })
                           }
@@ -1577,7 +1904,13 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
             </div>
 
             <div className="adminScrollableList">
-              {filteredAdminAccounts.length > 0 ? (
+              {isLoadingAccounts ? (
+                <div className="adminEmpty">Загрузка аккаунтов...</div>
+              ) : accountsError ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  ⚠️ {accountsError}
+                </div>
+              ) : filteredAdminAccounts.length > 0 ? (
                 filteredAdminAccounts.map((account) => (
                   <div key={account.id} className="adminListRow">
                     <div>
@@ -1642,27 +1975,39 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
               placeholder="Название"
               value={cityForm.name}
               onChange={(e) => setCityForm((prev) => ({ ...prev, name: e.target.value }))}
+              disabled={isLoadingCities || isLoadingSavingCity}
             />
             <input
               className="adminInput"
               placeholder="Slug"
               value={cityForm.slug}
               onChange={(e) => setCityForm((prev) => ({ ...prev, slug: e.target.value }))}
+              disabled={isLoadingCities || isLoadingSavingCity}
             />
             <input
               className="adminInput"
               placeholder="Timezone"
               value={cityForm.timezone}
               onChange={(e) => setCityForm((prev) => ({ ...prev, timezone: e.target.value }))}
+              disabled={isLoadingCities || isLoadingSavingCity}
             />
+            {citySaveError && (
+              <div style={{ color: '#f44336', fontSize: '14px', marginTop: '8px' }}>
+                ⚠️ {citySaveError}
+              </div>
+            )}
             <div className="adminItemActions">
-              <button type="button" className="settingsBtn primary" onClick={saveCity}>
-                Сохранить
+              <button type="button" className="settingsBtn primary" onClick={saveCity} disabled={isLoadingCities || isLoadingSavingCity}>
+                {isLoadingSavingCity ? 'Сохранение...' : 'Сохранить'}
               </button>
               <button
                 type="button"
                 className="settingsBtn ghost"
-                onClick={() => setCityForm({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })}
+                onClick={() => {
+                  setCityForm({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
+                  setCitySaveError(null)
+                }}
+                disabled={isLoadingCities || isLoadingSavingCity}
               >
                 Очистить
               </button>
@@ -1671,7 +2016,17 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
 
           <article className="adminListCard adminListCardScrollable">
             <div className="adminScrollableList">
-              {cities.length > 0 ? (
+              {isLoadingCities ? (
+                <div className="adminEmpty">Загрузка городов...</div>
+              ) : citiesError ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  ⚠️ {citiesError}
+                </div>
+              ) : cityDeleteError ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  ⚠️ Ошибка удаления: {cityDeleteError}
+                </div>
+              ) : cities.length > 0 ? (
                 cities.map((city) => (
                   <div key={city.id} className="adminListRow">
                     <div>
@@ -1685,11 +2040,17 @@ function AdminPageContent({ isAdmin, seed, refreshAppData }: AdminPageProps & { 
                         type="button"
                         className="settingsBtn ghost"
                         onClick={() => setCityForm({ id: city.id, name: city.name, slug: city.slug, timezone: city.timezone })}
+                        disabled={loadingDeleteCityId === city.id}
                       >
                         Изменить
                       </button>
-                      <button type="button" className="settingsBtn ghost" onClick={() => deleteCity(city.id)}>
-                        Удалить
+                      <button 
+                        type="button" 
+                        className="settingsBtn ghost" 
+                        onClick={() => deleteCity(city.id)}
+                        disabled={loadingDeleteCityId === city.id}
+                      >
+                        {loadingDeleteCityId === city.id ? 'Удаление...' : 'Удалить'}
                       </button>
                     </div>
                   </div>

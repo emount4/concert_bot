@@ -6,7 +6,27 @@ import type {
   AdminConcertSuggestionStatus,
   AdminProfileChangeRequest,
   AdminProfileChangeStatus,
+  AdminVenue,
 } from '../types/admin'
+import {
+  createCity,
+  deleteCity,
+  loadCities as loadCitiesFromApi,
+  updateCity,
+  createArtist,
+  updateArtist,
+  deleteArtistSoft,
+  deleteArtistHard,
+  loadAdminArtists as loadAdminArtistsFromApi,
+  loadAdminVenues,
+  createVenue,
+  updateVenue,
+  deleteVenueSoft,
+} from '../api/repository'
+import type { CreateCityPayload, UpdateCityPayload } from '../types/city'
+import type { ArtistSocialLinks, CreateArtistPayload, UpdateArtistPayload, AdminArtistResponse } from '../types/artist'
+import type { CreateVenueRequest, UpdateVenueRequest } from '../types/venue'
+import { mapVenueResponseToAdminVenue } from '../types/venue'
 
 // Задание 19.2: localStorage-store для админских очередей/городов/логов (mock-only), чтобы позже заменить на API.
 
@@ -43,15 +63,6 @@ function safeWriteJson<T>(key: string, value: T): void {
   } catch {
     // ignore
   }
-}
-
-function seededCities(): AdminCity[] {
-  return [
-    { id: 1, name: 'Москва', slug: 'moskva', timezone: 'Europe/Moscow' },
-    { id: 2, name: 'Санкт-Петербург', slug: 'sankt-peterburg', timezone: 'Europe/Moscow' },
-    { id: 3, name: 'Казань', slug: 'kazan', timezone: 'Europe/Moscow' },
-    { id: 4, name: 'Екатеринбург', slug: 'ekaterinburg', timezone: 'Asia/Yekaterinburg' },
-  ]
 }
 
 function seededConcertSuggestions(): AdminConcertSuggestion[] {
@@ -127,12 +138,7 @@ function seededProfileChanges(): AdminProfileChangeRequest[] {
   ]
 }
 
-export function ensureAdminStoreSeeded(): void {
-  const currentCities = loadCities()
-  if (currentCities.length === 0) {
-    saveCities(seededCities())
-  }
-
+export async function ensureAdminStoreSeeded(): Promise<void> {
   const currentSuggestions = loadConcertSuggestions()
   if (currentSuggestions.length === 0) {
     saveConcertSuggestions(seededConcertSuggestions())
@@ -192,41 +198,88 @@ export function setConcertSuggestionStatus(id: string, status: AdminConcertSugge
   saveConcertSuggestions(next)
 }
 
-export function loadCities(): AdminCity[] {
-  return safeReadJson<AdminCity[]>(CITIES_KEY, [])
+export async function loadCities(): Promise<AdminCity[]> {
+  try {
+    const cities = await loadCitiesFromApi()
+    return cities.map((city) => ({
+      id: city.city_id,
+      name: city.name,
+      slug: city.slug,
+      timezone: city.timezone,
+    }))
+  } catch {
+    // Fallback to localStorage if API fails
+    return safeReadJson<AdminCity[]>(CITIES_KEY, [])
+  }
 }
 
 export function saveCities(items: AdminCity[]): void {
   safeWriteJson(CITIES_KEY, items)
 }
 
-export function upsertCity(nextCity: Omit<AdminCity, 'id'> & { id?: number }): AdminCity {
-  const prev = loadCities()
+export async function upsertCity(nextCity: Omit<AdminCity, 'id'> & { id?: number }): Promise<AdminCity> {
+  try {
+    if (nextCity.id) {
+      const payload: UpdateCityPayload = {
+        name: nextCity.name,
+        slug: nextCity.slug,
+        timezone: nextCity.timezone,
+      }
+      const updated = await updateCity(nextCity.id, payload)
+      return {
+        id: updated.city_id,
+        name: updated.name,
+        slug: updated.slug,
+        timezone: updated.timezone,
+      }
+    }
 
-  if (nextCity.id) {
-    const updated = prev.map((city) =>
-      city.id === nextCity.id
-        ? { id: city.id, name: nextCity.name, slug: nextCity.slug, timezone: nextCity.timezone }
-        : city,
-    )
-    saveCities(updated)
-    return updated.find((city) => city.id === nextCity.id) as AdminCity
-  }
+    const payload: CreateCityPayload = {
+      name: nextCity.name,
+      slug: nextCity.slug,
+      timezone: nextCity.timezone,
+    }
+    const created = await createCity(payload)
+    return {
+      id: created.city_id,
+      name: created.name,
+      slug: created.slug,
+      timezone: created.timezone,
+    }
+  } catch {
+    // Fallback to localStorage if API fails
+    const prev = safeReadJson<AdminCity[]>(CITIES_KEY, [])
 
-  const nextId = prev.length > 0 ? Math.max(...prev.map((x) => x.id)) + 1 : 1
-  const created: AdminCity = {
-    id: nextId,
-    name: nextCity.name,
-    slug: nextCity.slug,
-    timezone: nextCity.timezone,
+    if (nextCity.id) {
+      const updated = prev.map((city) =>
+        city.id === nextCity.id
+          ? { id: city.id, name: nextCity.name, slug: nextCity.slug, timezone: nextCity.timezone }
+          : city,
+      )
+      saveCities(updated)
+      return updated.find((city) => city.id === nextCity.id) as AdminCity
+    }
+
+    const nextId = prev.length > 0 ? Math.max(...prev.map((x) => x.id)) + 1 : 1
+    const result: AdminCity = {
+      id: nextId,
+      name: nextCity.name,
+      slug: nextCity.slug,
+      timezone: nextCity.timezone,
+    }
+    saveCities([result, ...prev])
+    return result
   }
-  saveCities([created, ...prev])
-  return created
 }
 
-export function removeCity(id: number): void {
-  const prev = loadCities()
-  saveCities(prev.filter((city) => city.id !== id))
+export async function removeCity(id: number): Promise<void> {
+  try {
+    await deleteCity(id)
+  } catch {
+    // Fallback to localStorage if API fails
+    const prev = safeReadJson<AdminCity[]>(CITIES_KEY, [])
+    saveCities(prev.filter((city) => city.id !== id))
+  }
 }
 
 export function loadAuditLogs(): AdminAuditLogEntry[] {
@@ -254,3 +307,226 @@ export function appendAuditLog(params: {
   saveAuditLogs([entry, ...prev])
   return entry
 }
+
+// ============ ARTISTS ============
+
+const ARTISTS_KEY = 'concert_bot.admin.artists'
+
+export async function loadArtists(): Promise<AdminArtistResponse[]> {
+  try {
+    const artists = await loadAdminArtistsFromApi()
+    return artists
+  } catch {
+    // Fallback to localStorage if API fails
+    return safeReadJson<AdminArtistResponse[]>(ARTISTS_KEY, [])
+  }
+}
+
+export function saveArtists(items: AdminArtistResponse[]): void {
+  safeWriteJson(ARTISTS_KEY, items)
+}
+
+type AdminArtistUpsertInput = {
+  id?: number
+  name: string
+  description: string
+  photo_url: string | null
+  social_links?: ArtistSocialLinks | null
+}
+
+export async function upsertArtist(nextArtist: AdminArtistUpsertInput): Promise<AdminArtistResponse> {
+  try {
+    if (nextArtist.id) {
+      const payload: UpdateArtistPayload = {
+        name: nextArtist.name,
+        description: nextArtist.description,
+        photo_key: nextArtist.photo_url || undefined,
+        social_links: nextArtist.social_links || undefined,
+      }
+      const updated = await updateArtist(nextArtist.id, payload)
+      return {
+        id: updated.id,
+        name: updated.name,
+        description: updated.description,
+        photo_url: updated.photo_url,
+        social_links: updated.social_links,
+        status: updated.status,
+        created_at: updated.created_at,
+      }
+    }
+
+    const payload: CreateArtistPayload = {
+      name: nextArtist.name,
+      description: nextArtist.description,
+      photo_key: nextArtist.photo_url || undefined,
+      social_links: nextArtist.social_links || undefined,
+    }
+    const created = await createArtist(payload)
+    return {
+      id: created.id,
+      name: created.name,
+      description: created.description,
+      photo_url: created.photo_url,
+      social_links: created.social_links,
+      status: created.status,
+      created_at: created.created_at,
+    }
+  } catch {
+    // Fallback to localStorage if API fails
+    const prev = safeReadJson<AdminArtistResponse[]>(ARTISTS_KEY, [])
+
+    if (nextArtist.id) {
+      const updated = prev.map((artist) =>
+        artist.id === nextArtist.id
+          ? {
+              id: artist.id,
+              name: nextArtist.name,
+              description: nextArtist.description,
+              photo_url: nextArtist.photo_url,
+              social_links: nextArtist.social_links,
+              status: artist.status,
+              created_at: artist.created_at,
+            }
+          : artist,
+      )
+      saveArtists(updated)
+      return updated.find((artist) => artist.id === nextArtist.id) as AdminArtistResponse
+    }
+
+    const nextId = prev.length > 0 ? Math.max(...prev.map((x) => x.id)) + 1 : 1
+    const result: AdminArtistResponse = {
+      id: nextId,
+      name: nextArtist.name,
+      description: nextArtist.description,
+      photo_url: nextArtist.photo_url,
+      social_links: nextArtist.social_links,
+      status: 'active',
+      created_at: nowIso(),
+    }
+    saveArtists([result, ...prev])
+    return result
+  }
+}
+
+export async function removeArtist(
+  id: number,
+  hardDelete: boolean = false,
+): Promise<void> {
+  try {
+    if (hardDelete) {
+      await deleteArtistHard(id)
+    } else {
+      await deleteArtistSoft(id)
+    }
+  } catch {
+    // Fallback to localStorage if API fails
+    const prev = safeReadJson<AdminArtistResponse[]>(ARTISTS_KEY, [])
+    saveArtists(prev.filter((artist) => artist.id !== id))
+  }
+}
+
+// ============ VENUES ============
+
+const VENUES_KEY = 'concert_bot.admin.venues'
+
+function resolveCityName(cities: AdminCity[], cityId: number): string {
+  return cities.find((c) => c.id === cityId)?.name ?? ''
+}
+
+export async function loadVenues(): Promise<AdminVenue[]> {
+  try {
+    return await loadAdminVenues({ include_deleted: true })
+  } catch {
+    return safeReadJson<AdminVenue[]>(VENUES_KEY, [])
+  }
+}
+
+export function saveVenues(items: AdminVenue[]): void {
+  safeWriteJson(VENUES_KEY, items)
+}
+
+type AdminVenueUpsertInput = {
+  id?: number
+  city_id: number
+  name: string
+  address: string
+  capacity: number
+  photo_url: string | null
+  description?: string
+}
+
+export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVenue> {
+  const cities = await loadCities().catch(() => [] as AdminCity[])
+  const cityLabel = resolveCityName(cities, next.city_id)
+
+  try {
+    if (next.id) {
+      const payload: UpdateVenueRequest = {
+        name: next.name,
+        address: next.address,
+        capacity: next.capacity,
+        photo_key: next.photo_url || undefined,
+        description: next.description ?? '',
+        city_id: next.city_id,
+      }
+      const updated = await updateVenue(next.id, payload)
+      const citiesAfter = await loadCities().catch(() => cities)
+      return mapVenueResponseToAdminVenue(updated, resolveCityName(citiesAfter, updated.city_id))
+    }
+
+    const payload: CreateVenueRequest = {
+      city_id: next.city_id,
+      name: next.name,
+      address: next.address,
+      capacity: next.capacity,
+      photo_key: next.photo_url || undefined,
+      description: next.description?.trim() || '',
+    }
+    const created = await createVenue(payload)
+    const citiesAfter = await loadCities().catch(() => cities)
+    return mapVenueResponseToAdminVenue(created, resolveCityName(citiesAfter, created.city_id))
+  } catch {
+    const prev = safeReadJson<AdminVenue[]>(VENUES_KEY, [])
+
+    if (next.id) {
+      const updated = prev.map((v) =>
+        v.id === next.id
+          ? {
+              ...v,
+              name: next.name,
+              city: cityLabel,
+              city_id: next.city_id,
+              address: next.address,
+              capacity: next.capacity,
+              photo_url: next.photo_url,
+            }
+          : v,
+      )
+      saveVenues(updated)
+      return updated.find((x) => x.id === next.id) as AdminVenue
+    }
+
+    const nextId = prev.length > 0 ? Math.max(...prev.map((x) => x.id)) + 1 : 1
+    const result: AdminVenue = {
+      id: nextId,
+      name: next.name,
+      city: cityLabel,
+      city_id: next.city_id,
+      address: next.address,
+      capacity: next.capacity,
+      photo_url: next.photo_url,
+    }
+    saveVenues([result, ...prev])
+    return result
+  }
+}
+
+export async function removeVenue(id: number): Promise<void> {
+  try {
+    await deleteVenueSoft(id)
+  } catch {
+    const prev = safeReadJson<AdminVenue[]>(VENUES_KEY, [])
+    saveVenues(prev.filter((v) => v.id !== id))
+  }
+}
+

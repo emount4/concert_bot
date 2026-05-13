@@ -5,9 +5,14 @@ import { ReviewCard } from '../components/reviews/ReviewCard'
 import { VenueCard } from '../components/venues/VenueCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { useAppData } from '../api/AppDataProvider'
+import { DATA_SOURCE_MODE } from '../api/config'
+import { loadVenueById, loadCities } from '../api/repository'
+import { mapVenueResponseToCardItem } from '../types/venue'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
+import type { City } from '../types/city'
+import type { VenueCardItem } from '../types/venue'
 
 type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
 type SortDirection = 'desc' | 'asc'
@@ -27,6 +32,8 @@ export function VenuesPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [cities, setCities] = useState<City[]>([])
+  const [detailVenue, setDetailVenue] = useState<VenueCardItem | null>(null)
 
   const { data, isLoading, error } = useAppData()
   const venues = data?.venues ?? []
@@ -35,19 +42,62 @@ export function VenuesPage() {
 
   const [searchParams] = useSearchParams()
   const venue_id = Number(searchParams.get('venue_id'))
-  const selectedVenue = Number.isFinite(venue_id)
-    ? venues.find((item) => item.id === venue_id) ?? null
-    : null
+
+  const selectedVenue = useMemo(() => {
+    if (!Number.isFinite(venue_id) || venue_id <= 0) return null
+    return venues.find((item) => item.id === venue_id) ?? detailVenue
+  }, [venue_id, venues, detailVenue])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!Number.isFinite(venue_id) || venue_id <= 0) {
+      setDetailVenue(null)
+      return
+    }
+    if (venues.some((v) => v.id === venue_id)) {
+      setDetailVenue(null)
+      return
+    }
+    if (DATA_SOURCE_MODE === 'mock') {
+      setDetailVenue(null)
+      return
+    }
+    void Promise.all([loadVenueById(venue_id), loadCities().catch(() => [] as City[])])
+      .then(([venueRes, loadedCities]) => {
+        if (cancelled) return
+        const cityMap = new Map(loadedCities.map((c) => [c.city_id, c.name]))
+        setDetailVenue(mapVenueResponseToCardItem(venueRes, cityMap))
+      })
+      .catch(() => {
+        if (!cancelled) setDetailVenue(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [venue_id, venues])
 
   useEffect(() => {
     setIsFavorite(false)
   }, [selectedVenue?.id])
 
+  useEffect(() => {
+    loadCities().then((loadedCities) => {
+      setCities(loadedCities)
+    }).catch((error) => {
+      console.error('[VenuesPage] Failed to load cities:', error)
+      setCities([])
+    })
+  }, [])
+
   const availableCities = useMemo(() => {
+    if (cities.length > 0) {
+      return cities.map((city) => city.name).sort((a, b) => a.localeCompare(b, 'ru-RU'))
+    }
+    // Fallback: if API cities not available, extract from venues
     return Array.from(new Set(venues.map((venue) => venue.city))).sort((a, b) =>
       a.localeCompare(b, 'ru-RU'),
     )
-  }, [venues])
+  }, [venues, cities])
 
   const filteredVenues = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()

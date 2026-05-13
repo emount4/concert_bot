@@ -16,9 +16,9 @@ body.modalOpen {
 }
 
 .main {
-  width: min(1200px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 20px 12px;
+  padding: 20px 8px;
 }
 
 .page {

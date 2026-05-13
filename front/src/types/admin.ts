@@ -84,14 +84,31 @@ export type AdminArtist = {
   photo_url: string | null
 }
 
+export type AdminVenueStats = {
+  reviews_count: number
+  sum_rating_total: number
+  concerts_count: number
+  favorites_count: number
+  updated_at: string
+}
+
 export type AdminVenue = {
   venue_id?: string
   id: number
   name: string
   city: string
+  /** Совпадает с city_id бэкенда; для моков может отсутствовать. */
+  city_id?: number
   address: string
   capacity: number
   photo_url: string | null
+  description?: string
+  social_links?: Record<string, string> | null
+  stats?: AdminVenueStats
+  status?: string
+  is_deleted?: boolean
+  deleted_at?: string | null
+  created_at?: string
 }
 
 export type AdminConcert = {

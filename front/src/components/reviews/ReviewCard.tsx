@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import type { ReviewCardItem, ReviewLikeUser } from '../../types/review'
+import { resolveReviewScores, type ReviewCardItem, type ReviewLikeUser } from '../../types/review'
 import { loadReviewLikers } from '../../api/reviewLikes'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
 import { getMockUserByDisplayName, getMockUserByUsername } from '../../data/mockUsers'
@@ -21,12 +21,13 @@ type ScoreChip = {
 }
 
 function scoreRow(review: ReviewCardItem): ScoreChip[] {
+  const s = resolveReviewScores(review)
   return [
-    { label: 'Исполнение', value: review.scores.performance },
-    { label: 'Динамика / трек-лист', value: review.scores.setlist },
-    { label: 'Харизма', value: review.scores.crowd },
-    { label: 'Звук', value: review.scores.sound },
-    { label: 'Вайб', value: review.scores.vibe },
+    { label: 'Исполнение', value: s.performance },
+    { label: 'Динамика / трек-лист', value: s.setlist },
+    { label: 'Харизма', value: s.crowd },
+    { label: 'Звук', value: s.sound },
+    { label: 'Вайб', value: s.vibe },
   ]
 }
 
@@ -257,7 +258,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
         </Link>
 
         <div className="reviewScoreWrap">
-          <div className="ratingCircle reviewRatingCircle">{review.rating_total}</div>
+          <div className="ratingCircle reviewRatingCircle">{review.rating_total ?? '—'}</div>
 
           <div className="reviewParamRow" aria-label="Оценки по параметрам">
             {scoreRow(review).map((item, idx) => (

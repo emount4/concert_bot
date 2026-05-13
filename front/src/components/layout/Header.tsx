@@ -2,16 +2,12 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppData } from '../../api/AppDataProvider'
 import { resolveIsAdmin } from '../../utils/adminAccess'
+import { isAdminByRole } from '../../utils/tokenDecoder'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
-import type { AdminAccountRole } from '../../types/admin'
 import { useAuthStore } from '../../store/useAuthStore'
 
 function normalizeUsername(value: string): string {
   return value.trim().replace(/^@+/, '').toLowerCase()
-}
-
-function isAdminRole(role: AdminAccountRole | null): boolean {
-  return role === 'admin' || role === 'super-admin' || role === 'super_admin'
 }
 
 function resolveSectionTitle(pathname: string): string {
@@ -91,6 +87,7 @@ export function Header() {
   const displayName = data?.profile?.displayName ?? 'Профиль'
   const avatarUrl = data?.profile?.avatar_url ?? null
   const purge = useAuthStore((state) => state.purge)
+  const accessToken = useAuthStore((state) => state.accessToken)
 
   const myUsername = useMemo(() => {
     const handle = data?.profile?.handle
@@ -101,10 +98,10 @@ export function Header() {
 
   const sectionTitle = useMemo(() => resolveSectionTitle(location.pathname), [location.pathname])
 
+  // Check admin role from access token (roleId > 1 = admin)
   const showAdminPanel = useMemo(() => {
-    const role = data?.admin?.accounts?.find((account) => account.is_current)?.role ?? null
-    return resolveIsAdmin() || isAdminRole(role)
-  }, [data?.admin?.accounts])
+    return resolveIsAdmin() || isAdminByRole(accessToken)
+  }, [accessToken])
 
   useBodyScrollLock(isSuggestOpen)
 

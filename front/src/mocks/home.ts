@@ -1,5 +1,6 @@
 import type { Concert } from '../types/concert'
 import type { ReviewCardItem, ReviewScores } from '../types/review'
+import { resolveReviewScores } from '../types/review'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_REVIEWS } from '../data/mockReviews'
 import { MOCK_VENUES } from '../data/mockVenues'
@@ -178,7 +179,7 @@ export async function fetchTopArtistsByParam(
     if (!concert) return
 
     concert.artists.forEach((artist) => {
-      rows.push({ key: artist.id, value: review.scores[param] })
+      rows.push({ key: artist.id, value: resolveReviewScores(review)[param] })
     })
   })
 
@@ -220,7 +221,7 @@ export async function fetchTopVenuesByParam(
     const concert = concertsById.get(review.concertId)
     if (!concert) return
 
-    rows.push({ key: concert.venue.id, value: review.scores[param] })
+    rows.push({ key: concert.venue.id, value: resolveReviewScores(review)[param] })
   })
 
   const averages = buildAverages(rows)
@@ -272,7 +273,7 @@ export async function fetchTopConcertsByParam(
   const rows: Array<{ key: number; value: number }> = []
 
   MOCK_REVIEWS.forEach((review) => {
-    rows.push({ key: review.concertId, value: review.scores[param] })
+    rows.push({ key: review.concertId, value: resolveReviewScores(review)[param] })
   })
 
   const averages = buildAverages(rows)

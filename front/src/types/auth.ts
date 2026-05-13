@@ -8,6 +8,8 @@ export interface AuthResponse {
 export interface AuthUser {
   id: string
   username: string
+  roleId?: number
+  roleName?: string
 }
 
 export class AuthServiceError extends Error {

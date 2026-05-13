@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { useAppData } from '../api/AppDataProvider'
+import { loadCities } from '../api/repository'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
+import type { City } from '../types/city'
 
 type ConcertSortBy = 'date' | 'rating' | 'reviews' | 'title'
 type SortDirection = 'desc' | 'asc'
@@ -19,15 +21,29 @@ export function ConcertsPage() {
   const [sortBy, setSortBy] = useState<ConcertSortBy>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
+  const [cities, setCities] = useState<City[]>([])
 
   const { data, isLoading, error } = useAppData()
   const concerts = data?.concerts ?? []
 
+  useEffect(() => {
+    loadCities().then((loadedCities) => {
+      setCities(loadedCities)
+    }).catch((error) => {
+      console.error('[ConcertsPage] Failed to load cities:', error)
+      setCities([])
+    })
+  }, [])
+
   const availableCities = useMemo(() => {
+    if (cities.length > 0) {
+      return cities.map((city) => city.name).sort((a, b) => a.localeCompare(b, 'ru-RU'))
+    }
+    // Fallback: if API cities not available, extract from concerts
     return Array.from(new Set(concerts.map((concert) => concert.venue.city))).sort((a, b) =>
       a.localeCompare(b, 'ru-RU'),
     )
-  }, [concerts])
+  }, [concerts, cities])
 
   const filteredConcerts = useMemo(() => {
     const now = new Date()

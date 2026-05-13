@@ -30,10 +30,31 @@ export type ReviewCardItem = {
   concert_title: string
   concert_artist: string
   concert_poster_url: string | null
-  rating_total: number
-  scores: ReviewScores
+  rating_total?: number
+  scores?: ReviewScores
   text: string
   media?: ReviewMediaAttachment[]
   likes?: ReviewLikeUser[]
+}
+
+const EMPTY_REVIEW_SCORES: ReviewScores = {
+  performance: 0,
+  setlist: 0,
+  crowd: 0,
+  sound: 0,
+  vibe: 0,
+}
+
+/** Безопасно для данных API, где scores может отсутствовать. */
+export function resolveReviewScores(review: Pick<ReviewCardItem, 'scores'>): ReviewScores {
+  const s = review.scores
+  if (!s) return EMPTY_REVIEW_SCORES
+  return {
+    performance: Number(s.performance) || 0,
+    setlist: Number(s.setlist) || 0,
+    crowd: Number(s.crowd) || 0,
+    sound: Number(s.sound) || 0,
+    vibe: Number(s.vibe) || 0,
+  }
 }
 

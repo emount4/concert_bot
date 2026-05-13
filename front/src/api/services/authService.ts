@@ -1,6 +1,6 @@
 import { isAxiosError } from 'axios'
 import { apiEndpoints } from '../endpoints'
-import { authClient } from '../apiClient'
+import { authClient, refreshAuthSession } from '../apiClient'
 import type { AuthResponse } from '../../types/auth'
 import { AuthServiceError } from '../../types/auth'
 
@@ -34,8 +34,6 @@ interface ErrorResponse {
   message?: string
   error?: string
 }
-
-let refreshInFlight: Promise<AuthResponse> | null = null
 
 function getTelegramInitData(): string | undefined {
   if (typeof window === 'undefined') return undefined
@@ -184,23 +182,15 @@ export async function tgLogin(payload?: TgLoginPayload): Promise<AuthResponse> {
 }
 
 export async function refresh(): Promise<AuthResponse> {
-  if (!refreshInFlight) {
-    refreshInFlight = (async () => {
-      try {
-        console.log('[authService] Attempting to refresh token')
-        const response = await authClient.post<AuthResponse>(apiEndpoints.auth.refresh)
-        console.log('[authService] Token refresh successful')
-        return response.data
-      } catch (error) {
-        console.warn('[authService] Token refresh failed:', error)
-        throw toAuthError(error)
-      } finally {
-        refreshInFlight = null
-      }
-    })()
+  try {
+    console.log('[authService] Attempting to refresh token (shared)')
+    const nextAuth = await refreshAuthSession()
+    console.log('[authService] Token refresh successful')
+    return nextAuth
+  } catch (error) {
+    console.warn('[authService] Token refresh failed:', error)
+    throw toAuthError(error)
   }
-
-  return refreshInFlight
 }
 
 export async function logout(): Promise<void> {

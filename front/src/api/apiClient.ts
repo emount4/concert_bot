@@ -25,7 +25,27 @@ type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean
 }
 
+/** Matches typical API messages when the access JWT is invalid/expired (case-insensitive). */
+const ACCESS_TOKEN_RENEW_MESSAGE =
+  /invalid\s+or\s+expired\s+token|invalid\s+token|expired\s+token|token\s+expired|jwt\s+expired/i
+
+function extractApiErrorText(data: unknown): string {
+  if (!data || typeof data !== 'object') return ''
+  const o = data as { message?: unknown; error?: unknown }
+  const parts = [o.message, o.error].filter((x): x is string => typeof x === 'string')
+  return parts.join(' ').trim()
+}
+
+/** Whether we should try a single refresh + retry for this response (non-auth routes only). */
+export function shouldRenewSessionAfterError(status: number | undefined, body: unknown): boolean {
+  if (status === 401) return true
+  if (status !== 403 && status !== 400) return false
+  return ACCESS_TOKEN_RENEW_MESSAGE.test(extractApiErrorText(body))
+}
+
 let refreshInFlight: Promise<AuthResponse> | null = null
+let lastRefreshFailure = 0
+const REFRESH_FAILURE_COOLDOWN_MS = 10_000 // don't attempt refresh more than once per 10s after a failure
 
 function isAuthRoute(pathname: string | undefined): boolean {
   if (!pathname) return false
@@ -38,7 +58,7 @@ function isAuthRoute(pathname: string | undefined): boolean {
   )
 }
 
-async function redirectToLogin(): Promise<never> {
+export async function purgeSessionAndRedirectToLogin(): Promise<never> {
   useAuthStore.getState().purge()
   if (typeof window !== 'undefined') {
     window.location.replace('/login')
@@ -46,10 +66,27 @@ async function redirectToLogin(): Promise<never> {
   throw new Error('Unauthenticated')
 }
 
-async function refreshAuthSession(): Promise<AuthResponse> {
-  const response = await authClient.post<AuthResponse>(apiEndpoints.auth.refresh)
+export async function refreshAuthSession(): Promise<AuthResponse> {
+  const now = Date.now()
+  if (now - lastRefreshFailure < REFRESH_FAILURE_COOLDOWN_MS) {
+    throw new Error('refresh_cooldown')
+  }
 
-  return response.data
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const response = await authClient.post<AuthResponse>(apiEndpoints.auth.refresh)
+        return response.data
+      } catch (err) {
+        lastRefreshFailure = Date.now()
+        throw err
+      } finally {
+        refreshInFlight = null
+      }
+    })()
+  }
+
+  return refreshInFlight
 }
 
 apiClient.interceptors.request.use((config) => {
@@ -70,12 +107,18 @@ apiClient.interceptors.response.use(
 
     console.warn(`[apiClient] Error response: ${status} from ${url}`)
 
-    if (!originalConfig || status !== 401 || originalConfig._retry || isAuthRoute(originalConfig.url)) {
+    const body = error.response?.data
+    if (
+      !originalConfig ||
+      !shouldRenewSessionAfterError(status, body) ||
+      originalConfig._retry ||
+      isAuthRoute(originalConfig.url)
+    ) {
       console.warn(`[apiClient] Not retrying: retry=${originalConfig?._retry}, authRoute=${isAuthRoute(originalConfig?.url)}`)
       return Promise.reject(error)
     }
 
-    console.log(`[apiClient] Attempting token refresh after 401 from ${url}`)
+    console.log(`[apiClient] Attempting token refresh after ${status} from ${url}`)
     originalConfig._retry = true
 
     try {
@@ -94,7 +137,7 @@ apiClient.interceptors.response.use(
     } catch (refreshError) {
       console.error('[apiClient] Token refresh failed, redirecting to login')
       removeRefreshToken()
-      await redirectToLogin()
+      await purgeSessionAndRedirectToLogin()
       return Promise.reject(refreshError)
     }
   },
