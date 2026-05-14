@@ -14,7 +14,7 @@ import {
   fetchTopVenuesByParam,
   type HomeTopRow,
   type ScoreKey,
-} from '../mocks/home'
+} from '../api/home'
 
 type ErrorBoundaryProps = {
   children: ReactNode
@@ -134,7 +134,7 @@ export function HomePage() {
 
   const bestConcertsQuery = useQuery({
     queryKey: ['home', 'bestConcerts'],
-    queryFn: ({ signal }) => fetchBestConcerts({ signal }),
+    queryFn: () => fetchBestConcerts(),
     staleTime: 60_000,
   })
 
@@ -142,7 +142,7 @@ export function HomePage() {
 
   const popularConcertsQuery = useQuery({
     queryKey: ['home', 'popularConcerts'],
-    queryFn: ({ signal }) => fetchPopularConcerts({ signal }),
+    queryFn: () => fetchPopularConcerts(),
     staleTime: 60_000,
   })
 
@@ -154,21 +154,21 @@ export function HomePage() {
 
   const artistTopsQuery = useQuery({
     queryKey: ['home', 'tops', 'artists', artistParam],
-    queryFn: ({ signal }) => fetchTopArtistsByParam(artistParam, { signal }),
+    queryFn: () => fetchTopArtistsByParam(artistParam),
     staleTime: 60_000,
     placeholderData: (prev) => prev,
   })
 
   const venueTopsQuery = useQuery({
     queryKey: ['home', 'tops', 'venues', venueParam],
-    queryFn: ({ signal }) => fetchTopVenuesByParam(venueParam, { signal }),
+    queryFn: () => fetchTopVenuesByParam(venueParam),
     staleTime: 60_000,
     placeholderData: (prev) => prev,
   })
 
   const concertTopsQuery = useQuery({
     queryKey: ['home', 'tops', 'concerts', concertParam],
-    queryFn: ({ signal }) => fetchTopConcertsByParam(concertParam, { signal }),
+    queryFn: () => fetchTopConcertsByParam(concertParam),
     staleTime: 60_000,
     placeholderData: (prev) => prev,
   })
@@ -180,14 +180,14 @@ export function HomePage() {
 
   const freshReviewsQuery = useQuery({
     queryKey: ['home', 'freshReviews'],
-    queryFn: ({ signal }) => fetchFreshReviews({ signal }),
+    queryFn: () => fetchFreshReviews(),
     enabled: feedInView,
     staleTime: 30_000,
   })
 
   const socialProofQuery = useQuery({
     queryKey: ['home', 'socialProof'],
-    queryFn: ({ signal }) => fetchHomeSocialProof({ signal }),
+    queryFn: () => fetchHomeSocialProof(),
     enabled: statsInView,
     staleTime: 60_000,
   })

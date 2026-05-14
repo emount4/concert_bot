@@ -8,6 +8,7 @@ import { ScrollToTop } from './components/layout/ScrollToTop'
 import { ConcertsPage } from './pages/ConcertsPage'
 import { ArtistsPage } from './pages/ArtistsPage'
 import { ReviewsPage } from './pages/ReviewsPage'
+import { ReviewDetailPage } from './pages/ReviewDetailPage'
 import { VenuesPage } from './pages/VenuesPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -257,6 +258,14 @@ function App() {
             element={
               <GuardedRoute>
                 <ReviewsPage />
+              </GuardedRoute>
+            }
+          />
+          <Route
+            path="/reviews/:reviewId"
+            element={
+              <GuardedRoute>
+                <ReviewDetailPage />
               </GuardedRoute>
             }
           />

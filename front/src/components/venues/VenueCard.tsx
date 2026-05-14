@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { VenueCardItem } from '../../types/venue'
 
@@ -37,21 +38,31 @@ function formatCapacity(value: number): string {
 export function VenueCard({ venue }: VenueCardProps) {
   // Задание 4.3: рейтинг площадки отображается кругом, число округляется на фронтенде.
   const roundedScore = venue.avg_rating_total === null ? null : Math.round(venue.avg_rating_total)
+  const [isPhotoFailed, setIsPhotoFailed] = useState(false)
+  const photoUrl = isPhotoFailed ? null : venue.photo_url
 
   return (
     <Link to={`/venues?venue_id=${venue.id}`} className="venueCardLink">
       <article className="venueCard">
         {/* Задание 4.4: реальные изображения в карточке площадки (если есть URL). */}
         <div className="venuePhoto" aria-label="Фото площадки">
-          {venue.photo_url && (
+          {photoUrl ? (
             <img
               className="venuePhotoImg"
-              src={venue.photo_url}
+              src={photoUrl}
               alt=""
               loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
+              onError={() => setIsPhotoFailed(true)}
             />
+          ) : (
+            <div className="cardMediaFallback">
+              <span className="cardMediaFallbackMark" aria-hidden="true">
+                ♫
+              </span>
+              <span>Фото скоро</span>
+            </div>
           )}
         </div>
 

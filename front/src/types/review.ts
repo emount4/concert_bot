@@ -1,4 +1,6 @@
 // Задание 5.1: типы карточки рецензии для витрины.
+import type { ConcertId } from './concert'
+
 export type ReviewScores = {
   performance: number
   setlist: number
@@ -11,6 +13,8 @@ export type ReviewMediaAttachment = {
   id: string
   type: 'image' | 'video'
   url: string
+  file_size?: number | null
+  status?: string
 }
 
 export type ReviewLikeUser = {
@@ -23,7 +27,7 @@ export type ReviewCardItem = {
   review_id?: string
   concert_id?: string
   id: number
-  concertId: number
+  concertId: ConcertId
   author_name: string
   author_username?: string
   author_avatar_url: string | null
@@ -35,6 +39,15 @@ export type ReviewCardItem = {
   text: string
   media?: ReviewMediaAttachment[]
   likes?: ReviewLikeUser[]
+  likes_count?: number
+  is_liked_by_me?: boolean
+  status?: string
+  rejection_reason?: string | null
+  created_at?: string
+}
+
+export function getReviewConcertIdKey(review: Pick<ReviewCardItem, 'concert_id' | 'concertId'>): string {
+  return String(review.concert_id ?? review.concertId)
 }
 
 const EMPTY_REVIEW_SCORES: ReviewScores = {

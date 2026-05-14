@@ -471,7 +471,7 @@ export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVen
       }
       const updated = await updateVenue(next.id, payload)
       const citiesAfter = await loadCities().catch(() => cities)
-      return mapVenueResponseToAdminVenue(updated, resolveCityName(citiesAfter, updated.city_id))
+      return mapVenueResponseToAdminVenue(updated, resolveCityName(citiesAfter, updated.city_id ?? next.city_id))
     }
 
     const payload: CreateVenueRequest = {
@@ -484,7 +484,7 @@ export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVen
     }
     const created = await createVenue(payload)
     const citiesAfter = await loadCities().catch(() => cities)
-    return mapVenueResponseToAdminVenue(created, resolveCityName(citiesAfter, created.city_id))
+    return mapVenueResponseToAdminVenue(created, resolveCityName(citiesAfter, created.city_id ?? next.city_id))
   } catch {
     const prev = safeReadJson<AdminVenue[]>(VENUES_KEY, [])
 

@@ -32,14 +32,16 @@ export type AdminConcertSuggestionStatus = 'pending' | 'created' | 'rejected'
 
 export type AdminConcertSuggestion = {
   id: string
+  user_id?: string
   created_at: string
   status: AdminConcertSuggestionStatus
   suggested_by_username: string
   suggested_by_displayName: string
   artist_name: string
   venue_name: string
-  city_name: string
+  city_name?: string
   date: string
+  info?: string | null
 }
 
 export type AdminCity = {
@@ -69,6 +71,7 @@ export type AdminReviewModerationItem = {
   author_name: string
   author_username?: string
   concert_title: string
+  title?: string
   created_at: string
   rating_total: number
   status: AdminReviewStatus
@@ -113,12 +116,36 @@ export type AdminVenue = {
 
 export type AdminConcert = {
   concert_id?: string
-  id: number
+  id: string | number
   title: string
   date: string
   venue_id: number
   artist_ids: number[]
   poster_url: string | null
+  is_verified?: boolean
+  created_by_user_id?: string | null
+  created_at?: string
+  deleted_at?: string | null
+  venue?: {
+    id: number
+    name: string
+    city: string
+  }
+  artists?: Array<{
+    id: number
+    name: string
+    is_main?: boolean
+  }>
+  stats?: {
+    reviews_count: number
+    avg_rating_total: number | null
+    avg_p1?: number | null
+    avg_p2?: number | null
+    avg_p3?: number | null
+    avg_p4?: number | null
+    avg_p5?: number | null
+    updated_at?: string | null
+  } | null
 }
 
 export type AdminAccountRole = 'user' | 'admin' | 'super_admin' | 'super-admin'

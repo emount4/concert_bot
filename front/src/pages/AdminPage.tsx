@@ -3,9 +3,21 @@ import { useEffect, useMemo, useState } from 'react'
 import { setDevAdmin } from '../utils/adminAccess'
 import { useBodyScrollLock } from '../utils/useBodyScrollLock'
 import {
+  addAdminConcertArtist,
+  approveAdminReview,
+  createAdminConcert,
+  deleteAdminConcertArtist,
+  deleteAdminConcertHard,
+  deleteAdminConcertSoft,
+  deleteAdminConcertSuggestion,
   loadAdminAccounts,
   loadAdminConcerts,
+  loadAdminConcertSuggestionById,
+  loadAdminConcertSuggestions as loadAdminConcertSuggestionsFromApi,
   loadAdminReviews,
+  restoreAdminConcert,
+  updateAdminConcert,
+  updateAdminConcertArtist,
 } from '../api/repository'
 import {
   appendAuditLog,
@@ -93,6 +105,12 @@ function triStatusLabel(status: 'pending' | 'approved' | 'rejected'): string {
   return 'Отклонено'
 }
 
+function readableAdminReviewText(value: unknown): string {
+  if (typeof value !== 'string') return 'Текст рецензии недоступен'
+  const trimmed = value.trim()
+  return trimmed || 'Текст рецензии пуст'
+}
+
 function suggestionStatusLabel(status: AdminConcertSuggestion['status']): string {
   if (status === 'pending') return 'В очереди'
   if (status === 'created') return 'Создано'
@@ -157,7 +175,14 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
   const [isLoadingConcerts, setIsLoadingConcerts] = useState(false)
   const [concertsError, setConcertsError] = useState<string | null>(null)
+  const [concertSaveError, setConcertSaveError] = useState<string | null>(null)
+  const [isLoadingSavingConcert, setIsLoadingSavingConcert] = useState(false)
+  const [concertDeleteError, setConcertDeleteError] = useState<string | null>(null)
+  const [loadingConcertActionId, setLoadingConcertActionId] = useState<string | number | null>(null)
   const [hasLoadedConcerts, setHasLoadedConcerts] = useState(false)
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null)
+  const [hasLoadedSuggestions, setHasLoadedSuggestions] = useState(false)
 
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
   const [accountsError, setAccountsError] = useState<string | null>(null)
@@ -171,7 +196,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
     setIsLoadingModeration(true)
     setModerationError(null)
-    void loadAdminReviews()
+    void loadAdminReviews({ limit: 100, offset: 0 })
       .then((loadedReviews) => {
         setReviews(loadedReviews)
       })
@@ -254,7 +279,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
     setIsLoadingConcerts(true)
     setConcertsError(null)
-    void loadAdminConcerts()
+    void loadAdminConcerts({ include_deleted: true })
       .then((loadedConcerts) => {
         setConcerts(loadedConcerts)
       })
@@ -268,6 +293,26 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
         setHasLoadedConcerts(true)
       })
   }, [hasLoadedConcerts, isLoadingConcerts, tab])
+
+  useEffect(() => {
+    if (tab !== 'queue' || queueStream !== 'suggestions' || hasLoadedSuggestions || isLoadingSuggestions) return
+
+    setIsLoadingSuggestions(true)
+    setSuggestionsError(null)
+    void loadAdminConcertSuggestionsFromApi({ limit: 100, offset: 0 })
+      .then((loadedSuggestions) => {
+        setConcertSuggestions(loadedSuggestions)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load concert suggestions:', error)
+        setSuggestionsError(error instanceof Error ? error.message : 'Failed to load concert suggestions')
+        setConcertSuggestions(loadConcertSuggestions())
+      })
+      .finally(() => {
+        setIsLoadingSuggestions(false)
+        setHasLoadedSuggestions(true)
+      })
+  }, [hasLoadedSuggestions, isLoadingSuggestions, queueStream, tab])
 
   useEffect(() => {
     if (tab !== 'accounts' || hasLoadedAccounts || isLoadingAccounts) return
@@ -300,12 +345,21 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     description: '',
   })
   const [cityForm, setCityForm] = useState({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
-  const [concertForm, setConcertForm] = useState({
+  const [concertForm, setConcertForm] = useState<{
+    id: string | number
+    title: string
+    date: string
+    venue_id: string
+    artist_ids: number[]
+    main_artist_ids: number[]
+    poster_url: string
+  }>({
     id: 0,
     title: '',
     date: '',
     venue_id: '0',
     artist_ids: [] as number[],
+    main_artist_ids: [] as number[],
     poster_url: '',
   })
   const [isVenueModalOpen, setIsVenueModalOpen] = useState(false)
@@ -321,8 +375,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [activeModerationMediaIndex, setActiveModerationMediaIndex] = useState(0)
 
   const [approveDraftReview, setApproveDraftReview] = useState<AdminReviewModerationItem | null>(null)
+  const [approveDraftTitle, setApproveDraftTitle] = useState('')
   const [approveDraftText, setApproveDraftText] = useState('')
   const [approveDraftMediaIds, setApproveDraftMediaIds] = useState<string[]>([])
+  const [approveDraftError, setApproveDraftError] = useState<string | null>(null)
+  const [isApprovingReview, setIsApprovingReview] = useState(false)
 
   useBodyScrollLock(Boolean(activeModerationMedia || approveDraftReview || isVenueModalOpen || isArtistsModalOpen))
 
@@ -383,12 +440,13 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     if (!normalizedQuery) return concerts
 
     return concerts.filter((concert) => {
-      const venueName = venues.find((venue) => venue.id === concert.venue_id)?.name ?? ''
+      const venueName = concert.venue?.name ?? venues.find((venue) => venue.id === concert.venue_id)?.name ?? ''
       const artistNames = concert.artist_ids
         .map((artistId) => artists.find((artist) => artist.id === artistId)?.name ?? '')
         .join(' ')
+      const embeddedArtistNames = (concert.artists ?? []).map((artist) => artist.name).join(' ')
 
-      return `${concert.title} ${concert.date} ${venueName} ${artistNames}`
+      return `${concert.title} ${concert.date} ${venueName} ${artistNames} ${embeddedArtistNames} ${concert.deleted_at ?? ''}`
         .toLowerCase()
         .includes(normalizedQuery)
     })
@@ -436,14 +494,19 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
   function openApproveDraft(review: AdminReviewModerationItem) {
     setApproveDraftReview(review)
+    setApproveDraftTitle(review.title ?? '')
     setApproveDraftText(review.text)
     setApproveDraftMediaIds((review.media ?? []).map((m) => m.id))
+    setApproveDraftError(null)
   }
 
   function closeApproveDraft() {
     setApproveDraftReview(null)
+    setApproveDraftTitle('')
     setApproveDraftText('')
     setApproveDraftMediaIds([])
+    setApproveDraftError(null)
+    setIsApprovingReview(false)
   }
 
   function toggleApproveDraftMedia(id: string, checked: boolean) {
@@ -455,40 +518,63 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     })
   }
 
-  function applyApproveDraft() {
+  async function applyApproveDraft() {
     if (!approveDraftReview) return
 
+    const nextTitle = approveDraftTitle.trim()
     const nextText = approveDraftText.trim()
-    if (!nextText) return
-
-    const keep = new Set(approveDraftMediaIds)
-    const beforeText = approveDraftReview.text
-    const beforeCount = approveDraftReview.media?.length ?? 0
-
-    setReviews((prev) =>
-      prev.map((item) => {
-        if (item.id !== approveDraftReview.id) return item
-
-        const filteredMedia = (item.media ?? []).filter((m) => keep.has(m.id))
-
-        return {
-          ...item,
-          status: 'approved',
-          text: nextText,
-          media: filteredMedia.length > 0 ? filteredMedia : undefined,
-        }
-      }),
-    )
-
-    if (currentAdminAccount) {
-      const mediaAfter = approveDraftMediaIds.length
-      const changed = nextText !== beforeText || mediaAfter !== beforeCount
-      writeAudit(
-        `Модератор ${currentAdminAccount.displayName} одобрил рецензию #${approveDraftReview.id}${changed ? ' с правками' : ''}.`,
-      )
+    if (!nextTitle || !nextText) {
+      setApproveDraftError('Заполните финальный заголовок и текст рецензии.')
+      return
     }
 
-    closeApproveDraft()
+    const keep = new Set(approveDraftMediaIds)
+    const beforeTitle = approveDraftReview.title ?? ''
+    const beforeText = approveDraftReview.text
+    const beforeCount = approveDraftReview.media?.length ?? 0
+    const reviewKey = approveDraftReview.review_id ?? String(approveDraftReview.id)
+
+    setApproveDraftError(null)
+    setIsApprovingReview(true)
+
+    try {
+      const updatedReview = await approveAdminReview(reviewKey, {
+        final_title: nextTitle,
+        final_text: nextText,
+        allowed_media_ids: approveDraftMediaIds,
+      })
+
+      setReviews((prev) =>
+        prev.map((item) => {
+          if (item.id !== approveDraftReview.id) return item
+
+          if (updatedReview) return updatedReview
+
+          const filteredMedia = (item.media ?? []).filter((m) => keep.has(m.id))
+
+          return {
+            ...item,
+            status: 'approved',
+            title: nextTitle,
+            text: nextText,
+            media: filteredMedia.length > 0 ? filteredMedia : undefined,
+          }
+        }),
+      )
+
+      if (currentAdminAccount) {
+        const mediaAfter = approveDraftMediaIds.length
+        const changed = nextTitle !== beforeTitle || nextText !== beforeText || mediaAfter !== beforeCount
+        writeAudit(
+          `Модератор ${currentAdminAccount.displayName} одобрил рецензию #${approveDraftReview.id}${changed ? ' с правками' : ''}.`,
+        )
+      }
+
+      closeApproveDraft()
+    } catch (error) {
+      setApproveDraftError(error instanceof Error ? error.message : 'Не удалось одобрить рецензию.')
+      setIsApprovingReview(false)
+    }
   }
 
   function approveProfileChange(requestId: string) {
@@ -530,8 +616,14 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     }
   }
 
-  function createConcertFromSuggestion(suggestionId: string) {
-    const suggestion = concertSuggestions.find((x) => x.id === suggestionId) ?? null
+  async function createConcertFromSuggestion(suggestionId: string) {
+    let suggestion = concertSuggestions.find((x) => x.id === suggestionId) ?? null
+    try {
+      suggestion = await loadAdminConcertSuggestionById(suggestionId)
+    } catch {
+      // Local/mock fallback already has enough fields to prefill the form.
+    }
+
     if (!suggestion) return
 
     const normalizedVenue = suggestion.venue_name.trim().toLowerCase()
@@ -546,6 +638,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       date: suggestion.date,
       venue_id: matchedVenue ? String(matchedVenue.id) : '0',
       artist_ids: matchedArtist ? [matchedArtist.id] : [],
+      main_artist_ids: matchedArtist ? [matchedArtist.id] : [],
       poster_url: '',
     })
 
@@ -557,6 +650,19 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     }
 
     setTab('concerts')
+  }
+
+  function removeConcertSuggestion(suggestionId: string) {
+    setSuggestionsError(null)
+
+    void deleteAdminConcertSuggestion(suggestionId)
+      .then(() => {
+        setConcertSuggestions((prev) => prev.filter((item) => item.id !== suggestionId))
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to delete concert suggestion:', error)
+        setSuggestionsError(error instanceof Error ? error.message : 'Ошибка при удалении предложения')
+      })
   }
 
   function saveCity() {
@@ -693,42 +799,108 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
+  function resetConcertForm() {
+    setConcertForm({ id: 0, title: '', date: '', venue_id: '0', artist_ids: [], main_artist_ids: [], poster_url: '' })
+  }
+
+  function normalizeConcertDate(value: string): string {
+    if (!value) return ''
+    if (value.endsWith('Z')) return value
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : date.toISOString()
+  }
+
+  function posterKeyFromForm(value: string): string | undefined {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed.startsWith('blob:')) return undefined
+    return trimmed
+  }
+
+  async function reloadAdminConcerts() {
+    const loadedConcerts = await loadAdminConcerts({ include_deleted: true })
+    setConcerts(loadedConcerts)
+    return loadedConcerts
+  }
+
+  async function syncConcertArtists(concert: AdminConcert, nextArtistIds: number[], mainArtistIds: number[]) {
+    const concertId = concert.id
+    const prevArtists = concert.artists ?? concert.artist_ids.map((id) => ({ id, name: String(id), is_main: false }))
+    const prevIds = new Set(prevArtists.map((artist) => artist.id))
+    const nextIds = new Set(nextArtistIds)
+
+    await Promise.all(
+      prevArtists
+        .filter((artist) => !nextIds.has(artist.id))
+        .map((artist) => deleteAdminConcertArtist(concertId, artist.id)),
+    )
+
+    await Promise.all(
+      nextArtistIds.map((artistId) => {
+        const is_main = mainArtistIds.includes(artistId)
+        if (!prevIds.has(artistId)) {
+          return addAdminConcertArtist(concertId, { artist_id: artistId, is_main })
+        }
+        return updateAdminConcertArtist(concertId, artistId, { is_main })
+      }),
+    )
+  }
+
   function saveConcert() {
-    if (!concertForm.title.trim()) return
-
+    const title = concertForm.title.trim()
     const venue_id = Number(concertForm.venue_id) || 0
+    const date = normalizeConcertDate(concertForm.date)
+    const mainArtistIds =
+      concertForm.main_artist_ids.length > 0 ? concertForm.main_artist_ids : [concertForm.artist_ids[0]].filter(Boolean)
 
-    setConcerts((prev) => {
+    if (!title || !venue_id || !date || concertForm.artist_ids.length === 0 || mainArtistIds.length === 0) {
+      setConcertSaveError('Заполните название, дату, площадку и хотя бы одного артиста.')
+      return
+    }
+
+    setIsLoadingSavingConcert(true)
+    setConcertSaveError(null)
+
+    const poster_key = posterKeyFromForm(concertForm.poster_url)
+
+    const run = async () => {
       if (concertForm.id) {
-        return prev.map((item) =>
-          item.id === concertForm.id
-            ? {
-                ...item,
-                title: concertForm.title,
-                date: concertForm.date,
-                venue_id,
-                artist_ids: concertForm.artist_ids,
-                poster_url: concertForm.poster_url || null,
-              }
-            : item,
-        )
+        const existing = concerts.find((item) => item.id === concertForm.id) ?? null
+        const updated = await updateAdminConcert(concertForm.id, {
+          title,
+          date,
+          venue_id,
+          ...(poster_key ? { poster_key } : {}),
+        })
+        await syncConcertArtists(existing ?? updated, concertForm.artist_ids, mainArtistIds)
+      } else {
+        await createAdminConcert({
+          title,
+          date,
+          venue_id,
+          ...(poster_key ? { poster_key } : {}),
+          artists: concertForm.artist_ids.map((artistId) => ({
+            artist_id: artistId,
+            is_main: mainArtistIds.includes(artistId),
+          })),
+        })
       }
 
-      const nextId = prev.length ? Math.max(...prev.map((x) => x.id)) + 1 : 1
-      return [
-        ...prev,
-        {
-          id: nextId,
-          title: concertForm.title,
-          date: concertForm.date,
-          venue_id,
-          artist_ids: concertForm.artist_ids,
-          poster_url: concertForm.poster_url || null,
-        },
-      ]
-    })
+      await reloadAdminConcerts()
+      resetConcertForm()
 
-    setConcertForm({ id: 0, title: '', date: '', venue_id: '0', artist_ids: [], poster_url: '' })
+      if (currentAdminAccount) {
+        writeAudit(`Админ ${currentAdminAccount.displayName} сохранил концерт «${title}».`)
+      }
+    }
+
+    void run()
+      .catch((error) => {
+        console.error('[AdminPage] Failed to save concert:', error)
+        setConcertSaveError(error instanceof Error ? error.message : 'Ошибка при сохранении концерта')
+      })
+      .finally(() => {
+        setIsLoadingSavingConcert(false)
+      })
   }
 
   function deleteArtistFromAdmin(id: number) {
@@ -786,13 +958,61 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
-  function removeConcert(id: number) {
-    setConcerts((prev) => prev.filter((x) => x.id !== id))
+  function removeConcert(id: string | number) {
+    setLoadingConcertActionId(id)
+    setConcertDeleteError(null)
 
     const concert = concerts.find((x) => x.id === id) ?? null
-    if (concert && currentAdminAccount) {
+    void deleteAdminConcertSoft(id)
+      .then(() => reloadAdminConcerts())
+      .then(() => {
+        if (concert && currentAdminAccount) {
+          writeAudit(`Админ ${currentAdminAccount.displayName} удалил концерт «${concert.title}».`)
+        }
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to delete concert:', error)
+        setConcertDeleteError(error instanceof Error ? error.message : 'Ошибка при удалении концерта')
+        setConcerts((prev) => prev.filter((x) => x.id !== id))
+      })
+      .finally(() => {
+        setLoadingConcertActionId(null)
+      })
+    return
+    if (concert && currentAdminAccount && Date.now() < 0) {
+      // @ts-expect-error unreachable legacy audit branch
       writeAudit(`Админ ${currentAdminAccount.displayName} удалил концерт «${concert.title}».`)
     }
+  }
+
+  function hardRemoveConcert(id: string | number) {
+    setLoadingConcertActionId(id)
+    setConcertDeleteError(null)
+
+    void deleteAdminConcertHard(id)
+      .then(() => reloadAdminConcerts())
+      .catch((error) => {
+        console.error('[AdminPage] Failed to hard delete concert:', error)
+        setConcertDeleteError(error instanceof Error ? error.message : 'Ошибка при полном удалении концерта')
+      })
+      .finally(() => {
+        setLoadingConcertActionId(null)
+      })
+  }
+
+  function restoreConcertFromAdmin(id: string | number) {
+    setLoadingConcertActionId(id)
+    setConcertDeleteError(null)
+
+    void restoreAdminConcert(id)
+      .then(() => reloadAdminConcerts())
+      .catch((error) => {
+        console.error('[AdminPage] Failed to restore concert:', error)
+        setConcertDeleteError(error instanceof Error ? error.message : 'Ошибка при восстановлении концерта')
+      })
+      .finally(() => {
+        setLoadingConcertActionId(null)
+      })
   }
 
   function setAccountBanState(id: number, is_banned: boolean) {
@@ -857,6 +1077,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       artist_ids: prev.artist_ids.includes(artistId)
         ? prev.artist_ids.filter((id) => id !== artistId)
         : [...prev.artist_ids, artistId],
+      main_artist_ids: prev.artist_ids.includes(artistId)
+        ? prev.main_artist_ids.filter((id) => id !== artistId)
+        : prev.main_artist_ids.length > 0
+          ? prev.main_artist_ids
+          : [artistId],
     }))
   }
 
@@ -999,6 +1224,14 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                     <div className="adminItemTop">
                       <p className="adminItemTitle">{req.type === 'username' ? 'Смена username' : req.type === 'bio' ? 'Смена bio' : req.type === 'banner' ? 'Смена баннера' : 'Смена аватара'}</p>
                       <span className={`adminStatus adminStatus-${req.status}`}>{triStatusLabel(req.status)}</span>
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        hidden
+                        onClick={() => removeConcertSuggestion(req.id)}
+                      >
+                        Удалить
+                      </button>
                     </div>
 
                     <p className="adminItemMeta">
@@ -1065,6 +1298,14 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                         <button type="button" className="settingsBtn ghost" onClick={() => rejectProfileChange(req.id)}>
                           Отклонить
                         </button>
+                        <button
+                          type="button"
+                          className="settingsBtn ghost"
+                          hidden
+                          onClick={() => undefined}
+                        >
+                          Удалить навсегда
+                        </button>
                       </div>
                     )}
                   </article>
@@ -1077,7 +1318,13 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
           {queueStream === 'suggestions' && (
             <>
-              {concertSuggestions.length > 0 ? (
+              {isLoadingSuggestions ? (
+                <div className="adminEmpty">Загрузка предложений...</div>
+              ) : suggestionsError && concertSuggestions.length === 0 ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  ⚠️ {suggestionsError}
+                </div>
+              ) : concertSuggestions.length > 0 ? (
                 concertSuggestions.map((sugg) => (
                   <article key={sugg.id} className="adminItemCard">
                     <div className="adminItemTop">
@@ -1088,16 +1335,24 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                       <Link to={`/users/${encodeURIComponent(sugg.suggested_by_username)}`}>{sugg.suggested_by_displayName}</Link> • {formatDateTime(sugg.created_at)}
                     </p>
                     <p className="adminItemPreview">
-                      {sugg.artist_name} • {sugg.city_name} • {sugg.venue_name} • {formatDateTime(sugg.date)}
+                      {[sugg.artist_name, sugg.city_name, sugg.venue_name, formatDateTime(sugg.date)].filter(Boolean).join(' • ')}
                     </p>
+                    {sugg.info && <p className="adminItemPreview">{sugg.info}</p>}
                     <div className="adminItemActions">
                       <button
                         type="button"
                         className="settingsBtn primary"
                         disabled={sugg.status !== 'pending'}
-                        onClick={() => createConcertFromSuggestion(sugg.id)}
+                        onClick={() => void createConcertFromSuggestion(sugg.id)}
                       >
                         Создать на основе
+                      </button>
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        onClick={() => removeConcertSuggestion(sugg.id)}
+                      >
+                        Удалить
                       </button>
                     </div>
                   </article>
@@ -1153,7 +1408,8 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 <p className="adminItemMeta">
                   <Link to={`/users/${encodeURIComponent(review.author_username ?? review.author_name)}`}>{review.author_name}</Link> • {formatDateTime(review.created_at)} • {review.rating_total}
                 </p>
-                <p className="adminItemPreview">{review.text}</p>
+                {review.title && <p className="adminItemTitle">{review.title}</p>}
+                <p className="adminItemPreview">{readableAdminReviewText(review.text)}</p>
 
                 <div className="adminItemActions">
                   {review.media && review.media.length > 0 && (
@@ -1173,6 +1429,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                     type="button"
                     className="settingsBtn primary"
                     onClick={() => openApproveDraft(review)}
+                    disabled={isApprovingReview}
                   >
                     Одобрить
                   </button>
@@ -1279,11 +1536,22 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                   {approveDraftReview.concert_title} • {approveDraftReview.author_name} • {approveDraftReview.rating_total}
                 </p>
 
+                <input
+                  className="adminInput"
+                  value={approveDraftTitle}
+                  onChange={(e) => setApproveDraftTitle(e.target.value)}
+                  placeholder="Финальный заголовок"
+                  maxLength={255}
+                  disabled={isApprovingReview}
+                />
                 <textarea
                   className="adminTextarea"
                   value={approveDraftText}
                   onChange={(e) => setApproveDraftText(e.target.value)}
+                  disabled={isApprovingReview}
                 />
+
+                {approveDraftError && <p className="adminErrorText">{approveDraftError}</p>}
 
                 {approveDraftReview.media && approveDraftReview.media.length > 0 && (
                   <>
@@ -1296,6 +1564,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                               type="checkbox"
                               checked={approveDraftMediaIds.includes(m.id)}
                               onChange={(e) => toggleApproveDraftMedia(m.id, e.target.checked)}
+                              disabled={isApprovingReview}
                             />
                             <span className="adminModalOptionTitle">{m.type === 'video' ? 'Видео' : 'Фото'}</span>
                           </div>
@@ -1307,10 +1576,15 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 )}
 
                 <div className="adminItemActions">
-                  <button type="button" className="settingsBtn primary" onClick={applyApproveDraft} disabled={!approveDraftText.trim()}>
-                    Одобрить
+                  <button
+                    type="button"
+                    className="settingsBtn primary"
+                    onClick={() => void applyApproveDraft()}
+                    disabled={!approveDraftTitle.trim() || !approveDraftText.trim() || isApprovingReview}
+                  >
+                    {isApprovingReview ? 'Одобряем...' : 'Одобрить'}
                   </button>
-                  <button type="button" className="settingsBtn ghost" onClick={closeApproveDraft}>
+                  <button type="button" className="settingsBtn ghost" onClick={closeApproveDraft} disabled={isApprovingReview}>
                     Отмена
                   </button>
                 </div>
@@ -1353,6 +1627,8 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 ⚠️ {artistSaveError}
               </div>
             )}
+            {concertSaveError && <p className="adminWarningText">{concertSaveError}</p>}
+
             <div className="adminItemActions">
               <button type="button" className="settingsBtn primary" onClick={saveArtist} disabled={isLoadingArtists || isLoadingSavingArtist}>
                 {isLoadingSavingArtist ? 'Сохранение...' : 'Сохранить'}
@@ -1667,6 +1943,30 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 <p className="adminListMeta">Артисты не выбраны</p>
               )}
             </div>
+            {selectedArtists.length > 0 && (
+              <>
+                  <label className="adminInlineLabel">Основные артисты</label>
+                <div className="adminChipWrap">
+                  {selectedArtists.map((artist) => (
+                    <button
+                      key={`main-${artist.id}`}
+                      type="button"
+                      className={concertForm.main_artist_ids.includes(artist.id) ? 'adminChip active' : 'adminChip'}
+                      onClick={() =>
+                        setConcertForm((prev) => ({
+                          ...prev,
+                          main_artist_ids: prev.main_artist_ids.includes(artist.id)
+                            ? prev.main_artist_ids.filter((id) => id !== artist.id)
+                            : [...prev.main_artist_ids, artist.id],
+                        }))
+                      }
+                    >
+                      {artist.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <div className="adminPickerActions">
               <button
                 type="button"
@@ -1682,7 +1982,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 <button
                   type="button"
                   className="settingsBtn ghost"
-                  onClick={() => setConcertForm((prev) => ({ ...prev, artist_ids: [] }))}
+                  onClick={() => setConcertForm((prev) => ({ ...prev, artist_ids: [], main_artist_ids: [] }))}
                 >
                   Очистить выбор
                 </button>
@@ -1704,7 +2004,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
             )}
 
             <div className="adminItemActions">
-              <button type="button" className="settingsBtn primary" onClick={saveConcert}>
+              <button type="button" className="settingsBtn primary" onClick={saveConcert} disabled={isLoadingSavingConcert}>
                 Сохранить
               </button>
               <button
@@ -1717,6 +2017,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                     date: '',
                     venue_id: '0',
                     artist_ids: [],
+                    main_artist_ids: [],
                     poster_url: '',
                   })
                 }
@@ -1733,6 +2034,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               value={concertListQuery}
               onChange={(e) => setConcertListQuery(e.target.value)}
             />
+            {concertDeleteError && <p className="settingsError">{concertDeleteError}</p>}
 
             <div className="adminScrollableList">
               {isLoadingConcerts ? (
@@ -1770,13 +2072,43 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                               date: concert.date,
                               venue_id: String(concert.venue_id),
                               artist_ids: artistIds,
+                              main_artist_ids: (() => {
+                                const mainIds = (concert.artists ?? [])
+                                  .filter((artist) => artist.is_main)
+                                  .map((artist) => artist.id)
+                                return mainIds.length > 0 ? mainIds : artistIds.slice(0, 1)
+                              })(),
                               poster_url: concert.poster_url ?? '',
                             })
                           }
                         >
                           Изменить
                         </button>
-                        <button type="button" className="settingsBtn ghost" onClick={() => removeConcert(concert.id)}>
+                        {concert.deleted_at && (
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            disabled={loadingConcertActionId === concert.id}
+                            onClick={() => restoreConcertFromAdmin(concert.id)}
+                          >
+                            Восстановить
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="settingsBtn ghost"
+                          disabled={loadingConcertActionId === concert.id}
+                          onClick={() => hardRemoveConcert(concert.id)}
+                        >
+                          Удалить навсегда
+                        </button>
+                        <button
+                          type="button"
+                          className="settingsBtn ghost"
+                          disabled={loadingConcertActionId === concert.id || Boolean(concert.deleted_at)}
+                          onClick={() => removeConcert(concert.id)}
+                        >
+                          {/* soft delete */}
                           Удалить
                         </button>
                       </div>

@@ -227,6 +227,8 @@
   color: var(--muted);
   font-size: 15px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .adminDiffBlock {
@@ -401,6 +403,12 @@
 .adminWarningText {
   margin: 0;
   color: #fde68a;
+  font-size: 12px;
+}
+
+.adminErrorText {
+  margin: 0;
+  color: #ff9fa3;
   font-size: 12px;
 }
 

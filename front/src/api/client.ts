@@ -44,6 +44,21 @@ function errorMessageFromPayload(payload: unknown, status: number): string {
   if (payload && typeof payload === 'object' && 'message' in payload && typeof (payload as { message: unknown }).message === 'string') {
     return (payload as { message: string }).message
   }
+  if (payload && typeof payload === 'object' && 'error' in payload && typeof (payload as { error: unknown }).error === 'string') {
+    return (payload as { error: string }).error
+  }
+  if (payload && typeof payload === 'object' && 'errors' in payload) {
+    const errors = (payload as { errors: unknown }).errors
+    if (Array.isArray(errors)) {
+      return errors.map((item) => String(item)).join('\n')
+    }
+    if (errors && typeof errors === 'object') {
+      return Object.entries(errors)
+        .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(', ') : String(value)}`)
+        .join('\n')
+    }
+    if (typeof errors === 'string') return errors
+  }
   return `API request failed (${status})`
 }
 

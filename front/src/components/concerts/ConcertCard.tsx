@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Concert } from '../../types/concert'
 import { InfoIcon } from './InfoIcon'
 
@@ -52,20 +53,30 @@ export function ConcertCard({ concert }: ConcertCardProps) {
   const rating = concert.stats.avg_rating_total
   const roundedRating = rating === null ? null : Math.round(rating)
   const hasReviews = concert.stats.reviews_count > 0
+  const [isPosterFailed, setIsPosterFailed] = useState(false)
+  const posterUrl = isPosterFailed ? null : concert.poster_url
 
   return (
     <article className="concertCard">
       {/* Задание 2.3: заменить заглушку афиши на реальное изображение (если есть URL). */}
       <div className="concertPoster" aria-label="Постер концерта">
-        {concert.poster_url && (
+        {posterUrl ? (
           <img
             className="concertPosterImg"
-            src={concert.poster_url}
+            src={posterUrl}
             alt=""
             loading="lazy"
             decoding="async"
             referrerPolicy="no-referrer"
+            onError={() => setIsPosterFailed(true)}
           />
+        ) : (
+          <div className="cardMediaFallback">
+            <span className="cardMediaFallbackMark" aria-hidden="true">
+              ♫
+            </span>
+            <span>Постер скоро</span>
+          </div>
         )}
       </div>
 

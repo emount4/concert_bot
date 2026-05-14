@@ -8,6 +8,8 @@ import { useAppData } from '../api/AppDataProvider'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
+import { getConcertIdKey } from '../types/concert'
+import { getReviewConcertIdKey } from '../types/review'
 
 type SortDirection = 'desc' | 'asc'
 type ArtistSortBy = 'rating' | 'alphabet'
@@ -39,9 +41,10 @@ export function ArtistsPage() {
   }, [selectedArtist?.id])
 
   const artistStats = useMemo(() => {
-    const reviewsByConcertId = new Map<number, number>()
+    const reviewsByConcertId = new Map<string, number>()
     for (const review of reviews) {
-      reviewsByConcertId.set(review.concertId, (reviewsByConcertId.get(review.concertId) ?? 0) + 1)
+      const id = getReviewConcertIdKey(review)
+      reviewsByConcertId.set(id, (reviewsByConcertId.get(id) ?? 0) + 1)
     }
 
     const out = new Map<number, { concertsCount: number; reviews_count: number }>()
@@ -50,7 +53,7 @@ export function ArtistsPage() {
         concert.artists.some((concert_artist) => concert_artist.id === artist.id),
       )
       const reviews_count = artistConcerts.reduce(
-        (sum, concert) => sum + (reviewsByConcertId.get(concert.id) ?? 0),
+        (sum, concert) => sum + (reviewsByConcertId.get(getConcertIdKey(concert)) ?? 0),
         0,
       )
       out.set(artist.id, { concertsCount: artistConcerts.length, reviews_count })
@@ -112,9 +115,9 @@ export function ArtistsPage() {
     const artistConcerts = concerts
       .filter((concert) => concert.artists.some((artist) => artist.id === selectedArtist.id))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    const artistConcertIds = new Set(artistConcerts.map((concert) => concert.id))
+    const artistConcertIds = new Set(artistConcerts.map((concert) => getConcertIdKey(concert)))
     const artistReviews = reviews
-      .filter((review) => artistConcertIds.has(review.concertId))
+      .filter((review) => artistConcertIds.has(getReviewConcertIdKey(review)))
       .sort((a, b) => b.id - a.id)
     const roundedScore =
       selectedArtist.avg_rating_total === null ? null : Math.round(selectedArtist.avg_rating_total)

@@ -1,6 +1,7 @@
 import type { Concert } from '../types/concert'
+import { getConcertIdKey } from '../types/concert'
 import type { ReviewCardItem, ReviewScores } from '../types/review'
-import { resolveReviewScores } from '../types/review'
+import { getReviewConcertIdKey, resolveReviewScores } from '../types/review'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_REVIEWS } from '../data/mockReviews'
 import { MOCK_VENUES } from '../data/mockVenues'
@@ -103,12 +104,12 @@ export async function fetchHomeSocialProof({ signal }: { signal?: AbortSignal } 
   const reviewsWritten = MOCK_REVIEWS.length
 
   const concertsCount = MOCK_CONCERTS.length
-  const venues = new Set<number>()
-  const artists = new Set<number>()
+  const venues = new Set<string>()
+  const artists = new Set<string>()
 
   MOCK_CONCERTS.forEach((concert) => {
-    venues.add(concert.venue.id)
-    concert.artists.forEach((artist) => artists.add(artist.id))
+    venues.add(String(concert.venue.id))
+    concert.artists.forEach((artist) => artists.add(String(artist.id)))
   })
 
   let usersRegistered = 1
@@ -170,25 +171,26 @@ export async function fetchTopArtistsByParam(
 ): Promise<HomeTopRow[]> {
   await abortableDelay(240, signal)
 
-  const concertsById = new Map<number, Concert>(MOCK_CONCERTS.map((concert) => [concert.id, concert]))
+  const concertsById = new Map<string, Concert>(MOCK_CONCERTS.map((concert) => [getConcertIdKey(concert), concert]))
 
-  const rows: Array<{ key: number; value: number }> = []
+  const rows: Array<{ key: string; value: number }> = []
 
   MOCK_REVIEWS.forEach((review) => {
-    const concert = concertsById.get(review.concertId)
+    const concert = concertsById.get(getReviewConcertIdKey(review))
     if (!concert) return
 
     concert.artists.forEach((artist) => {
-      rows.push({ key: artist.id, value: resolveReviewScores(review)[param] })
+      rows.push({ key: String(artist.id), value: resolveReviewScores(review)[param] })
     })
   })
 
   const averages = buildAverages(rows)
 
-  const byId = new Map<number, { name: string }>()
+  const byId = new Map<string, { name: string }>()
   MOCK_CONCERTS.forEach((concert) => {
     concert.artists.forEach((artist) => {
-      if (!byId.has(artist.id)) byId.set(artist.id, { name: artist.name })
+      const id = String(artist.id)
+      if (!byId.has(id)) byId.set(id, { name: artist.name })
     })
   })
 
@@ -213,15 +215,15 @@ export async function fetchTopVenuesByParam(
 ): Promise<HomeTopRow[]> {
   await abortableDelay(260, signal)
 
-  const concertsById = new Map<number, Concert>(MOCK_CONCERTS.map((concert) => [concert.id, concert]))
+  const concertsById = new Map<string, Concert>(MOCK_CONCERTS.map((concert) => [getConcertIdKey(concert), concert]))
 
-  const rows: Array<{ key: number; value: number }> = []
+  const rows: Array<{ key: string; value: number }> = []
 
   MOCK_REVIEWS.forEach((review) => {
-    const concert = concertsById.get(review.concertId)
+    const concert = concertsById.get(getReviewConcertIdKey(review))
     if (!concert) return
 
-    rows.push({ key: concert.venue.id, value: resolveReviewScores(review)[param] })
+    rows.push({ key: String(concert.venue.id), value: resolveReviewScores(review)[param] })
   })
 
   const averages = buildAverages(rows)
@@ -237,7 +239,7 @@ export async function fetchTopVenuesByParam(
       const fallbackLabel = `Площадка ${id}`
       const fallbackHref = `/venues?venue_id=${id}`
 
-      const concertVenue = MOCK_CONCERTS.find((concert) => concert.venue.id === id)?.venue
+      const concertVenue = MOCK_CONCERTS.find((concert) => String(concert.venue.id) === id)?.venue
       if (!concertVenue) {
         return {
           key: `venue-${id}`,
@@ -270,15 +272,15 @@ export async function fetchTopConcertsByParam(
 ): Promise<HomeTopRow[]> {
   await abortableDelay(280, signal)
 
-  const rows: Array<{ key: number; value: number }> = []
+  const rows: Array<{ key: string; value: number }> = []
 
   MOCK_REVIEWS.forEach((review) => {
-    rows.push({ key: review.concertId, value: resolveReviewScores(review)[param] })
+    rows.push({ key: getReviewConcertIdKey(review), value: resolveReviewScores(review)[param] })
   })
 
   const averages = buildAverages(rows)
 
-  const byId = new Map<number, Concert>(MOCK_CONCERTS.map((concert) => [concert.id, concert]))
+  const byId = new Map<string, Concert>(MOCK_CONCERTS.map((concert) => [getConcertIdKey(concert), concert]))
 
   return Array.from(averages.entries())
     .map(([id, agg]) => {

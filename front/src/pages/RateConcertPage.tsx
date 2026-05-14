@@ -3,10 +3,14 @@ import { Link, useParams } from 'react-router-dom'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { useAppData } from '../api/AppDataProvider'
+import { REVIEW_MEDIA_MAX_SIZE_BYTES, REVIEW_MEDIA_MAX_SIZE_MB } from '../api/config'
+import { createReview, loadConcertById, uploadReviewMedia } from '../api/repository'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
 import { useBodyScrollLock } from '../utils/useBodyScrollLock'
+import { getConcertIdKey, type Concert, type ConcertStats } from '../types/concert'
+import { getReviewConcertIdKey } from '../types/review'
 
 type ScoreState = {
   performance: number
@@ -23,19 +27,71 @@ function formatFileSize(bytes: number): string {
 }
 
 const RATE_REVIEWS_PAGE_SIZE = 10
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function roundToTenth(value: number): number {
+  return Math.round(value * 10) / 10
+}
+
+function avgScoresFromStats(stats: ConcertStats | null | undefined) {
+  const values = [stats?.avg_p1, stats?.avg_p2, stats?.avg_p3, stats?.avg_p4, stats?.avg_p5]
+  if (!values.some((value) => value !== null && value !== undefined)) return null
+
+  return {
+    performance: roundToTenth(Number(stats?.avg_p1 ?? 0)),
+    setlist: roundToTenth(Number(stats?.avg_p2 ?? 0)),
+    crowd: roundToTenth(Number(stats?.avg_p3 ?? 0)),
+    sound: roundToTenth(Number(stats?.avg_p4 ?? 0)),
+    vibe: roundToTenth(Number(stats?.avg_p5 ?? 0)),
+  }
+}
 
 export function RateConcertPage() {
   // Задание 11.1: первичный экран оценивания концерта с ползунками и списком рецензий.
-  const { data, isLoading, error } = useAppData()
+  const { data, isLoading, error, refresh } = useAppData()
   const concerts = data?.concerts ?? []
   const reviews = data?.reviews ?? []
 
   const { concertId } = useParams<{ concertId: string }>()
-  const numericConcertId = Number(concertId)
-  const concert = useMemo(
-    () => concerts.find((item) => item.id === numericConcertId) ?? null,
-    [concerts, numericConcertId],
+  const routeConcertId = concertId ?? ''
+  const bootstrapConcert = useMemo(
+    () => concerts.find((item) => getConcertIdKey(item) === routeConcertId || String(item.id) === routeConcertId) ?? null,
+    [concerts, routeConcertId],
   )
+  const [detailConcert, setDetailConcert] = useState<Concert | null>(null)
+  const [detailError, setDetailError] = useState<string | null>(null)
+  const [isDetailLoading, setIsDetailLoading] = useState(false)
+  const concert = bootstrapConcert ?? detailConcert
+
+  useEffect(() => {
+    let cancelled = false
+
+    setDetailConcert(null)
+    setDetailError(null)
+
+    if (!routeConcertId || bootstrapConcert) {
+      setIsDetailLoading(false)
+      return
+    }
+
+    setIsDetailLoading(true)
+    void loadConcertById(routeConcertId)
+      .then((loadedConcert) => {
+        if (cancelled) return
+        setDetailConcert(loadedConcert)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setDetailError(error instanceof Error ? error.message : 'Не удалось загрузить концерт')
+      })
+      .finally(() => {
+        if (!cancelled) setIsDetailLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [bootstrapConcert, routeConcertId])
 
   const [scores, setScores] = useState<ScoreState>({
     performance: 5,
@@ -56,7 +112,11 @@ export function RateConcertPage() {
   const [isDraftToastVisible, setIsDraftToastVisible] = useState(false)
   const [isDraftReady, setIsDraftReady] = useState(false)
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
+  const [isSecondaryArtistsOpen, setIsSecondaryArtistsOpen] = useState(false)
   const [attachedMedia, setAttachedMedia] = useState<File[]>([])
+  const [reviewSubmitError, setReviewSubmitError] = useState<string | null>(null)
+  const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState<string | null>(null)
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false)
 
   useBodyScrollLock(isCriteriaOpen || isConfirmClearOpen || isConfirmSubmitOpen || isMediaModalOpen)
 
@@ -65,7 +125,22 @@ export function RateConcertPage() {
     const files = Array.from(event.target.files ?? [])
     if (files.length === 0) return
 
-    setAttachedMedia((prev) => [...prev, ...files])
+    setReviewSubmitError(null)
+    const oversizedFile = files.find((file) => file.size > REVIEW_MEDIA_MAX_SIZE_BYTES)
+    if (oversizedFile) {
+      setReviewSubmitError(`Файл ${oversizedFile.name} больше ${REVIEW_MEDIA_MAX_SIZE_MB} МБ.`)
+      event.target.value = ''
+      return
+    }
+
+    setAttachedMedia((prev) => {
+      const next = [...prev, ...files]
+      if (next.length > 10) {
+        setReviewSubmitError('Можно прикрепить не больше 10 медиафайлов.')
+        return next.slice(0, 10)
+      }
+      return next
+    })
     event.target.value = ''
   }
 
@@ -84,8 +159,8 @@ export function RateConcertPage() {
     setIsTextDirty(false)
     lastSavedTextRef.current = ''
 
-    if (numericConcertId) {
-      const stored = localStorage.getItem(`draft_${numericConcertId}`)
+    if (routeConcertId) {
+      const stored = localStorage.getItem(`draft_${routeConcertId}`)
       if (stored) {
         try {
           const parsed = JSON.parse(stored)
@@ -94,7 +169,7 @@ export function RateConcertPage() {
             lastSavedTextRef.current = parsed.text
           }
         } catch {
-          localStorage.removeItem(`draft_${numericConcertId}`)
+          localStorage.removeItem(`draft_${routeConcertId}`)
         }
       }
 
@@ -103,30 +178,30 @@ export function RateConcertPage() {
     }
 
     setIsDraftReady(true)
-  }, [numericConcertId])
+  }, [routeConcertId])
 
   // Задание 11.4: автосохранение черновика после паузы ввода.
   useEffect(() => {
-    if (!numericConcertId || !isDraftReady || !isTextDirty) return
+    if (!routeConcertId || !isDraftReady || !isTextDirty) return
 
     const saveTimerId = window.setTimeout(() => {
       const trimmed = text.trim()
 
       if (!trimmed) {
-        localStorage.removeItem(`draft_${numericConcertId}`)
+        localStorage.removeItem(`draft_${routeConcertId}`)
         lastSavedTextRef.current = ''
         return
       }
 
       if (text === lastSavedTextRef.current) return
 
-      localStorage.setItem(`draft_${numericConcertId}`, JSON.stringify({ text }))
+      localStorage.setItem(`draft_${routeConcertId}`, JSON.stringify({ text }))
       lastSavedTextRef.current = text
       setIsDraftToastVisible(true)
     }, 1200)
 
     return () => window.clearTimeout(saveTimerId)
-  }, [numericConcertId, text, isDraftReady, isTextDirty])
+  }, [routeConcertId, text, isDraftReady, isTextDirty])
 
   useEffect(() => {
     if (!isDraftToastVisible) return
@@ -146,31 +221,86 @@ export function RateConcertPage() {
     setScores({ performance: 5, setlist: 5, crowd: 5, sound: 5, vibe: 1 })
     setReviewTitle('')
     setText('')
+    setAttachedMedia([])
     setIsTextDirty(false)
     lastSavedTextRef.current = ''
-    localStorage.removeItem(`draft_${numericConcertId}`)
+    localStorage.removeItem(`draft_${routeConcertId}`)
     setIsConfirmClearOpen(false)
     setIsDraftToastVisible(false)
   }
 
+  function validateReviewDraft(): string | null {
+    const title = reviewTitle.trim()
+    const body = text.trim()
+
+    if (!UUID_RE.test(routeConcertId)) return 'Некорректный concert_id.'
+    if (!title) return 'Укажите название рецензии.'
+    if (title.length > 255) return 'Название рецензии должно быть не длиннее 255 символов.'
+    if (!body) return 'Напишите текст рецензии.'
+    if (body.length < 100) return 'Текст рецензии должен быть не короче 100 символов.'
+    if (body.length > 8000) return 'Текст рецензии должен быть не длиннее 8000 символов.'
+    if (attachedMedia.length > 10) return 'Можно прикрепить не больше 10 медиафайлов.'
+
+    const oversizedFile = attachedMedia.find((file) => file.size > REVIEW_MEDIA_MAX_SIZE_BYTES)
+    if (oversizedFile) return `Файл ${oversizedFile.name} больше ${REVIEW_MEDIA_MAX_SIZE_MB} МБ.`
+
+    const values = [scores.performance, scores.setlist, scores.crowd, scores.sound, scores.vibe]
+    if (values.some((value) => !Number.isInteger(value) || value < 1 || value > 10)) {
+      return 'Все оценки должны быть целыми числами от 1 до 10.'
+    }
+
+    return null
+  }
+
   const requestSubmitReview = () => {
+    const validationError = validateReviewDraft()
+    setReviewSubmitSuccess(null)
+    setReviewSubmitError(validationError)
+    if (validationError) return
     setIsConfirmSubmitOpen(true)
   }
 
-  const confirmSubmitReview = () => {
-    setIsConfirmSubmitOpen(false)
+  const confirmSubmitReview = async () => {
+    const validationError = validateReviewDraft()
+    setReviewSubmitSuccess(null)
+    setReviewSubmitError(validationError)
+    if (validationError) return
+
+    setIsReviewSubmitting(true)
+    try {
+      const mediaKeys = await uploadReviewMedia(attachedMedia)
+      await createReview({
+        concert_id: routeConcertId,
+        title: reviewTitle.trim(),
+        text: text.trim(),
+        p1: scores.performance,
+        p2: scores.setlist,
+        p3: scores.crowd,
+        p4: scores.sound,
+        p5: scores.vibe,
+        media_keys: mediaKeys,
+      })
+      setIsConfirmSubmitOpen(false)
+      setReviewSubmitSuccess('Рецензия отправлена на модерацию.')
+      confirmClearDraft()
+      await refresh()
+    } catch (error) {
+      setReviewSubmitError(error instanceof Error ? error.message : 'Не удалось отправить рецензию.')
+    } finally {
+      setIsReviewSubmitting(false)
+    }
   }
 
   const concertReviews = useMemo(
-    () => reviews.filter((review) => review.concertId === numericConcertId),
-    [numericConcertId, reviews],
+    () => reviews.filter((review) => getReviewConcertIdKey(review) === routeConcertId),
+    [routeConcertId, reviews],
   )
 
   const [reviewsPage, setReviewsPage] = useState(1)
 
   useEffect(() => {
     setReviewsPage(1)
-  }, [numericConcertId, concertReviews.length])
+  }, [routeConcertId, concertReviews.length])
 
   const rateReviewsPageCount = Math.ceil(concertReviews.length / RATE_REVIEWS_PAGE_SIZE)
   const rateReviewsPaginationItems = useMemo(
@@ -182,7 +312,10 @@ export function RateConcertPage() {
     return concertReviews.slice(offset, offset + RATE_REVIEWS_PAGE_SIZE)
   }, [concertReviews, reviewsPage])
   // Задание 13.2: раскладка средней оценки концерта по параметрам (до десятых).
-  const concertAvgScores = useMemo(() => computeAvgScoresFromReviews(concertReviews), [concertReviews])
+  const concertAvgScores = useMemo(
+    () => avgScoresFromStats(concert?.stats) ?? computeAvgScoresFromReviews(concertReviews),
+    [concert?.stats, concertReviews],
+  )
   const concertDateLabel = useMemo(() => {
     const date = new Date(concert?.date ?? '')
     if (Number.isNaN(date.getTime())) return concert?.date ?? ''
@@ -203,8 +336,15 @@ export function RateConcertPage() {
     concert?.stats.avg_rating_total === null || concert?.stats.avg_rating_total === undefined
       ? null
       : Math.round(concert.stats.avg_rating_total)
+  const mainArtists = concert
+    ? concert.artists.filter((artist) => artist.is_main === true)
+    : []
+  const secondaryArtists = concert
+    ? concert.artists.filter((artist) => artist.is_main === false)
+    : []
+  const visibleArtists = mainArtists.length > 0 ? mainArtists : concert?.artists.filter((artist) => artist.is_main !== false) ?? []
 
-  if (isLoading) {
+  if (isLoading || isDetailLoading) {
     return (
       <section className="page">
         <h1 className="pageTitle">Оценивание концерта</h1>
@@ -213,11 +353,11 @@ export function RateConcertPage() {
     )
   }
 
-  if (error) {
+  if (error || detailError) {
     return (
       <section className="page">
         <h1 className="pageTitle">Оценивание концерта</h1>
-        <div className="placeholder">{error}</div>
+        <div className="placeholder">{error ?? detailError}</div>
       </section>
     )
   }
@@ -270,12 +410,31 @@ export function RateConcertPage() {
             <h2 className="rateHeroTitle">{concert.title ?? 'Без названия'}</h2>
 
             <div className="rateHeroLinks">
-              {concert.artists.map((artist) => (
+              {visibleArtists.map((artist) => (
                 <Link key={artist.id} to={`/artists?artistId=${artist.id}`} className="rateLinkChip">
                   {artist.name}
                 </Link>
               ))}
+              {secondaryArtists.length > 0 && (
+                <button
+                  type="button"
+                  className={isSecondaryArtistsOpen ? 'rateLinkChip rateArtistToggle active' : 'rateLinkChip rateArtistToggle'}
+                  aria-expanded={isSecondaryArtistsOpen}
+                  onClick={() => setIsSecondaryArtistsOpen((prev) => !prev)}
+                >
+                  Еще артисты
+                </button>
+              )}
             </div>
+            {secondaryArtists.length > 0 && isSecondaryArtistsOpen && (
+              <div className="rateSecondaryArtists" role="list">
+                {secondaryArtists.map((artist) => (
+                  <Link key={artist.id} to={`/artists?artistId=${artist.id}`} className="rateSecondaryArtist" role="listitem">
+                    {artist.name}
+                  </Link>
+                ))}
+              </div>
+            )}
 
             {avg_rating_total !== null && (
               <RatingBreakdownBadge
@@ -398,7 +557,11 @@ export function RateConcertPage() {
             className="rateTitleInput"
             placeholder="Короткий заголовок вашей рецензии"
             value={reviewTitle}
-            onChange={(event) => setReviewTitle(event.target.value)}
+            onChange={(event) => {
+              setReviewTitle(event.target.value)
+              setReviewSubmitError(null)
+              setReviewSubmitSuccess(null)
+            }}
           />
         </label>
 
@@ -411,9 +574,13 @@ export function RateConcertPage() {
             onChange={(event) => {
               setText(event.target.value)
               setIsTextDirty(true)
+              setReviewSubmitError(null)
+              setReviewSubmitSuccess(null)
             }}
           />
         </label>
+        {reviewSubmitError && <p className="settingsError">{reviewSubmitError}</p>}
+        {reviewSubmitSuccess && <p className="settingsOk">{reviewSubmitSuccess}</p>}
 
         <div className="rateUtilityRow">
           <button
@@ -434,7 +601,7 @@ export function RateConcertPage() {
             <button type="button" className="rateMediaBtn" onClick={() => setIsMediaModalOpen(true)}>
               📎 Прикрепить медиа{attachedMedia.length > 0 ? ` (${attachedMedia.length})` : ''}
             </button>
-            <p className="rateCharCount">{text.length}/8500</p>
+            <p className="rateCharCount">{text.length}/8000</p>
           </div>
         </div>
 
@@ -449,6 +616,7 @@ export function RateConcertPage() {
             className="rateSubmitButton"
             aria-label="Отправить рецензию"
             onClick={requestSubmitReview}
+            disabled={isReviewSubmitting}
           >
             ✓
           </button>
@@ -579,7 +747,7 @@ export function RateConcertPage() {
               <button type="button" className="rateModalBtn" onClick={() => setIsConfirmSubmitOpen(false)}>
                 Отмена
               </button>
-              <button type="button" className="rateModalBtn" onClick={confirmSubmitReview}>
+              <button type="button" className="rateModalBtn" onClick={confirmSubmitReview} disabled={isReviewSubmitting}>
                 Отправить
               </button>
             </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { resolveReviewScores, type ReviewCardItem, type ReviewLikeUser } from '../../types/review'
-import { loadReviewLikers } from '../../api/reviewLikes'
+import { loadReviewLikers, toggleReviewLike } from '../../api/reviewLikes'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
 import { getMockUserByDisplayName, getMockUserByUsername } from '../../data/mockUsers'
 
@@ -132,6 +132,20 @@ function MediaIcon() {
   )
 }
 
+function DetailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M8 5.5h8A2.5 2.5 0 0 1 18.5 8v8a2.5 2.5 0 0 1-2.5 2.5H8A2.5 2.5 0 0 1 5.5 16V8A2.5 2.5 0 0 1 8 5.5Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path d="M9 10h6M9 13h6M9 16h3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function ReviewCard({ review, textMode = 'collapsible', moderation }: ReviewCardProps) {
   // Задание 10.2: сворачивание текста и просмотр прикрепленных медиа в карточке рецензии.
   const [expanded, setExpanded] = useState(textMode === 'expanded')
@@ -140,12 +154,16 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
   const [isModerationOpen, setIsModerationOpen] = useState(false)
   const [likers, setLikers] = useState<ReviewLikeUser[] | null>(null)
   const [brokenLikeAvatars, setBrokenLikeAvatars] = useState<Record<string, true>>({})
+  const [likeError, setLikeError] = useState<string | null>(null)
+  const [isLikeBusy, setIsLikeBusy] = useState(false)
+  const [recentLikeAt, setRecentLikeAt] = useState<number | null>(null)
   // Задание 10.3: просмотр вложений по одному с переключением стрелками.
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const media = review.media ?? []
   const currentMedia = media[currentMediaIndex] ?? null
   const navigate = useNavigate()
   const authorLinkParam = encodeURIComponent(review.author_username ?? review.author_name)
+  const reviewKey = review.review_id ?? String(review.id)
 
   const allowTextToggle = textMode === 'collapsible'
 
@@ -167,8 +185,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
 
     ;(async () => {
       try {
-        const reviewId = review.review_id ?? review.id
-        const remote = await loadReviewLikers(reviewId)
+        const remote = await loadReviewLikers(reviewKey)
         if (!alive) return
         setLikers(remote)
       } catch {
@@ -179,11 +196,12 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
     return () => {
       alive = false
     }
-  }, [isLikesOpen, review.id, review.review_id, review.likes])
+  }, [isLikesOpen, review.id, review.review_id, review.likes, reviewKey])
 
-  const baseLikes = likers ?? (review.likes ?? [])
-  const storageKey = `concert_bot.review_like.${review.id}`
+  const baseLikes = useMemo(() => likers ?? (review.likes ?? []), [likers, review.likes])
+  const storageKey = `concert_bot.review_like.${reviewKey}`
   const [likedByMe, setLikedByMe] = useState(() => {
+    if (review.is_liked_by_me) return true
     if (typeof window === 'undefined') return false
     return window.localStorage.getItem(storageKey) === '1'
   })
@@ -193,7 +211,42 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
     window.localStorage.setItem(storageKey, likedByMe ? '1' : '0')
   }, [likedByMe, storageKey])
 
-  const likesCount = baseLikes.length + (likedByMe ? 1 : 0)
+  const [likesBaseCount, setLikesBaseCount] = useState(review.likes_count ?? baseLikes.length)
+
+  useEffect(() => {
+    setLikesBaseCount(review.likes_count ?? baseLikes.length)
+  }, [baseLikes.length, review.likes_count])
+
+  async function handleLikeToggle() {
+    if (isLikeBusy) return
+
+    setLikeError(null)
+
+    if (likedByMe && (!recentLikeAt || Date.now() - recentLikeAt > 5000)) {
+      setLikeError('Лайк можно убрать только в течение 5 секунд.')
+      return
+    }
+
+    setIsLikeBusy(true)
+    try {
+      await toggleReviewLike(reviewKey)
+      if (likedByMe) {
+        setLikedByMe(false)
+        setRecentLikeAt(null)
+        setLikesBaseCount((prev) => Math.max(0, prev - 1))
+      } else {
+        setLikedByMe(true)
+        setRecentLikeAt(Date.now())
+        setLikesBaseCount((prev) => prev + 1)
+      }
+    } catch (error) {
+      setLikeError(error instanceof Error ? error.message : 'Не удалось изменить лайк.')
+    } finally {
+      setIsLikeBusy(false)
+    }
+  }
+
+  const likesCount = Math.max(0, likesBaseCount)
 
   const likeEntries = useMemo(() => {
     const entries: Array<{ key: string; name: string; href: string; avatarUrl: string | null }> = []
@@ -308,7 +361,8 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
             <button
               type="button"
               className={likedByMe ? 'reviewIconBtn reviewLikeBtn liked' : 'reviewIconBtn reviewLikeBtn'}
-              onClick={() => setLikedByMe((prev) => !prev)}
+              onClick={() => void handleLikeToggle()}
+              disabled={isLikeBusy}
               aria-label={likedByMe ? 'Убрать лайк' : 'Поставить лайк'}
             >
               <HeartIcon filled={likedByMe} />
@@ -343,6 +397,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
               </button>
             )}
           </div>
+          {likeError && <p className="reviewLikeError">{likeError}</p>}
 
           {(showModeration || allowTextToggle) && (
             <div className="reviewFooterRight">
@@ -363,14 +418,23 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
               )}
 
               {allowTextToggle && (
-                <button
-                  type="button"
-                  className="reviewExpandBtn"
-                  aria-label={expanded ? 'Свернуть текст рецензии' : 'Развернуть текст рецензии'}
-                  onClick={() => setExpanded((v) => !v)}
-                >
-                  <ExpandIcon expanded={expanded} />
-                </button>
+                <>
+                  <Link
+                    to={`/reviews/${encodeURIComponent(reviewKey)}`}
+                    className="reviewExpandBtn reviewDetailLink"
+                    aria-label="Открыть отдельную страницу рецензии"
+                  >
+                    <DetailIcon />
+                  </Link>
+                  <button
+                    type="button"
+                    className="reviewExpandBtn"
+                    aria-label={expanded ? 'Свернуть текст рецензии' : 'Развернуть текст рецензии'}
+                    onClick={() => setExpanded((v) => !v)}
+                  >
+                    <ExpandIcon expanded={expanded} />
+                  </button>
+                </>
               )}
             </div>
           )}

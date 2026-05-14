@@ -178,6 +178,36 @@
   background: rgba(121, 153, 238, 0.2);
 }
 
+.rateArtistToggle {
+  cursor: pointer;
+}
+
+.rateArtistToggle.active {
+  background: rgba(121, 153, 238, 0.28);
+}
+
+.rateSecondaryArtists {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rateSecondaryArtist {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rateSecondaryArtist:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .rateFormSection {
   margin-top: 14px;
   border: 1px solid var(--border);

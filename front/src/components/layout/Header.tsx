@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppData } from '../../api/AppDataProvider'
+import { createConcertSuggestion } from '../../api/repository'
 import { resolveIsAdmin } from '../../utils/adminAccess'
 import { isAdminByRole } from '../../utils/tokenDecoder'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
@@ -62,6 +63,12 @@ function SuggestIcon() {
   )
 }
 
+function toRfc3339Date(value: string): string | null {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString()
+}
+
 export function Header() {
   // Задание 19.2: фиксированный Header с dropdown профиля и логаутом.
   const { data } = useAppData()
@@ -83,6 +90,9 @@ export function Header() {
     link: '',
     note: '',
   })
+  const [suggestError, setSuggestError] = useState<string | null>(null)
+  const [suggestSuccess, setSuggestSuccess] = useState<string | null>(null)
+  const [isSuggestSubmitting, setIsSuggestSubmitting] = useState(false)
 
   const displayName = data?.profile?.displayName ?? 'Профиль'
   const avatarUrl = data?.profile?.avatar_url ?? null
@@ -158,6 +168,51 @@ export function Header() {
   function closeSuggestModal() {
     setIsSuggestOpen(false)
     setSuggestDraft({ artist: '', concert: '', city: '', venue: '', date: '', link: '', note: '' })
+    setSuggestError(null)
+    setSuggestSuccess(null)
+    setIsSuggestSubmitting(false)
+  }
+
+  async function submitSuggestForm() {
+    const artistName = suggestDraft.artist.trim()
+    const venueName = suggestDraft.venue.trim()
+    const date = toRfc3339Date(suggestDraft.date)
+    const info = [
+      suggestDraft.concert.trim() ? `Название: ${suggestDraft.concert.trim()}` : '',
+      suggestDraft.city.trim() ? `Город: ${suggestDraft.city.trim()}` : '',
+      suggestDraft.link.trim() ? `Источник: ${suggestDraft.link.trim()}` : '',
+      suggestDraft.note.trim(),
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    setSuggestError(null)
+    setSuggestSuccess(null)
+
+    if (!artistName && !venueName) {
+      setSuggestError('Укажи артиста или площадку.')
+      return
+    }
+    if (!date) {
+      setSuggestError('Укажи дату и время концерта.')
+      return
+    }
+
+    setIsSuggestSubmitting(true)
+    try {
+      await createConcertSuggestion({
+        artist_name: artistName || undefined,
+        venue_name: venueName || undefined,
+        date,
+        info: info ? info.slice(0, 2000) : undefined,
+      })
+      setSuggestSuccess('Предложение отправлено.')
+      setSuggestDraft({ artist: '', concert: '', city: '', venue: '', date: '', link: '', note: '' })
+    } catch (error) {
+      setSuggestError(error instanceof Error ? error.message : 'Не удалось отправить предложение.')
+    } finally {
+      setIsSuggestSubmitting(false)
+    }
   }
 
   return (
@@ -275,12 +330,12 @@ export function Header() {
               </button>
             </div>
 
-            <p className="settingsHint">Все поля — свободного ввода. Отправка пока работает как заглушка (без API).</p>
+            <p className="settingsHint">Укажи артиста или площадку, дату и любые детали для модерации.</p>
 
             <form
               onSubmit={(e) => {
                 e.preventDefault()
-                closeSuggestModal()
+                void submitSuggestForm()
               }}
             >
               <div className="settingsControl" style={{ width: '100%', maxWidth: 560 }}>
@@ -316,8 +371,8 @@ export function Header() {
                 </div>
                 <input
                   className="settingsInput"
-                  type="text"
-                  placeholder="Дата и время (как удобно)"
+                  type="datetime-local"
+                  placeholder="Дата и время"
                   value={suggestDraft.date}
                   onChange={(e) => setSuggestDraft((prev) => ({ ...prev, date: e.target.value }))}
                 />
@@ -336,12 +391,15 @@ export function Header() {
                   onChange={(e) => setSuggestDraft((prev) => ({ ...prev, note: e.target.value }))}
                 />
 
+                {suggestError && <p className="settingsError">{suggestError}</p>}
+                {suggestSuccess && <p className="settingsOk">{suggestSuccess}</p>}
+
                 <div className="settingsActions">
                   <button type="button" className="settingsBtn ghost" onClick={closeSuggestModal}>
                     Отмена
                   </button>
-                  <button type="submit" className="settingsBtn primary">
-                    Отправить
+                  <button type="submit" className="settingsBtn primary" disabled={isSuggestSubmitting}>
+                    {isSuggestSubmitting ? 'Отправка...' : 'Отправить'}
                   </button>
                 </div>
               </div>

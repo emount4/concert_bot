@@ -46,13 +46,16 @@ export const apiEndpoints = {
     byId: (concertId: string) => `/concerts/${encodeURIComponent(concertId)}`,
     suggest: '/concerts/suggest',
   },
+  stats: {
+    global: '/stats/global',
+  },
   reviews: {
     list: '/review',
     byId: (reviewId: string) => `/review/${encodeURIComponent(reviewId)}`,
     create: '/review',
     likeToggle: (reviewId: string) => `/review/${encodeURIComponent(reviewId)}/like`,
     likers: (reviewId: string) => `/review/${encodeURIComponent(reviewId)}/like`,
-    presignUpload: '/review/media/presign-upload',
+    presignUpload: '/media/presign',
   },
   favorites: {
     list: '/favorites',
@@ -62,7 +65,7 @@ export const apiEndpoints = {
   admin: {
     users: '/admin/users',
     pendingReviews: '/admin/review',
-    approveReview: (reviewId: string) => `/admin/reviews/${encodeURIComponent(reviewId)}/approve`,
+    approveReview: (reviewId: string) => `/review/${encodeURIComponent(reviewId)}/approve`,
     rejectReview: (reviewId: string) => `/admin/reviews/${encodeURIComponent(reviewId)}/reject`,
     pendingProfiles: '/admin/profiles/pending',
     resolveProfile: (moderationId: string) => `/admin/profiles/${encodeURIComponent(moderationId)}/resolve`,
@@ -72,6 +75,14 @@ export const apiEndpoints = {
     venueById: (venueId: string) => `/admin/venues/${encodeURIComponent(venueId)}`,
     concerts: '/admin/concerts',
     concertById: (concertId: string) => `/admin/concerts/${encodeURIComponent(concertId)}`,
+    concertRestore: (concertId: string) => `/admin/concerts/${encodeURIComponent(concertId)}/restore`,
+    concertDeleteSoft: (concertId: string) => `/admin/concerts-soft/${encodeURIComponent(concertId)}`,
+    concertDeleteHard: (concertId: string) => `/admin/concerts-hard/${encodeURIComponent(concertId)}`,
+    concertArtists: (concertId: string) => `/admin/concerts/${encodeURIComponent(concertId)}/artists`,
+    concertArtistById: (concertId: string, artistId: string | number) =>
+      `/admin/concerts/${encodeURIComponent(concertId)}/artists/${encodeURIComponent(String(artistId))}`,
+    concertSuggestions: '/admin/concerts/suggestions',
+    concertSuggestionById: (suggestionId: string) => `/admin/concerts/suggestions/${encodeURIComponent(suggestionId)}`,
     banUser: (userId: string) => `/admin/users/${encodeURIComponent(userId)}/ban`,
     userRole: (userId: string) => `/admin/users/${encodeURIComponent(userId)}/role`,
     logs: '/admin/logs',

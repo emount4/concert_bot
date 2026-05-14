@@ -1,11 +1,16 @@
 import { apiRequest } from './client'
-import { DATA_SOURCE_MODE } from './config'
+import { API_BASE_URL, DATA_SOURCE_MODE } from './config'
 import { apiEndpoints } from './endpoints'
 import { MOCK_REVIEWS } from '../data/mockReviews'
 import { getMockUserByDisplayName, getMockUserByUsername } from '../data/mockUsers'
 import type { ReviewLikeUser } from '../types/review'
 
 type ListResponse<T> = { items: T[] }
+type ReviewLikeApiUser = {
+  id?: string
+  username?: string
+  avatar_url?: string | null
+}
 
 function normalizeReviewId(reviewId: number | string): { id: number | null; raw: string } {
   const raw = String(reviewId)
@@ -26,6 +31,24 @@ function enrichMockLikers(likers: ReviewLikeUser[]): ReviewLikeUser[] {
   })
 }
 
+function resolveApiAssetUrl(value: string | null | undefined): string | null {
+  if (!value) return null
+  if (/^(?:https?:|data:|blob:)/i.test(value)) return value
+
+  const apiOrigin = new URL(API_BASE_URL, globalThis.location?.origin).origin
+  const normalizedPath = value.startsWith('/') ? value : `/${value}`
+  return `${apiOrigin}${normalizedPath}`
+}
+
+function mapApiLiker(user: ReviewLikeApiUser): ReviewLikeUser {
+  const username = user.username ?? user.id ?? 'unknown'
+  return {
+    name: username,
+    username,
+    avatar_url: resolveApiAssetUrl(user.avatar_url),
+  }
+}
+
 export async function loadReviewLikers(reviewId: number | string): Promise<ReviewLikeUser[]> {
   if (DATA_SOURCE_MODE === 'mock') {
     const normalized = normalizeReviewId(reviewId)
@@ -38,10 +61,17 @@ export async function loadReviewLikers(reviewId: number | string): Promise<Revie
   }
 
   const normalized = normalizeReviewId(reviewId)
-  const payload = await apiRequest<ListResponse<ReviewLikeUser> | ReviewLikeUser[]>(
+  const payload = await apiRequest<ListResponse<ReviewLikeApiUser> | ReviewLikeApiUser[]>(
     apiEndpoints.reviews.likers(normalized.raw),
   )
 
   const items = Array.isArray(payload) ? payload : payload.items
-  return items
+  return items.map(mapApiLiker)
+}
+
+export async function toggleReviewLike(reviewId: number | string): Promise<void> {
+  if (DATA_SOURCE_MODE === 'mock') return
+
+  const normalized = normalizeReviewId(reviewId)
+  await apiRequest<void>(apiEndpoints.reviews.likeToggle(normalized.raw), 'POST')
 }

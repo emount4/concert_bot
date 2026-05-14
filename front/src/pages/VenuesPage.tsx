@@ -11,6 +11,8 @@ import { mapVenueResponseToCardItem } from '../types/venue'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
+import { getConcertIdKey } from '../types/concert'
+import { getReviewConcertIdKey } from '../types/review'
 import type { City } from '../types/city'
 import type { VenueCardItem } from '../types/venue'
 
@@ -163,9 +165,9 @@ export function VenuesPage() {
           concert.venue.name === selectedVenue.name && concert.venue.city === selectedVenue.city,
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    const venueConcertIds = new Set(venueConcerts.map((concert) => concert.id))
+    const venueConcertIds = new Set(venueConcerts.map((concert) => getConcertIdKey(concert)))
     const venueReviews = reviews
-      .filter((review) => venueConcertIds.has(review.concertId))
+      .filter((review) => venueConcertIds.has(getReviewConcertIdKey(review)))
       .sort((a, b) => b.id - a.id)
     const roundedScore =
       selectedVenue.avg_rating_total === null ? null : Math.round(selectedVenue.avg_rating_total)
