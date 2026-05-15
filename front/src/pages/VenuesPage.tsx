@@ -19,6 +19,11 @@ import { useQuery } from '../utils/useQuery'
 type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
 type SortDirection = 'desc' | 'asc'
 const VENUES_PAGE_SIZE = 12
+const VENUE_SORT_QUERY: Record<VenueSortBy, string> = {
+  capacity: 'capacity',
+  rating: 'rating',
+  alphabet: 'name',
+}
 
 function formatCapacity(value: number): string {
   return new Intl.NumberFormat('ru-RU').format(value)
@@ -37,15 +42,32 @@ export function VenuesPage() {
   const [cities, setCities] = useState<City[]>([])
   const [detailVenue, setDetailVenue] = useState<VenueCardItem | null>(null)
 
-  const venuesQuery = useQuery(['venues', 'cards'], () => loadVenuesList({ limit: 20, offset: 0 }).then((res) => {
+  const selectedCityId = useMemo(() => {
+    if (cityFilter === 'all') return undefined
+    return cities.find((city) => city.name === cityFilter)?.city_id
+  }, [cities, cityFilter])
+
+  const venuesQuery = useQuery(['venues', 'cards', currentPage, sortBy, sortDirection, search, selectedCityId, capacityFrom, capacityTo], () => loadVenuesList({
+    limit: VENUES_PAGE_SIZE,
+    offset: (currentPage - 1) * VENUES_PAGE_SIZE,
+    sort: VENUE_SORT_QUERY[sortBy],
+    direction: sortDirection.toUpperCase() as 'ASC' | 'DESC',
+    search: search.trim() || undefined,
+    city_id: selectedCityId,
+    capacity_from: capacityFrom ? Number(capacityFrom) : undefined,
+    capacity_to: capacityTo ? Number(capacityTo) : undefined,
+  }).then((res) => {
     const cityMap = new Map(cities.map((city) => [city.city_id, city.name]))
-    return res.items.map((venue) => mapVenueResponseToCardItem(venue, cityMap))
+    return {
+      ...res,
+      items: res.items.map((venue) => mapVenueResponseToCardItem(venue, cityMap)),
+    }
   }), { enabled: cities.length > 0 })
   const concertsQuery = useQuery(['venues', 'concerts'], () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items))
   const reviewsQuery = useQuery(['venues', 'reviews'], () =>
     loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
   )
-  const venues = venuesQuery.data ?? []
+  const venues = venuesQuery.data?.items ?? []
   const concerts = concertsQuery.data ?? []
   const reviews = reviewsQuery.data ?? []
 
@@ -134,28 +156,21 @@ export function VenuesPage() {
       return haystack.includes(normalizedSearch)
     })
 
-    return filtered.sort((a, b) => {
-      const base =
-        sortBy === 'capacity'
-          ? b.capacity - a.capacity
-          : sortBy === 'rating'
-            ? (b.avg_rating_total ?? -1) - (a.avg_rating_total ?? -1)
-            : b.name.localeCompare(a.name, 'ru-RU')
-
-      return sortDirection === 'desc' ? base : -base
-    })
-  }, [capacityFrom, capacityTo, cityFilter, search, sortBy, sortDirection, venues])
+    return filtered
+  }, [capacityFrom, capacityTo, cityFilter, search, venues])
 
   useEffect(() => {
     setCurrentPage(1)
   }, [search, cityFilter, capacityFrom, capacityTo, sortBy, sortDirection])
 
-  const pageCount = Math.ceil(filteredVenues.length / VENUES_PAGE_SIZE)
+  const pageCount = venuesQuery.data?.page_count ?? 0
   const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
-  const pagedVenues = useMemo(() => {
-    const start = (currentPage - 1) * VENUES_PAGE_SIZE
-    return filteredVenues.slice(start, start + VENUES_PAGE_SIZE)
-  }, [currentPage, filteredVenues])
+
+  useEffect(() => {
+    if (pageCount > 0 && currentPage > pageCount) {
+      setCurrentPage(pageCount)
+    }
+  }, [currentPage, pageCount])
 
   if (venuesQuery.isLoading || concertsQuery.isLoading || reviewsQuery.isLoading) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
@@ -388,7 +403,7 @@ export function VenuesPage() {
       {filteredVenues.length > 0 ? (
         <>
           <div className="venueGrid">
-            {pagedVenues.map((venue) => (
+            {filteredVenues.map((venue) => (
               <VenueCard key={venue.id} venue={venue} />
             ))}
           </div>

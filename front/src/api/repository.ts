@@ -43,6 +43,10 @@ type PublicConcertListParams = {
   offset?: number
   sort?: string
   direction?: string
+  search?: string
+  city?: string
+  only_rated?: boolean
+  upcoming_only?: boolean
 }
 type PublicReviewsListParams = {
   limit?: number
@@ -50,6 +54,14 @@ type PublicReviewsListParams = {
   sort?: string
   direction?: string
   concert_id?: string
+}
+type PublicArtistsListParams = {
+  limit?: number
+  offset?: number
+  sort?: string
+  direction?: string
+  search?: string
+  reviews_filter?: string
 }
 type AdminConcertSuggestionsParams = {
   limit?: number
@@ -59,6 +71,7 @@ type AdminConcertSuggestionsParams = {
 type AdminReviewsListParams = {
   limit?: number
   offset?: number
+  status?: string
 }
 export type AdminConcertArtistPayload = {
   artist_id: number
@@ -1051,13 +1064,24 @@ export async function loadArtists(): Promise<Artist[]> {
   return response.items
 }
 
-export async function loadArtistCards(): Promise<ArtistCardItem[]> {
+export async function loadArtistCardsPage(params?: PublicArtistsListParams): Promise<PagedListResponse<ArtistCardItem>> {
   if (DATA_SOURCE_MODE === 'mock') {
-    return MOCK_ARTISTS
+    return {
+      items: MOCK_ARTISTS,
+      page_count: 1,
+    }
   }
 
-  const response = await apiRequest<ListResponse<Artist>>(apiEndpoints.artists.list)
-  return response.items.map(mapArtistResponseToCardItem)
+  const query = buildQuery(params ?? {})
+  const response = await apiRequest<PagedListResponse<Artist>>(`${apiEndpoints.artists.list}${query}`)
+  return {
+    ...response,
+    items: response.items.map(mapArtistResponseToCardItem),
+  }
+}
+
+export async function loadArtistCards(): Promise<ArtistCardItem[]> {
+  return loadArtistCardsPage().then((response) => response.items)
 }
 
 export async function getArtistById(artistId: number | string): Promise<Artist> {

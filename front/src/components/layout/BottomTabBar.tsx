@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 type TabItem = {
   label: string
   to: string
-  icon: 'home' | 'concerts' | 'reviews' | 'artists' | 'profile'
+  icon: 'home' | 'concerts' | 'reviews' | 'artists' | 'venues'
   isActive: (pathname: string) => boolean
 }
 
@@ -75,13 +75,14 @@ function TabIcon({ kind }: { kind: TabItem['icon'] }) {
   return (
     <svg className="bottomTabIcon" viewBox="0 0 24 24" aria-hidden="true">
       <path
-        d="M12 12.2a4.2 4.2 0 1 0-4.2-4.2A4.2 4.2 0 0 0 12 12.2Z"
+        d="M5 20.5V8.7L12 4l7 4.7v11.8"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.8"
+        strokeLinejoin="round"
       />
       <path
-        d="M5 20.5a7 7 0 0 1 14 0"
+        d="M3.8 20.5h16.4M8.5 20.5v-7h7v7M9 9.5h.01M12 9.5h.01M15 9.5h.01"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.8"
@@ -104,10 +105,10 @@ export function BottomTabBar() {
     { label: 'Рецензии', to: '/reviews', icon: 'reviews', isActive: (path) => startsWithSegment(path, '/reviews') },
     { label: 'Артисты', to: '/artists', icon: 'artists', isActive: (path) => startsWithSegment(path, '/artists') },
     {
-      label: 'Профиль',
-      to: '/profile',
-      icon: 'profile',
-      isActive: (path) => startsWithSegment(path, '/profile') || startsWithSegment(path, '/settings') || startsWithSegment(path, '/users'),
+      label: 'Площадки',
+      to: '/venues',
+      icon: 'venues',
+      isActive: (path) => startsWithSegment(path, '/venues'),
     },
   ]
 

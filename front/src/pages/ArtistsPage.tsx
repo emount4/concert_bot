@@ -4,7 +4,7 @@ import { ArtistCard } from '../components/artists/ArtistCard'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
-import { loadArtistCards, loadConcerts, loadReviews } from '../api/repository'
+import { loadArtistCardsPage, loadConcerts, loadReviews } from '../api/repository'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
@@ -16,6 +16,10 @@ type SortDirection = 'desc' | 'asc'
 type ArtistSortBy = 'rating' | 'alphabet'
 type ArtistReviewsFilter = 'all' | 'with_reviews' | 'without_reviews'
 const ARTISTS_PAGE_SIZE = 12
+const ARTIST_SORT_QUERY: Record<ArtistSortBy, string> = {
+  rating: 'rating',
+  alphabet: 'name',
+}
 
 type ArtistSocialKind = 'vk' | 'telegram' | 'youtube'
 
@@ -79,8 +83,19 @@ export function ArtistsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isFavorite, setIsFavorite] = useState(false)
 
-  const artistsQuery = useQuery(['artists', 'cards'], () => loadArtistCards())
-  const artists = artistsQuery.data ?? []
+  const artistsQuery = useQuery(
+    ['artists', 'cards', currentPage, sortBy, sortDirection, search, reviewsFilter],
+    () =>
+      loadArtistCardsPage({
+        limit: ARTISTS_PAGE_SIZE,
+        offset: (currentPage - 1) * ARTISTS_PAGE_SIZE,
+        sort: ARTIST_SORT_QUERY[sortBy],
+        direction: sortDirection.toUpperCase(),
+        search: search.trim() || undefined,
+        reviews_filter: reviewsFilter === 'all' ? undefined : reviewsFilter,
+      }),
+  )
+  const artists = artistsQuery.data?.items ?? []
 
   const [searchParams] = useSearchParams()
   const artistId = Number(searchParams.get('artistId'))
@@ -139,26 +154,21 @@ export function ArtistsPage() {
       return artist.name.toLowerCase().includes(normalizedSearch)
     })
 
-    return filtered.sort((a, b) => {
-      const base =
-        sortBy === 'rating'
-          ? (Number.isFinite(b.avg_rating_total) ? (b.avg_rating_total as number) : -1) -
-            (Number.isFinite(a.avg_rating_total) ? (a.avg_rating_total as number) : -1)
-          : b.name.localeCompare(a.name, 'ru-RU')
-      return sortDirection === 'desc' ? base : -base
-    })
-  }, [artistStats, reviewsFilter, search, sortBy, sortDirection])
+    return filtered
+  }, [artistStats, reviewsFilter, search])
 
   useEffect(() => {
     setCurrentPage(1)
   }, [search, reviewsFilter, sortBy, sortDirection])
 
-  const pageCount = Math.ceil(filteredArtists.length / ARTISTS_PAGE_SIZE)
+  const pageCount = artistsQuery.data?.page_count ?? 0
   const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
-  const pagedArtists = useMemo(() => {
-    const start = (currentPage - 1) * ARTISTS_PAGE_SIZE
-    return filteredArtists.slice(start, start + ARTISTS_PAGE_SIZE)
-  }, [currentPage, filteredArtists])
+
+  useEffect(() => {
+    if (pageCount > 0 && currentPage > pageCount) {
+      setCurrentPage(pageCount)
+    }
+  }, [currentPage, pageCount])
 
   if (artistsQuery.isLoading || (shouldLoadArtistDetails && (concertsQuery.isLoading || reviewsQuery.isLoading))) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
@@ -376,7 +386,7 @@ export function ArtistsPage() {
       {filteredArtists.length > 0 ? (
         <>
           <div className="artistGrid">
-            {pagedArtists.map((artist) => (
+            {filteredArtists.map((artist) => (
               <ArtistCard key={artist.id} artist={artist} />
             ))}
           </div>

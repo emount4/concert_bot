@@ -148,7 +148,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   // Loading states for each section
   const [isLoadingModeration, setIsLoadingModeration] = useState(false)
   const [moderationError, setModerationError] = useState<string | null>(null)
-  const [hasLoadedModeration, setHasLoadedModeration] = useState(false)
+  const [loadedModerationStreams, setLoadedModerationStreams] = useState<ModerationStream[]>([])
 
   const [isLoadingCities, setIsLoadingCities] = useState(false)
   const [citiesError, setCitiesError] = useState<string | null>(null)
@@ -194,13 +194,16 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>(() => loadAuditLogs())
 
   useEffect(() => {
-    if (tab !== 'moderation' || hasLoadedModeration || isLoadingModeration) return
+    if (tab !== 'moderation' || loadedModerationStreams.includes(moderationStream) || isLoadingModeration) return
 
     setIsLoadingModeration(true)
     setModerationError(null)
-    void loadAdminReviews({ limit: 100, offset: 0 })
+    void loadAdminReviews({ limit: 20, offset: 0, status: moderationStream })
       .then((loadedReviews) => {
-        setReviews(loadedReviews)
+        setReviews((prev) => {
+          const otherReviews = prev.filter((review) => review.status !== moderationStream)
+          return [...otherReviews, ...loadedReviews]
+        })
       })
       .catch((error: unknown) => {
         console.error('[AdminPage] Failed to load moderation reviews:', error)
@@ -208,9 +211,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
       .finally(() => {
         setIsLoadingModeration(false)
-        setHasLoadedModeration(true)
+        setLoadedModerationStreams((prev) => (
+          prev.includes(moderationStream) ? prev : [...prev, moderationStream]
+        ))
       })
-  }, [hasLoadedModeration, isLoadingModeration, tab])
+  }, [isLoadingModeration, loadedModerationStreams, moderationStream, tab])
 
   useEffect(() => {
     if (!['cities', 'venues'].includes(tab) || hasLoadedCities || isLoadingCities) return

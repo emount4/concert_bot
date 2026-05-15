@@ -207,10 +207,12 @@
   flex: 1;
 }
 
+.concert_title,
 .concertTitle {
   font-size: 16px;
   line-height: 1.2;
   margin: 0 0 10px;
+  font-weight: 800;
 }
 
 .concert_title,
@@ -330,6 +332,7 @@
     gap: 6px;
   }
 
+  .concert_title,
   .concertTitle {
     font-size: 14px;
     margin-bottom: 6px;

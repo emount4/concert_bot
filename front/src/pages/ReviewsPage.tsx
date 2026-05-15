@@ -8,23 +8,25 @@ import { useQuery } from '../utils/useQuery'
 const REVIEWS_PAGE_SIZE = 18
 
 export function ReviewsPage() {
-  const reviewsQuery = useQuery(['reviews', 'list'], () =>
-    loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
-  )
-  const reviews = reviewsQuery.data ?? []
-
   const [currentPage, setCurrentPage] = useState(1)
+  const reviewsQuery = useQuery(['reviews', 'list', currentPage], () =>
+    loadReviews({
+      limit: REVIEWS_PAGE_SIZE,
+      offset: (currentPage - 1) * REVIEWS_PAGE_SIZE,
+      sort: 'created_at',
+      direction: 'DESC',
+    }),
+  )
+  const reviews = reviewsQuery.data?.items ?? []
+
+  const pageCount = reviewsQuery.data?.page_count ?? 0
+  const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
 
   useEffect(() => {
-    setCurrentPage(1)
-  }, [reviews.length])
-
-  const pageCount = Math.ceil(reviews.length / REVIEWS_PAGE_SIZE)
-  const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
-  const pagedReviews = useMemo(() => {
-    const offset = (currentPage - 1) * REVIEWS_PAGE_SIZE
-    return reviews.slice(offset, offset + REVIEWS_PAGE_SIZE)
-  }, [currentPage, reviews])
+    if (pageCount > 0 && currentPage > pageCount) {
+      setCurrentPage(pageCount)
+    }
+  }, [currentPage, pageCount])
 
   if (reviewsQuery.isLoading) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
@@ -42,7 +44,7 @@ export function ReviewsPage() {
       {reviews.length > 0 ? (
         <>
           <div className="reviewGrid">
-            {pagedReviews.map((review) => (
+            {reviews.map((review) => (
               <ReviewCard key={`${review.review_id ?? review.id}-${review.concertId}`} review={review} />
             ))}
           </div>

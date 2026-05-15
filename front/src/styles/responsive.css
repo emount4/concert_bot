@@ -23,6 +23,27 @@
 }
 
 @media (max-width: 1024px) {
+  .page:not(.homePage) .concertGrid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+
+  .page:not(.homePage) .concertCard,
+  .detailConcertItem .concertCard {
+    min-height: 300px;
+  }
+
+  .artistGrid {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+
+  .venueGrid {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  }
+
+  .reviewGrid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
   .adminTabs,
   .adminSubTabs,
   .concertControlsRow,
@@ -46,45 +67,69 @@
   }
 
   .concertBottom {
-    padding: 10px;
+    padding: 9px;
   }
 
+  .concert_title,
   .concertTitle {
     font-size: 15px;
-    margin-bottom: 8px;
+  }
+
+  .concertMeta,
+  .venueMeta {
+    font-size: 12px;
+  }
+
+  .ratingCircle:not(.reviewRatingCircle) {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+    font-size: 18px;
   }
 
   .artistBody {
-    padding: 12px 10px 14px;
+    padding: 10px 9px 12px;
     gap: 8px;
   }
 
   .artistNickname {
-    font-size: 18px;
+    font-size: 16px;
+  }
+
+  .venueBottom {
+    padding: 10px;
+  }
+
+  .venueMetaName {
+    font-size: 16px;
   }
 
   .reviewCard {
-    padding: 10px;
+    padding: 9px;
     gap: 8px;
   }
 
-  .reviewHeader {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .reviewConcertPosterWrap {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: start;
-  }
-
   .reviewAuthorName {
-    font-size: 16px;
-    max-width: min(220px, 42vw);
+    font-size: 15px;
+    max-width: min(180px, 32vw);
   }
 
   .reviewRatingCircle {
-    font-size: 22px;
+    font-size: 20px;
+  }
+
+  .reviewConcertPosterWrap {
+    width: 38px;
+    height: 54px;
+    flex-basis: 38px;
+  }
+
+  .reviewConcertTitle {
+    font-size: 16px;
+  }
+
+  .reviewText {
+    font-size: 15px;
   }
 
   .rateHeroMain {
@@ -190,16 +235,6 @@
   .appHeaderInner {
     padding-left: 14px;
     padding-right: 14px;
-  }
-
-  .concertGrid,
-  .artistGrid,
-  .reviewGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .venueGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .detailHero {
@@ -327,23 +362,50 @@
     flex-direction: column;
   }
 
-  .concertGrid {
-    grid-template-columns: 1fr;
+  .page:not(.homePage) .concertGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .page:not(.homePage) .concertCard,
+  .detailConcertItem .concertCard {
+    min-height: 260px;
   }
 
   .concertBottom {
+    padding: 8px;
     align-items: flex-start;
+  }
+
+  .concertMeta {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .ratingCircle:not(.reviewRatingCircle) {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    font-size: 15px;
   }
 
   .concert_title,
   .concertTitle,
   .metaText {
     white-space: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+  }
+
+  .concert_title,
+  .concertTitle {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
   }
 
   .reviewGrid {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .reviewDetailPage {
@@ -352,43 +414,18 @@
     padding: 14px 0;
   }
 
-  .reviewHeader {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-  }
-
-  .reviewScoreWrap {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-items: start;
-  }
-
-  .reviewParamRow {
-    justify-content: flex-start;
-  }
-
-  .reviewConcertPosterWrap {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
   .reviewConcertTitle {
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  .reviewFooter,
-  .reviewFooterRight {
-    flex-wrap: wrap;
-  }
-
-  .reviewFooterRight {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
   .artistGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .artistCard {
+    min-height: 260px;
   }
 
   .detailHeaderRow {
@@ -431,7 +468,21 @@
   }
 
   .venueGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .venueBottom {
+    padding: 8px;
+  }
+
+  .venueMeta {
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .venueMetaName {
+    font-size: 14px;
   }
 
   .rateHeroTitle {
@@ -572,7 +623,7 @@
   .concertTitle,
   .venueMetaName,
   .artistNickname {
-    font-size: 17px;
+    font-size: 14px;
   }
 
   .reviewAvatar {
@@ -581,9 +632,42 @@
     flex-basis: 38px;
   }
 
+  .reviewAuthorName {
+    max-width: 24vw;
+  }
+
+  .reviewParamItem {
+    min-height: 18px;
+    padding: 0 4px;
+  }
+
+  .reviewParamValue {
+    font-size: 11px;
+  }
+
   .reviewText {
     font-size: 15px;
     line-height: 1.5;
+  }
+
+  .reviewFooter {
+    align-items: center;
+  }
+
+  .reviewFooterLeft,
+  .reviewFooterRight {
+    gap: 6px;
+  }
+
+  .reviewIconBtn,
+  .reviewLikeBtn {
+    min-width: 32px;
+    height: 32px;
+  }
+
+  .reviewExpandBtn {
+    width: 28px;
+    height: 28px;
   }
 
   .detailReviewItem {

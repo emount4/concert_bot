@@ -10,6 +10,12 @@ import { useQuery } from '../utils/useQuery'
 type ConcertSortBy = 'date' | 'rating' | 'reviews' | 'title'
 type SortDirection = 'desc' | 'asc'
 const CONCERTS_PAGE_SIZE = 12
+const CONCERT_SORT_QUERY: Record<ConcertSortBy, string> = {
+  date: 'date',
+  rating: 'rating',
+  reviews: 'reviews',
+  title: 'title',
+}
 
 export function ConcertsPage() {
   // Задание 9.1: фильтрация и сортировка списка концертов на фронтенде.
@@ -19,12 +25,25 @@ export function ConcertsPage() {
   const [upcomingOnly, setUpcomingOnly] = useState(false)
   // Задание 12.4: единый контрол сортировки (поле + стрелка направления).
   const [sortBy, setSortBy] = useState<ConcertSortBy>('date')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [cities, setCities] = useState<City[]>([])
 
-  const concertsQuery = useQuery(['concerts', 'list'], () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items))
-  const concerts = concertsQuery.data ?? []
+  const concertsQuery = useQuery(
+    ['concerts', 'list', currentPage, sortBy, sortDirection, search, cityFilter, onlyRated, upcomingOnly],
+    () =>
+      loadConcerts({
+        limit: CONCERTS_PAGE_SIZE,
+        offset: (currentPage - 1) * CONCERTS_PAGE_SIZE,
+        sort: CONCERT_SORT_QUERY[sortBy],
+        direction: sortDirection.toUpperCase(),
+        search: search.trim() || undefined,
+        city: cityFilter === 'all' ? undefined : cityFilter,
+        only_rated: onlyRated || undefined,
+        upcoming_only: upcomingOnly || undefined,
+      }),
+  )
+  const concerts = concertsQuery.data?.items ?? []
 
   useEffect(() => {
     loadCities().then((loadedCities) => {
@@ -45,11 +64,11 @@ export function ConcertsPage() {
     )
   }, [concerts, cities])
 
-  const filteredConcerts = useMemo(() => {
+  const visibleConcerts = useMemo(() => {
     const now = new Date()
     const normalizedSearch = search.trim().toLowerCase()
 
-    const filtered = concerts.filter((concert) => {
+    return concerts.filter((concert) => {
       if (cityFilter !== 'all' && concert.venue.city !== cityFilter) {
         return false
       }
@@ -80,34 +99,20 @@ export function ConcertsPage() {
 
       return haystack.includes(normalizedSearch)
     })
-
-    return filtered.sort((a, b) => {
-      let base = 0
-
-      if (sortBy === 'date') {
-        base = new Date(b.date).getTime() - new Date(a.date).getTime()
-      } else if (sortBy === 'rating') {
-        base = (b.stats.avg_rating_total ?? -1) - (a.stats.avg_rating_total ?? -1)
-      } else if (sortBy === 'reviews') {
-        base = b.stats.reviews_count - a.stats.reviews_count
-      } else {
-        base = (b.title ?? '').localeCompare(a.title ?? '', 'ru-RU')
-      }
-
-      return sortDirection === 'desc' ? base : -base
-    })
-  }, [cityFilter, concerts, onlyRated, search, sortBy, sortDirection, upcomingOnly])
+  }, [cityFilter, concerts, onlyRated, search, upcomingOnly])
 
   useEffect(() => {
     setCurrentPage(1)
   }, [search, cityFilter, onlyRated, upcomingOnly, sortBy, sortDirection])
 
-  const pageCount = Math.ceil(filteredConcerts.length / CONCERTS_PAGE_SIZE)
+  const pageCount = concertsQuery.data?.page_count ?? 0
   const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
-  const pagedConcerts = useMemo(() => {
-    const offset = (currentPage - 1) * CONCERTS_PAGE_SIZE
-    return filteredConcerts.slice(offset, offset + CONCERTS_PAGE_SIZE)
-  }, [currentPage, filteredConcerts])
+
+  useEffect(() => {
+    if (pageCount > 0 && currentPage > pageCount) {
+      setCurrentPage(pageCount)
+    }
+  }, [currentPage, pageCount])
 
   if (concertsQuery.isLoading) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
@@ -181,7 +186,7 @@ export function ConcertsPage() {
               setOnlyRated(false)
               setUpcomingOnly(false)
               setSortBy('date')
-              setSortDirection('asc')
+              setSortDirection('desc')
             }}
           >
             Сбросить фильтры
@@ -190,10 +195,10 @@ export function ConcertsPage() {
       </div>
 
       {/* Задание 1: карточки концертов с пустым местом под афишу и рейтингом справа. */}
-      {filteredConcerts.length > 0 ? (
+      {visibleConcerts.length > 0 ? (
         <>
           <div className="concertGrid">
-            {pagedConcerts.map((concert) => (
+            {visibleConcerts.map((concert) => (
               <Link key={concert.id} to={`/concerts/${concert.id}/rate`} className="concertCardLink">
                 <ConcertCard concert={concert} />
               </Link>

@@ -34,6 +34,8 @@ function roundToTenth(value: number): number {
 }
 
 function avgScoresFromStats(stats: ConcertStats | null | undefined) {
+  if (!stats || stats.reviews_count <= 0) return null
+
   const values = [stats?.avg_p1, stats?.avg_p2, stats?.avg_p3, stats?.avg_p4, stats?.avg_p5]
   if (!values.some((value) => value !== null && value !== undefined)) return null
 
@@ -307,7 +309,10 @@ export function RateConcertPage() {
   const rating_total = Math.min(90, overallRaw)
   const overallRounded = Math.round(rating_total)
   const avg_rating_total =
-    concert?.stats.avg_rating_total === null || concert?.stats.avg_rating_total === undefined
+    !concert?.stats.reviews_count ||
+    concert.stats.avg_rating_total === null ||
+    concert.stats.avg_rating_total === undefined ||
+    concert.stats.avg_rating_total <= 0
       ? null
       : Math.round(concert.stats.avg_rating_total)
   const mainArtists = concert
