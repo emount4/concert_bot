@@ -28,6 +28,8 @@ export type ConcertStats = {
   updated_at?: string | null
 }
 
+export type UserReviewStatus = 'pending' | 'approved' | 'rejected'
+
 export type Concert = {
   concert_id?: string
   id: ConcertId
@@ -36,6 +38,7 @@ export type Concert = {
   poster_url: string | null
   poster_source?: string | null
   is_verified?: boolean
+  user_review_status?: UserReviewStatus | null
   venue: Venue
   artists: Artist[]
   stats: ConcertStats

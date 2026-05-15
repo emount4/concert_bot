@@ -6,13 +6,49 @@
 
 .reviewDetailPage {
   min-height: calc(100vh - var(--header-height, 56px) - 120px);
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 24px 12px;
+  gap: 14px;
 }
 
 .reviewDetailCardWrap {
   width: min(740px, 100%);
+}
+
+.reviewConcertHero {
+  width: min(980px, 100%);
+}
+
+.reviewConcertHeroPoster {
+  color: inherit;
+  text-decoration: none;
+}
+
+.reviewConcertHeroTitle {
+  color: var(--fg);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.reviewConcertHeroTitle:hover {
+  text-decoration: underline;
+}
+
+.reviewConcertHeroStats {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 18px;
+}
+
+.reviewConcertHeroReviewCount {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .reviewCard {
@@ -286,6 +322,7 @@
   color: var(--muted);
   font-size: 17px;
   line-height: 1.55;
+  white-space: pre-line;
   overflow-wrap: anywhere;
   word-break: break-word;
   line-clamp: 5;
@@ -297,6 +334,7 @@
 
 .reviewText.expanded {
   display: block;
+  white-space: pre-wrap;
   line-clamp: initial;
   -webkit-line-clamp: initial;
   overflow: visible;

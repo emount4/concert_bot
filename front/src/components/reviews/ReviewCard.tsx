@@ -363,6 +363,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
               onClick={() => void handleLikeToggle()}
               disabled={isLikeBusy}
               aria-label={likedByMe ? 'Убрать лайк' : 'Поставить лайк'}
+              title={likedByMe ? 'Убрать лайк' : 'Поставить лайк'}
             >
               <HeartIcon filled={likedByMe} />
               {likesCount > 0 && <span className="reviewLikeCount">{likesCount}</span>}
@@ -374,6 +375,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
                 className="reviewIconBtn"
                 onClick={() => setIsLikesOpen(true)}
                 aria-label="Показать список лайкнувших"
+                title="Показать список лайкнувших"
               >
                 <UsersIcon />
               </button>
@@ -388,6 +390,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
                   setIsMediaOpen(true)
                 }}
                 aria-label={`Открыть вложения рецензии (${media.length})`}
+                title={`Открыть вложения рецензии (${media.length})`}
               >
                 <MediaIcon />
                 <span className="reviewIconBadge" aria-hidden="true">
@@ -422,6 +425,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
                     to={`/reviews/${encodeURIComponent(reviewKey)}`}
                     className="reviewExpandBtn reviewDetailLink"
                     aria-label="Открыть отдельную страницу рецензии"
+                    title="Открыть отдельную страницу рецензии"
                   >
                     <DetailIcon />
                   </Link>
@@ -429,6 +433,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
                     type="button"
                     className="reviewExpandBtn"
                     aria-label={expanded ? 'Свернуть текст рецензии' : 'Развернуть текст рецензии'}
+                    title={expanded ? 'Свернуть текст рецензии' : 'Развернуть текст рецензии'}
                     onClick={() => setExpanded((v) => !v)}
                   >
                     <ExpandIcon expanded={expanded} />

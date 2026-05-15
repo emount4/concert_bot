@@ -216,6 +216,25 @@
   padding: 16px;
 }
 
+.rateReviewStatusSection {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(74, 111, 184, 0.16), transparent 42%),
+    var(--panel);
+}
+
+.rateReviewStatusNotice {
+  display: grid;
+  gap: 8px;
+}
+
+.rateReviewStatusNotice p {
+  margin: 0;
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .rateSectionTitle {
   margin: 0;
   font-size: 16px;

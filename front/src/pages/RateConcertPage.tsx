@@ -256,6 +256,7 @@ export function RateConcertPage() {
       setIsConfirmSubmitOpen(false)
       setReviewSubmitSuccess('Рецензия отправлена на модерацию.')
       confirmClearDraft()
+      await concertQuery.refetch()
       await reviewsQuery.refetch()
     } catch (error) {
       setReviewSubmitError(error instanceof Error ? error.message : 'Не удалось отправить рецензию.')
@@ -316,6 +317,19 @@ export function RateConcertPage() {
     ? concert.artists.filter((artist) => artist.is_main === false)
     : []
   const visibleArtists = mainArtists.length > 0 ? mainArtists : concert?.artists.filter((artist) => artist.is_main !== false) ?? []
+  const userReviewStatus = concert?.user_review_status ?? null
+  const reviewStatusNotice =
+    userReviewStatus === 'pending'
+      ? {
+          title: 'Ваша рецензия на модерации',
+          text: 'Мы уже получили вашу рецензию по этому концерту. После проверки модератором она появится в списке опубликованных рецензий.',
+        }
+      : userReviewStatus === 'approved'
+        ? {
+            title: 'Ваша рецензия одобрена',
+            text: 'Рецензия по этому концерту уже опубликована. Повторная отправка формы сейчас недоступна.',
+          }
+        : null
 
   if (concertQuery.isLoading || reviewsQuery.isLoading) {
     return (
@@ -395,7 +409,7 @@ export function RateConcertPage() {
                   aria-expanded={isSecondaryArtistsOpen}
                   onClick={() => setIsSecondaryArtistsOpen((prev) => !prev)}
                 >
-                  Еще артисты
+                  При участии
                 </button>
               )}
             </div>
@@ -431,6 +445,14 @@ export function RateConcertPage() {
         </div>
       </article>
 
+      {reviewStatusNotice ? (
+        <section className="rateFormSection rateReviewStatusSection">
+          <div className="rateReviewStatusNotice">
+            <h3 className="rateSectionTitle">{reviewStatusNotice.title}</h3>
+            <p>{reviewStatusNotice.text}</p>
+          </div>
+        </section>
+      ) : (
       <section className="rateFormSection">
         <h3 className="rateSectionTitle">Оценка концерта</h3>
 
@@ -595,6 +617,7 @@ export function RateConcertPage() {
           </button>
         </div>
       </section>
+      )}
 
       <section className="rateReviewsSection">
         <div className="rateReviewsHeader" aria-label="Блок рецензий">

@@ -26,7 +26,6 @@ import {
   ensureAdminStoreSeeded,
   loadAuditLogs,
   loadCities,
-  loadConcertSuggestions,
   loadProfileChangeRequests,
   removeCity,
   setConcertSuggestionStatus,
@@ -144,7 +143,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     ensureAdminStoreSeeded()
     return loadProfileChangeRequests()
   })
-  const [concertSuggestions, setConcertSuggestions] = useState<AdminConcertSuggestion[]>(() => loadConcertSuggestions())
+  const [concertSuggestions, setConcertSuggestions] = useState<AdminConcertSuggestion[]>([])
   
   // Loading states for each section
   const [isLoadingModeration, setIsLoadingModeration] = useState(false)
@@ -298,24 +297,24 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }, [hasLoadedConcerts, isLoadingConcerts, tab])
 
   useEffect(() => {
-    if (tab !== 'queue' || queueStream !== 'suggestions' || hasLoadedSuggestions || isLoadingSuggestions) return
+    if (tab !== 'queue' || hasLoadedSuggestions || isLoadingSuggestions) return
 
     setIsLoadingSuggestions(true)
     setSuggestionsError(null)
-    void loadAdminConcertSuggestionsFromApi({ limit: 100, offset: 0 })
+    void loadAdminConcertSuggestionsFromApi()
       .then((loadedSuggestions) => {
         setConcertSuggestions(loadedSuggestions)
       })
       .catch((error: unknown) => {
         console.error('[AdminPage] Failed to load concert suggestions:', error)
         setSuggestionsError(error instanceof Error ? error.message : 'Failed to load concert suggestions')
-        setConcertSuggestions(loadConcertSuggestions())
+        setConcertSuggestions([])
       })
       .finally(() => {
         setIsLoadingSuggestions(false)
         setHasLoadedSuggestions(true)
       })
-  }, [hasLoadedSuggestions, isLoadingSuggestions, queueStream, tab])
+  }, [hasLoadedSuggestions, isLoadingSuggestions, tab])
 
   useEffect(() => {
     if (tab !== 'accounts' || hasLoadedAccounts || isLoadingAccounts) return

@@ -18,7 +18,7 @@ body.modalOpen {
 .main {
   width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 20px 8px;
+  padding: 20px 24px;
 }
 
 .page {
