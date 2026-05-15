@@ -13,7 +13,7 @@ export const apiEndpoints = {
   users: {
     me: '/users/me',
     patchMe: '/users/me',
-    profileByUsername: (username: string) => `/users/profile/${encodeURIComponent(username)}`,
+    profileByUsername: (username: string) => `/users/${encodeURIComponent(username)}`,
     notifications: '/users/notifications',
   },
   cities: {

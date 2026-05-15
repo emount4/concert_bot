@@ -13,16 +13,24 @@ export type ProfileReviewItem = {
 
 export type UserProfile = {
   user_id?: string
-  id: number
+  id: number | string
+  email?: string
   displayName: string
   handle: string
   created_at: string
   bio: string
   reviews_count: number
+  likes_given_count?: number
+  likes_received_count?: number
   approved_count: number
   pending_count: number
   avatar_url: string | null
   banner_url?: string | null
+  telegram_id?: number | null
+  telegram_username?: string | null
+  role_id?: number
+  is_email_verified?: boolean
+  is_banned?: boolean
   is_active?: boolean
   recent_reviews: ProfileReviewItem[]
 }

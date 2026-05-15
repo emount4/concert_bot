@@ -51,8 +51,8 @@ export function ConcertCard({ concert }: ConcertCardProps) {
   // Задание 2.2: карточка работает с API-структурой концерта.
   const artistsLabel = concert.artists.map((artist) => artist.name).join(', ') || 'Артист не указан'
   const rating = concert.stats.avg_rating_total
-  const roundedRating = rating === null ? null : Math.round(rating)
   const hasReviews = concert.stats.reviews_count > 0
+  const roundedRating = hasReviews && rating !== null && rating > 0 ? Math.round(rating) : null
   const [isPosterFailed, setIsPosterFailed] = useState(false)
   const posterUrl = isPosterFailed ? null : concert.poster_url
 
@@ -100,26 +100,22 @@ export function ConcertCard({ concert }: ConcertCardProps) {
           </p>
         </div>
 
-        {(roundedRating !== null || hasReviews) && (
+        {roundedRating !== null && (
           <div className="ratingPanel">
-            {roundedRating !== null && (
-              <div className="ratingCircle" aria-label={`Средняя оценка ${roundedRating}`}>
-                {roundedRating}
-              </div>
-            )}
+            <div className="ratingCircle" aria-label={`Средняя оценка ${roundedRating}`}>
+              {roundedRating}
+            </div>
 
-            {hasReviews && (
-              <div
-                className="concertReviewsBadge"
-                aria-label={`Рецензий: ${concert.stats.reviews_count}`}
-                title={`Рецензий: ${concert.stats.reviews_count}`}
-              >
-                <span className="concertReviewsIcon" aria-hidden="true">
-                  <ReviewsIcon />
-                </span>
-                <span className="concertReviewsValue">{concert.stats.reviews_count}</span>
-              </div>
-            )}
+            <div
+              className="concertReviewsBadge"
+              aria-label={`Рецензий: ${concert.stats.reviews_count}`}
+              title={`Рецензий: ${concert.stats.reviews_count}`}
+            >
+              <span className="concertReviewsIcon" aria-hidden="true">
+                <ReviewsIcon />
+              </span>
+              <span className="concertReviewsValue">{concert.stats.reviews_count}</span>
+            </div>
           </div>
         )}
       </div>

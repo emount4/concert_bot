@@ -126,6 +126,20 @@ export async function fetchTopConcertsByParam(param: ScoreKey): Promise<HomeTopR
   return response.items.map((concert) => topConcertRow(concert, param))
 }
 
+export async function fetchParamConcertsByParam(param: ScoreKey): Promise<Concert[]> {
+  const response = await loadConcerts({
+    limit: DATA_SOURCE_MODE === 'mock' ? undefined : 5,
+    offset: 0,
+    sort: SCORE_SORT[param],
+    direction: 'DESC',
+  })
+
+  return response.items
+    .slice()
+    .sort((a, b) => scoreValueFromStats(b.stats as unknown as Record<string, unknown>, param) - scoreValueFromStats(a.stats as unknown as Record<string, unknown>, param))
+    .slice(0, 5)
+}
+
 export async function fetchTopArtistsByParam(param: ScoreKey): Promise<HomeTopRow[]> {
   if (DATA_SOURCE_MODE === 'mock') return fetchMockTopArtistsByParam(param)
   const sort = SCORE_SORT[param]

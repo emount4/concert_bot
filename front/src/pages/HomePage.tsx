@@ -8,11 +8,8 @@ import {
   fetchBestConcerts,
   fetchFreshReviews,
   fetchHomeSocialProof,
+  fetchParamConcertsByParam,
   fetchPopularConcerts,
-  fetchTopArtistsByParam,
-  fetchTopConcertsByParam,
-  fetchTopVenuesByParam,
-  type HomeTopRow,
   type ScoreKey,
 } from '../api/home'
 
@@ -69,10 +66,6 @@ function useInView<T extends Element>(
   return inView
 }
 
-function formatTopValue(value: number) {
-  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(value)
-}
-
 function formatRank(rank: number) {
   const ordinals = ['Первое', 'Второе', 'Третье', 'Четвертое', 'Пятое']
   const ordinal = ordinals[rank - 1]
@@ -105,31 +98,7 @@ function RankBadge({ rank, size = 28, emphasis = 'normal' }: { rank: number; siz
   )
 }
 
-function TopRows({ rows }: { rows: HomeTopRow[] }) {
-  return (
-    <ul className="homeTopList" aria-label="Лидеры">
-      {rows.map((row, index) => (
-        <li key={row.key} className="homeTopItem">
-          <Link to={row.href} className="homeTopLink">
-            <span className="homeTopLeft">
-              <RankBadge rank={index + 1} size={24} />
-              <span className="homeTopLabel">{row.label}</span>
-            </span>
-            <span className="homeTopMeta">
-              <span className="homeTopScore">{formatTopValue(row.value)}</span>
-              <span className="homeTopScoreUnit">/10</span>
-              <span className="homeTopCount">· {row.count}</span>
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 export function HomePage() {
-  const [artistParam, setArtistParam] = useState<ScoreKey>('sound')
-  const [venueParam, setVenueParam] = useState<ScoreKey>('sound')
   const [concertParam, setConcertParam] = useState<ScoreKey>('sound')
 
   const bestConcertsQuery = useQuery({
@@ -152,23 +121,9 @@ export function HomePage() {
     <div className="placeholder">Не удалось загрузить рейтинг. Попробуйте обновить страницу.</div>
   )
 
-  const artistTopsQuery = useQuery({
-    queryKey: ['home', 'tops', 'artists', artistParam],
-    queryFn: () => fetchTopArtistsByParam(artistParam),
-    staleTime: 60_000,
-    placeholderData: (prev) => prev,
-  })
-
-  const venueTopsQuery = useQuery({
-    queryKey: ['home', 'tops', 'venues', venueParam],
-    queryFn: () => fetchTopVenuesByParam(venueParam),
-    staleTime: 60_000,
-    placeholderData: (prev) => prev,
-  })
-
   const concertTopsQuery = useQuery({
     queryKey: ['home', 'tops', 'concerts', concertParam],
-    queryFn: () => fetchTopConcertsByParam(concertParam),
+    queryFn: () => fetchParamConcertsByParam(concertParam),
     staleTime: 60_000,
     placeholderData: (prev) => prev,
   })
@@ -272,78 +227,43 @@ export function HomePage() {
           )}
         </section>
 
-        <section className="homeSection" aria-label="Топы по параметрам">
+        <section className="homeSection" aria-label="Топ концертов по параметрам">
           <div className="homeSectionHeader">
-            <h2 className="homeSectionTitle">Лидеры по параметрам</h2>
+            <h2 className="homeSectionTitle">Топ концертов по параметру</h2>
+            <select
+              className="concertSelect homeSelect"
+              value={concertParam}
+              onChange={(e) => setConcertParam(e.target.value as ScoreKey)}
+              aria-label="Параметр для рейтинга концертов"
+            >
+              {scoreOptions.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="homeTopsGrid">
-            <div className="homeTopCol">
-              <div className="homeTopHeader">
-                <h3 className="homeTopTitle">Артисты</h3>
-                <select
-                  className="concertSelect homeSelect"
-                  value={artistParam}
-                  onChange={(e) => setArtistParam(e.target.value as ScoreKey)}
-                  aria-label="Параметр для рейтинга артистов"
+          {concertTopsQuery.isLoading && <div className="placeholder">Загрузка...</div>}
+          {concertTopsQuery.error && <div className="placeholder">Не удалось загрузить</div>}
+
+          {concertTopsQuery.data && (
+            <div className="homeCarousel homeCarouselTop5" role="list" aria-label="Топ концертов по выбранному параметру">
+              {concertTopsQuery.data.map((concert, index) => (
+                <Link
+                  key={concert.id}
+                  to={`/concerts/${concert.id}/rate`}
+                  className="homeCarouselItem homeConcertCompact concertCardLink"
+                  role="listitem"
                 >
-                  {scoreOptions.map((opt) => (
-                    <option key={opt.key} value={opt.key}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {artistTopsQuery.isLoading && <div className="placeholder">Загрузка...</div>}
-              {artistTopsQuery.error && <div className="placeholder">Не удалось загрузить</div>}
-              {artistTopsQuery.data && <TopRows rows={artistTopsQuery.data} />}
+                  <ConcertCard concert={concert} />
+                  <div className="homeRankSlot" aria-label="Место концерта в топе">
+                    <RankBadge rank={index + 1} size={56} emphasis="large" />
+                  </div>
+                </Link>
+              ))}
             </div>
-
-            <div className="homeTopCol">
-              <div className="homeTopHeader">
-                <h3 className="homeTopTitle">Площадки</h3>
-                <select
-                  className="concertSelect homeSelect"
-                  value={venueParam}
-                  onChange={(e) => setVenueParam(e.target.value as ScoreKey)}
-                  aria-label="Параметр для рейтинга площадок"
-                >
-                  {scoreOptions.map((opt) => (
-                    <option key={opt.key} value={opt.key}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {venueTopsQuery.isLoading && <div className="placeholder">Загрузка...</div>}
-              {venueTopsQuery.error && <div className="placeholder">Не удалось загрузить</div>}
-              {venueTopsQuery.data && <TopRows rows={venueTopsQuery.data} />}
-            </div>
-
-            <div className="homeTopCol">
-              <div className="homeTopHeader">
-                <h3 className="homeTopTitle">Концерты</h3>
-                <select
-                  className="concertSelect homeSelect"
-                  value={concertParam}
-                  onChange={(e) => setConcertParam(e.target.value as ScoreKey)}
-                  aria-label="Параметр для рейтинга концертов"
-                >
-                  {scoreOptions.map((opt) => (
-                    <option key={opt.key} value={opt.key}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {concertTopsQuery.isLoading && <div className="placeholder">Загрузка...</div>}
-              {concertTopsQuery.error && <div className="placeholder">Не удалось загрузить</div>}
-              {concertTopsQuery.data && <TopRows rows={concertTopsQuery.data} />}
-            </div>
-          </div>
+          )}
         </section>
       </SectionErrorBoundary>
 

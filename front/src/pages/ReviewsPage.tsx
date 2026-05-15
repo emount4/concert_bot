@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ReviewCard } from '../components/reviews/ReviewCard'
-import { useAppData } from '../api/AppDataProvider'
+import { loadReviews } from '../api/repository'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
+import { useQuery } from '../utils/useQuery'
 
 const REVIEWS_PAGE_SIZE = 18
 
 export function ReviewsPage() {
-  const { data, isLoading, error } = useAppData()
-  const reviews = data?.reviews ?? []
+  const reviewsQuery = useQuery(['reviews', 'list'], () =>
+    loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
+  )
+  const reviews = reviewsQuery.data ?? []
 
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -23,12 +26,12 @@ export function ReviewsPage() {
     return reviews.slice(offset, offset + REVIEWS_PAGE_SIZE)
   }, [currentPage, reviews])
 
-  if (isLoading) {
+  if (reviewsQuery.isLoading) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
   }
 
-  if (error) {
-    return <section className="page"><div className="placeholder">{error}</div></section>
+  if (reviewsQuery.error) {
+    return <section className="page"><div className="placeholder">{reviewsQuery.error}</div></section>
   }
 
   return (

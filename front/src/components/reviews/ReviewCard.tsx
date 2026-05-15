@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { resolveReviewScores, type ReviewCardItem, type ReviewLikeUser } from '../../types/review'
 import { loadReviewLikers, toggleReviewLike } from '../../api/reviewLikes'
+import { DATA_SOURCE_MODE } from '../../api/config'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
 import { getMockUserByDisplayName, getMockUserByUsername } from '../../data/mockUsers'
 
@@ -202,11 +203,13 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
   const storageKey = `concert_bot.review_like.${reviewKey}`
   const [likedByMe, setLikedByMe] = useState(() => {
     if (review.is_liked_by_me) return true
+    if (DATA_SOURCE_MODE !== 'mock') return false
     if (typeof window === 'undefined') return false
     return window.localStorage.getItem(storageKey) === '1'
   })
 
   useEffect(() => {
+    if (DATA_SOURCE_MODE !== 'mock') return
     if (typeof window === 'undefined') return
     window.localStorage.setItem(storageKey, likedByMe ? '1' : '0')
   }, [likedByMe, storageKey])
@@ -251,10 +254,6 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
   const likeEntries = useMemo(() => {
     const entries: Array<{ key: string; name: string; href: string; avatarUrl: string | null }> = []
 
-    if (likedByMe) {
-      entries.push({ key: 'me', name: 'Вы', href: '/profile', avatarUrl: null })
-    }
-
     baseLikes.forEach((user, index) => {
       const handle = (user.username ?? user.name).trim()
       const fallbackByUsername = handle ? getMockUserByUsername(handle) : null
@@ -270,7 +269,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
     })
 
     return entries
-  }, [baseLikes, likedByMe])
+  }, [baseLikes])
 
   const showModeration = Boolean(moderation)
 

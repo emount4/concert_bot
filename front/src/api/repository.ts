@@ -6,6 +6,7 @@ import { MOCK_ARTISTS } from '../data/mockArtists'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_PROFILE } from '../data/mockProfile'
 import { MOCK_REVIEWS } from '../data/mockReviews'
+import { getMockUserByUsername } from '../data/mockUsers'
 import { MOCK_VENUES } from '../data/mockVenues'
 import { applyProfileOverrides } from '../data/profileStore'
 import type { AdminAccount, AdminArtist, AdminConcert, AdminConcertSuggestion, AdminReviewModerationItem, AdminVenue } from '../types/admin'
@@ -48,6 +49,7 @@ type PublicReviewsListParams = {
   offset?: number
   sort?: string
   direction?: string
+  concert_id?: string
 }
 type AdminConcertSuggestionsParams = {
   limit?: number
@@ -147,6 +149,34 @@ type BatchUploadResponse = {
     upload_form?: Record<string, string> | null
   }>
 }
+type UserStatsApiResponse = {
+  reviews_count: number
+  likes_given_count: number
+  likes_received_count: number
+}
+type UserMeApiResponse = {
+  id: string
+  email: string
+  username: string
+  bio?: string | null
+  avatar_url?: string | null
+  banner_url?: string | null
+  telegram_id?: number | null
+  telegram_username?: string | null
+  role_id: number
+  is_email_verified: boolean
+  is_banned: boolean
+  created_at: string
+  stats?: UserStatsApiResponse | null
+}
+type PublicProfileApiResponse = {
+  username: string
+  bio?: string | null
+  avatar_url?: string | null
+  banner_url?: string | null
+  created_at: string
+  stats?: UserStatsApiResponse | null
+}
 
 function resolveApiAssetUrl(value: string | null | undefined): string | null {
   if (!value) return null
@@ -197,6 +227,23 @@ function mapAdminConcertSuggestionResponse(suggestion: AdminConcertSuggestion): 
   }
 }
 
+function mapArtistResponseToCardItem(artist: Artist): ArtistCardItem {
+  const reviewsCount = artist.stats?.reviews_count ?? 0
+  const sumRatingTotal = artist.stats?.sum_rating_total ?? 0
+  const avg_rating_total = reviewsCount > 0 ? sumRatingTotal / reviewsCount : null
+
+  return {
+    artist_id: String(artist.id),
+    id: artist.id,
+    name: artist.name,
+    photo_url: resolveApiAssetUrl(artist.photo_url),
+    avg_rating_total,
+    reviews_count: reviewsCount,
+    concerts_count: artist.stats?.concerts_count ?? 0,
+    social_links: artist.social_links ?? null,
+  }
+}
+
 function numericIdFromString(value: string): number {
   let hash = 0
   for (let i = 0; i < value.length; i += 1) {
@@ -240,6 +287,53 @@ function mapReviewResponseToCardItem(review: ReviewApiResponse, concerts: Concer
     status: review.status,
     rejection_reason: review.rejection_reason,
     created_at: review.created_at,
+  }
+}
+
+function mapMeResponseToProfile(profile: UserMeApiResponse): UserProfile {
+  const stats = profile.stats
+  return {
+    user_id: profile.id,
+    id: profile.id,
+    email: profile.email,
+    displayName: profile.username,
+    handle: `@${profile.username}`,
+    created_at: profile.created_at,
+    bio: profile.bio ?? '',
+    reviews_count: stats?.reviews_count ?? 0,
+    likes_given_count: stats?.likes_given_count ?? 0,
+    likes_received_count: stats?.likes_received_count ?? 0,
+    approved_count: stats?.reviews_count ?? 0,
+    pending_count: 0,
+    avatar_url: resolveApiAssetUrl(profile.avatar_url),
+    banner_url: resolveApiAssetUrl(profile.banner_url),
+    telegram_id: profile.telegram_id ?? null,
+    telegram_username: profile.telegram_username ?? null,
+    role_id: profile.role_id,
+    is_email_verified: profile.is_email_verified,
+    is_banned: profile.is_banned,
+    is_active: !profile.is_banned,
+    recent_reviews: [],
+  }
+}
+
+function mapPublicProfileResponseToProfile(profile: PublicProfileApiResponse): UserProfile {
+  const stats = profile.stats
+  return {
+    id: profile.username,
+    displayName: profile.username,
+    handle: `@${profile.username}`,
+    created_at: profile.created_at,
+    bio: profile.bio ?? '',
+    reviews_count: stats?.reviews_count ?? 0,
+    likes_given_count: stats?.likes_given_count ?? 0,
+    likes_received_count: stats?.likes_received_count ?? 0,
+    approved_count: stats?.reviews_count ?? 0,
+    pending_count: 0,
+    avatar_url: resolveApiAssetUrl(profile.avatar_url),
+    banner_url: resolveApiAssetUrl(profile.banner_url),
+    is_active: true,
+    recent_reviews: [],
   }
 }
 
@@ -311,6 +405,43 @@ function normalizeUsername(input: string): string {
   return input.trim().replace(/^@+/, '').toLowerCase()
 }
 
+export async function loadMyProfile(): Promise<UserProfile> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    return applyProfileOverrides(MOCK_PROFILE)
+  }
+
+  const response = await apiRequest<UserMeApiResponse>(apiEndpoints.users.me)
+  return mapMeResponseToProfile(response)
+}
+
+export async function loadPublicProfile(username: string): Promise<UserProfile> {
+  const normalized = normalizeUsername(username)
+  if (DATA_SOURCE_MODE === 'mock') {
+    const current = normalizeUsername(MOCK_PROFILE.handle)
+    if (normalized === current) return applyProfileOverrides(MOCK_PROFILE)
+
+    const mockUser = getMockUserByUsername(normalized)
+    if (!mockUser) throw new Error('Пользователь не найден')
+    return {
+      id: normalized,
+      displayName: mockUser.displayName,
+      handle: `@${mockUser.username}`,
+      created_at: mockUser.created_at,
+      bio: mockUser.bio ?? '',
+      reviews_count: 0,
+      approved_count: 0,
+      pending_count: 0,
+      avatar_url: mockUser.avatar_url,
+      banner_url: mockUser.banner_url ?? null,
+      is_active: mockUser.is_active ?? true,
+      recent_reviews: [],
+    }
+  }
+
+  const response = await apiRequest<PublicProfileApiResponse>(apiEndpoints.users.profileByUsername(normalized))
+  return mapPublicProfileResponseToProfile(response)
+}
+
 export async function loadAppBootstrapData(): Promise<AppBootstrapData> {
   if (DATA_SOURCE_MODE === 'mock') {
     const baseProfile = MOCK_PROFILE
@@ -341,10 +472,10 @@ export async function loadAppBootstrapData(): Promise<AppBootstrapData> {
 
   const results = await Promise.allSettled([
     loadConcerts().then((res) => res.items),
-    apiRequest<ListResponse<ArtistCardItem>>(apiEndpoints.artists.list).then((res) => res.items),
+    apiRequest<ListResponse<Artist>>(apiEndpoints.artists.list).then((res) => res.items.map(mapArtistResponseToCardItem)),
     loadVenuesForBootstrap(),
     loadReviews().then((res) => res.items),
-    apiRequest<UserProfile>(apiEndpoints.users.me),
+    loadMyProfile(),
   ])
 
   // Extract values with fallbacks
@@ -381,12 +512,9 @@ export async function loadReviews(params?: PublicReviewsListParams): Promise<Pag
 
   const query = buildQuery(params ?? {})
   const response = await apiRequest<PagedListResponse<ReviewApiResponse>>(`${apiEndpoints.reviews.list}${query}`)
-  const concerts = await loadConcerts()
-    .then((res) => res.items)
-    .catch((): Concert[] => [])
   return {
     ...response,
-    items: response.items.map((review) => mapReviewResponseToCardItem(review, concerts)),
+    items: response.items.map((review) => mapReviewResponseToCardItem(review)),
   }
 }
 
@@ -400,10 +528,7 @@ export async function loadReviewById(reviewId: string | number): Promise<ReviewC
   }
 
   const response = await apiRequest<ReviewApiResponse>(apiEndpoints.reviews.byId(String(reviewId)))
-  const concerts = await loadConcerts()
-    .then((res) => res.items)
-    .catch((): Concert[] => [])
-  return mapReviewResponseToCardItem(response, concerts)
+  return mapReviewResponseToCardItem(response)
 }
 
 export async function createReview(payload: CreateReviewPayload): Promise<ReviewCardItem> {
@@ -434,10 +559,7 @@ export async function createReview(payload: CreateReviewPayload): Promise<Review
   }
 
   const response = await apiRequest<ReviewApiResponse>(apiEndpoints.reviews.create, 'POST', payload)
-  const concerts = await loadConcerts()
-    .then((res) => res.items)
-    .catch((): Concert[] => [])
-  return mapReviewResponseToCardItem(response, concerts)
+  return mapReviewResponseToCardItem(response)
 }
 
 async function uploadFileWithTicket(file: File, ticket: BatchUploadResponse['items'][number]): Promise<void> {
@@ -927,6 +1049,15 @@ export async function loadArtists(): Promise<Artist[]> {
   console.log('[loadArtists] Loading artists from API...')
   const response = await apiRequest<ListResponse<Artist>>(apiEndpoints.artists.list)
   return response.items
+}
+
+export async function loadArtistCards(): Promise<ArtistCardItem[]> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    return MOCK_ARTISTS
+  }
+
+  const response = await apiRequest<ListResponse<Artist>>(apiEndpoints.artists.list)
+  return response.items.map(mapArtistResponseToCardItem)
 }
 
 export async function getArtistById(artistId: number | string): Promise<Artist> {

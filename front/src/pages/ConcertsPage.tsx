@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
-import { useAppData } from '../api/AppDataProvider'
-import { loadCities } from '../api/repository'
+import { loadCities, loadConcerts } from '../api/repository'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
 import type { City } from '../types/city'
+import { useQuery } from '../utils/useQuery'
 
 type ConcertSortBy = 'date' | 'rating' | 'reviews' | 'title'
 type SortDirection = 'desc' | 'asc'
@@ -23,8 +23,8 @@ export function ConcertsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [cities, setCities] = useState<City[]>([])
 
-  const { data, isLoading, error } = useAppData()
-  const concerts = data?.concerts ?? []
+  const concertsQuery = useQuery(['concerts', 'list'], () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items))
+  const concerts = concertsQuery.data ?? []
 
   useEffect(() => {
     loadCities().then((loadedCities) => {
@@ -109,12 +109,12 @@ export function ConcertsPage() {
     return filteredConcerts.slice(offset, offset + CONCERTS_PAGE_SIZE)
   }, [currentPage, filteredConcerts])
 
-  if (isLoading) {
+  if (concertsQuery.isLoading) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
   }
 
-  if (error) {
-    return <section className="page"><div className="placeholder">{error}</div></section>
+  if (concertsQuery.error) {
+    return <section className="page"><div className="placeholder">{concertsQuery.error}</div></section>
   }
 
   return (

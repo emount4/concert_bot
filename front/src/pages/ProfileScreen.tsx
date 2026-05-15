@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAppData } from '../api/AppDataProvider'
+import { loadArtistCards, loadConcerts, loadPublicProfile, loadReviews, loadVenuesList } from '../api/repository'
+import { mapVenueResponseToCardItem } from '../types/venue'
 import {
   getMockUserByUsername,
   getMockUsernameByDisplayName,
@@ -230,6 +232,21 @@ export function ProfileScreen(props: ProfileScreenProps) {
   // Задание 18.2: новая страница профиля (баннер + левый блок с аватаром + табы: рецензии/избранное/лайкнутое).
   const { data, isLoading: appLoading, error: appError } = useAppData()
   const [activeTab, setActiveTab] = useState<ProfileTab>('reviews')
+  const reviewsQuery = useQuery(['profile', 'reviews'], () =>
+    loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
+    { enabled: !appLoading && !appError },
+  )
+  const artistsQuery = useQuery(['profile', 'artists'], () => loadArtistCards(), {
+    enabled: !appLoading && !appError && activeTab === 'favorites',
+  })
+  const venuesQuery = useQuery(
+    ['profile', 'venues'],
+    () => loadVenuesList({ limit: 20, offset: 0 }).then((res) => res.items.map((venue) => mapVenueResponseToCardItem(venue, new Map()))),
+    { enabled: !appLoading && !appError && activeTab === 'favorites' },
+  )
+  const concertsQuery = useQuery(['profile', 'concerts'], () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items), {
+    enabled: !appLoading && !appError && activeTab === 'favorites',
+  })
 
   const myUsername = useMemo(() => {
     const handle = data?.profile?.handle
@@ -244,10 +261,23 @@ export function ProfileScreen(props: ProfileScreenProps) {
   const isAdmin = resolveIsAdmin()
 
   const profileQuery = useQuery<ProfileBundle | null>(
-    ['profile', username, myUsername],
+    [
+      'profile',
+      username,
+      myUsername,
+      reviewsQuery.data?.length ?? 0,
+      artistsQuery.data?.length ?? 0,
+      venuesQuery.data?.length ?? 0,
+      concertsQuery.data?.length ?? 0,
+      activeTab,
+    ],
     async () => {
       if (!data) return null
       if (!username) return null
+      const reviews = reviewsQuery.data ?? []
+      const artists = artistsQuery.data ?? []
+      const venues = venuesQuery.data ?? []
+      const concerts = concertsQuery.data ?? []
 
       // Имитация сетевой задержки даже в mock-режиме.
       await sleep(350)
@@ -255,53 +285,50 @@ export function ProfileScreen(props: ProfileScreenProps) {
       const isOwn = Boolean(myUsername && username === myUsername)
       const showAdminBadge = isOwn && isAdmin
 
+      const apiProfile = isOwn ? data.profile : await loadPublicProfile(username)
       const stableSocialKey = isOwn ? (getMockUsernameByDisplayName(data.profile.displayName) ?? username) : username
 
       let userFromDirectory = getMockUserByUsername(username)
-      if (!userFromDirectory && isOwn) {
+      if (!userFromDirectory) {
         userFromDirectory = {
           username,
-          displayName: data.profile.displayName,
-          bio: data.profile.bio,
-          avatar_url: data.profile.avatar_url,
-          banner_url: data.profile.banner_url ?? null,
-          created_at: data.profile.created_at,
-          is_active: data.profile.is_active ?? true,
+          displayName: apiProfile.displayName,
+          bio: apiProfile.bio,
+          avatar_url: apiProfile.avatar_url,
+          banner_url: apiProfile.banner_url ?? null,
+          created_at: apiProfile.created_at,
+          is_active: apiProfile.is_active ?? true,
         }
       }
 
       if (!userFromDirectory) return null
 
-      const is_active = userFromDirectory.is_active
+      const is_active = apiProfile.is_active ?? userFromDirectory.is_active ?? true
 
-      const createdAt = is_active ? (isOwn ? data.profile.created_at : userFromDirectory.created_at) : null
+      const createdAt = is_active ? apiProfile.created_at : null
 
       const avatarUrl =
         !is_active
           ? null
-          : isOwn
-            ? (normalizeOptionalUrl(data.profile.avatar_url) ?? normalizeOptionalUrl(userFromDirectory.avatar_url))
-            : normalizeOptionalUrl(userFromDirectory.avatar_url)
+          : (normalizeOptionalUrl(apiProfile.avatar_url) ?? normalizeOptionalUrl(userFromDirectory.avatar_url))
 
       const bannerUrl =
         !is_active
           ? null
-          : isOwn
-            ? (normalizeOptionalUrl(data.profile.banner_url) ?? normalizeOptionalUrl(userFromDirectory.banner_url))
-            : normalizeOptionalUrl(userFromDirectory.banner_url)
+          : (normalizeOptionalUrl(apiProfile.banner_url) ?? normalizeOptionalUrl(userFromDirectory.banner_url))
 
-      const bio = !is_active ? null : isOwn ? data.profile.bio : userFromDirectory.bio
+      const bio = !is_active ? null : apiProfile.bio
 
       const likesCountByReviewId = buildLikesCountByReviewId()
 
       const moderationByReviewId = new Map<number, { status: ProfileReviewStatus; rejection_reason?: string | null }>()
       if (isOwn) {
-        for (const item of data.profile.recent_reviews) {
+        for (const item of apiProfile.recent_reviews) {
           moderationByReviewId.set(item.id, { status: item.status, rejection_reason: item.rejection_reason ?? null })
         }
       }
 
-      const allUserReviews = data.reviews
+      const allUserReviews = reviews
         .filter((review) => normalizeUsername(review.author_username ?? '') === username)
         .map<ReviewVm>((review) => {
           const moderation = moderationByReviewId.get(review.id) ?? { status: 'approved' as const }
@@ -322,14 +349,16 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
       const visibleReviews = isOwn ? allUserReviews : allUserReviews.filter((item) => item.moderation.status === 'approved')
 
-      const reviewsCount = visibleReviews.length
-      const likes_received = visibleReviews.reduce((sum, item) => sum + (likesCountByReviewId.get(item.review.id) ?? 0), 0)
-      const likes_given = (MOCK_LIKED_REVIEW_IDS_BY_USERNAME[stableSocialKey] ?? []).length
+      const reviewsCount = apiProfile.reviews_count ?? visibleReviews.length
+      const likes_received =
+        apiProfile.likes_received_count ??
+        visibleReviews.reduce((sum, item) => sum + (likesCountByReviewId.get(item.review.id) ?? 0), 0)
+      const likes_given = apiProfile.likes_given_count ?? (MOCK_LIKED_REVIEW_IDS_BY_USERNAME[stableSocialKey] ?? []).length
 
       const favoritesIds = MOCK_FAVORITES_BY_USERNAME[stableSocialKey] ?? { artists: [], venues: [], concerts: [] }
 
       const favoriteArtists: FavoriteIconVm[] = favoritesIds.artists
-        .map((id) => data.artists.find((artist) => artist.id === id) ?? null)
+        .map((id) => artists.find((artist) => artist.id === id) ?? null)
         .filter((v): v is NonNullable<typeof v> => Boolean(v))
         .map((artist) => ({
           key: `artist-${artist.id}`,
@@ -339,7 +368,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
         }))
 
       const favoriteVenues: FavoriteIconVm[] = favoritesIds.venues
-        .map((id) => data.venues.find((venue) => venue.id === id) ?? null)
+        .map((id) => venues.find((venue) => venue.id === id) ?? null)
         .filter((v): v is NonNullable<typeof v> => Boolean(v))
         .map((venue) => ({
           key: `venue-${venue.id}`,
@@ -349,7 +378,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
         }))
 
       const favoriteConcerts: FavoriteIconVm[] = favoritesIds.concerts
-        .map((id) => data.concerts.find((concert) => concert.id === id) ?? null)
+        .map((id) => concerts.find((concert) => concert.id === id) ?? null)
         .filter((v): v is NonNullable<typeof v> => Boolean(v))
         .map((concert) => ({
           key: `concert-${concert.id}`,
@@ -360,7 +389,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
       const likedReviewIds = MOCK_LIKED_REVIEW_IDS_BY_USERNAME[stableSocialKey] ?? []
       const liked = likedReviewIds
-        .map((id) => data.reviews.find((review) => review.id === id) ?? null)
+        .map((id) => reviews.find((review) => review.id === id) ?? null)
         .filter((v): v is NonNullable<typeof v> => Boolean(v))
         .filter((review) => normalizeUsername(review.author_username ?? '') !== username)
         .sort((a, b) => b.id - a.id)
@@ -385,7 +414,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
       }
     },
     {
-      enabled: Boolean(!appLoading && !appError && data && username),
+      enabled: Boolean(!appLoading && !appError && !reviewsQuery.isLoading && data && username),
     },
   )
 
@@ -469,7 +498,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
             )}
 
             <div className="profileUsernameRow">
-              <h2 className="profileUsername">{bundle.is_active ? `@${bundle.username}` : 'Аккаунт удален'}</h2>
+              <h2 className="profileUsername">{bundle.is_active ? `${bundle.username}` : 'Аккаунт удален'}</h2>
               {bundle.showAdminBadge && <span className="profileRoleBadge">Админ</span>}
             </div>
 

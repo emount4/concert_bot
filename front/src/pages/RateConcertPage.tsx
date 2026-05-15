@@ -2,15 +2,15 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
-import { useAppData } from '../api/AppDataProvider'
 import { REVIEW_MEDIA_MAX_SIZE_BYTES, REVIEW_MEDIA_MAX_SIZE_MB } from '../api/config'
-import { createReview, loadConcertById, uploadReviewMedia } from '../api/repository'
+import { createReview, loadConcertById, loadReviews, uploadReviewMedia } from '../api/repository'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
 import { useBodyScrollLock } from '../utils/useBodyScrollLock'
-import { getConcertIdKey, type Concert, type ConcertStats } from '../types/concert'
+import type { Concert, ConcertStats } from '../types/concert'
 import { getReviewConcertIdKey } from '../types/review'
+import { useQuery } from '../utils/useQuery'
 
 type ScoreState = {
   performance: number
@@ -48,50 +48,23 @@ function avgScoresFromStats(stats: ConcertStats | null | undefined) {
 
 export function RateConcertPage() {
   // Задание 11.1: первичный экран оценивания концерта с ползунками и списком рецензий.
-  const { data, isLoading, error, refresh } = useAppData()
-  const concerts = data?.concerts ?? []
-  const reviews = data?.reviews ?? []
-
   const { concertId } = useParams<{ concertId: string }>()
   const routeConcertId = concertId ?? ''
-  const bootstrapConcert = useMemo(
-    () => concerts.find((item) => getConcertIdKey(item) === routeConcertId || String(item.id) === routeConcertId) ?? null,
-    [concerts, routeConcertId],
+  const concertQuery = useQuery<Concert | null>(
+    ['concert', routeConcertId],
+    () => (routeConcertId ? loadConcertById(routeConcertId) : Promise.resolve(null)),
+    { enabled: Boolean(routeConcertId) },
   )
-  const [detailConcert, setDetailConcert] = useState<Concert | null>(null)
-  const [detailError, setDetailError] = useState<string | null>(null)
-  const [isDetailLoading, setIsDetailLoading] = useState(false)
-  const concert = bootstrapConcert ?? detailConcert
-
-  useEffect(() => {
-    let cancelled = false
-
-    setDetailConcert(null)
-    setDetailError(null)
-
-    if (!routeConcertId || bootstrapConcert) {
-      setIsDetailLoading(false)
-      return
-    }
-
-    setIsDetailLoading(true)
-    void loadConcertById(routeConcertId)
-      .then((loadedConcert) => {
-        if (cancelled) return
-        setDetailConcert(loadedConcert)
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setDetailError(error instanceof Error ? error.message : 'Не удалось загрузить концерт')
-      })
-      .finally(() => {
-        if (!cancelled) setIsDetailLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [bootstrapConcert, routeConcertId])
+  const reviewsQuery = useQuery(
+    ['concert', routeConcertId, 'reviews'],
+    () =>
+      loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC', concert_id: routeConcertId }).then(
+        (res) => res.items,
+      ),
+    { enabled: Boolean(routeConcertId) },
+  )
+  const concert = concertQuery.data
+  const reviews = reviewsQuery.data ?? []
 
   const [scores, setScores] = useState<ScoreState>({
     performance: 5,
@@ -283,7 +256,7 @@ export function RateConcertPage() {
       setIsConfirmSubmitOpen(false)
       setReviewSubmitSuccess('Рецензия отправлена на модерацию.')
       confirmClearDraft()
-      await refresh()
+      await reviewsQuery.refetch()
     } catch (error) {
       setReviewSubmitError(error instanceof Error ? error.message : 'Не удалось отправить рецензию.')
     } finally {
@@ -344,7 +317,7 @@ export function RateConcertPage() {
     : []
   const visibleArtists = mainArtists.length > 0 ? mainArtists : concert?.artists.filter((artist) => artist.is_main !== false) ?? []
 
-  if (isLoading || isDetailLoading) {
+  if (concertQuery.isLoading || reviewsQuery.isLoading) {
     return (
       <section className="page">
         <h1 className="pageTitle">Оценивание концерта</h1>
@@ -353,11 +326,11 @@ export function RateConcertPage() {
     )
   }
 
-  if (error || detailError) {
+  if (concertQuery.error || reviewsQuery.error) {
     return (
       <section className="page">
         <h1 className="pageTitle">Оценивание концерта</h1>
-        <div className="placeholder">{error ?? detailError}</div>
+        <div className="placeholder">{concertQuery.error ?? reviewsQuery.error}</div>
       </section>
     )
   }

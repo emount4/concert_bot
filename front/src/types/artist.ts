@@ -6,6 +6,9 @@ export type ArtistCardItem = {
   photo_url: string | null
   photo_source?: string | null
   avg_rating_total: number | null
+  reviews_count?: number
+  concerts_count?: number
+  social_links?: ArtistSocialLinks | null
 }
 
 // API Types for Artists

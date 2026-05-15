@@ -1,9 +1,14 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { loadAppBootstrapData, type AppBootstrapData } from './repository'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { loadMyProfile } from './repository'
 import { useAuthStore } from '../store/useAuthStore'
+import type { UserProfile } from '../types/profile'
+
+type AppShellData = {
+  profile: UserProfile
+}
 
 type AppDataContextValue = {
-  data: AppBootstrapData | null
+  data: AppShellData | null
   isLoading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -12,23 +17,34 @@ type AppDataContextValue = {
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<AppBootstrapData | null>(null)
+  const [data, setData] = useState<AppShellData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const isAuth = useAuthStore((state) => state.isAuth)
   const isInitializing = useAuthStore((state) => state.isInitializing)
+  const refreshInFlightRef = useRef<Promise<void> | null>(null)
 
   const refresh = async () => {
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current
+    }
+
+    const task = (async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const nextData = await loadAppBootstrapData()
-      setData(nextData)
+      const profile = await loadMyProfile()
+      setData({ profile })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить данные')
     } finally {
       setIsLoading(false)
+      refreshInFlightRef.current = null
     }
+    })()
+
+    refreshInFlightRef.current = task
+    return task
   }
 
   useEffect(() => {

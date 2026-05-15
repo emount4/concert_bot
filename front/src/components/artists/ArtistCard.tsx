@@ -8,7 +8,8 @@ type ArtistCardProps = {
 
 export function ArtistCard({ artist }: ArtistCardProps) {
   // Задание 3.3: средняя оценка артиста округляется на фронтенде до целого.
-  const roundedScore = artist.avg_rating_total === null ? null : Math.round(artist.avg_rating_total)
+  const safeRating = Number.isFinite(artist.avg_rating_total) ? artist.avg_rating_total : null
+  const roundedScore = safeRating === null ? null : Math.round(safeRating)
   const [isPhotoFailed, setIsPhotoFailed] = useState(false)
   const photoUrl = isPhotoFailed ? null : artist.photo_url
 

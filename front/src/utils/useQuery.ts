@@ -15,6 +15,7 @@ export type UseQueryResult<T> = {
 }
 
 const queryCache = new Map<string, unknown>()
+const queryInFlight = new Map<string, Promise<unknown>>()
 
 function keyToString(queryKey: unknown[]): string {
   try {
@@ -40,6 +41,11 @@ export function useQuery<T>(
   const [error, setError] = useState<string | null>(null)
 
   const requestIdRef = useRef(0)
+  const queryFnRef = useRef(queryFn)
+
+  useEffect(() => {
+    queryFnRef.current = queryFn
+  }, [queryFn])
 
   const run = useCallback(async () => {
     if (!enabled) return
@@ -51,7 +57,15 @@ export function useQuery<T>(
     setError(null)
 
     try {
-      const result = await queryFn()
+      let promise = queryInFlight.get(key) as Promise<T> | undefined
+      if (!promise) {
+        promise = queryFnRef.current().finally(() => {
+          queryInFlight.delete(key)
+        })
+        queryInFlight.set(key, promise)
+      }
+
+      const result = await promise
       if (requestIdRef.current !== requestId) return
 
       queryCache.set(key, result)
@@ -63,7 +77,7 @@ export function useQuery<T>(
       setError(e instanceof Error ? e.message : 'Не удалось загрузить данные')
       setIsLoading(false)
     }
-  }, [enabled, key, queryFn])
+  }, [enabled, key])
 
   useEffect(() => {
     if (!enabled) {

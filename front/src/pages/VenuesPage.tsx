@@ -4,9 +4,8 @@ import { ConcertCard } from '../components/concerts/ConcertCard'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { VenueCard } from '../components/venues/VenueCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
-import { useAppData } from '../api/AppDataProvider'
 import { DATA_SOURCE_MODE } from '../api/config'
-import { loadVenueById, loadCities } from '../api/repository'
+import { loadConcerts, loadReviews, loadVenueById, loadCities, loadVenuesList } from '../api/repository'
 import { mapVenueResponseToCardItem } from '../types/venue'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
@@ -15,6 +14,7 @@ import { getConcertIdKey } from '../types/concert'
 import { getReviewConcertIdKey } from '../types/review'
 import type { City } from '../types/city'
 import type { VenueCardItem } from '../types/venue'
+import { useQuery } from '../utils/useQuery'
 
 type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
 type SortDirection = 'desc' | 'asc'
@@ -37,10 +37,17 @@ export function VenuesPage() {
   const [cities, setCities] = useState<City[]>([])
   const [detailVenue, setDetailVenue] = useState<VenueCardItem | null>(null)
 
-  const { data, isLoading, error } = useAppData()
-  const venues = data?.venues ?? []
-  const concerts = data?.concerts ?? []
-  const reviews = data?.reviews ?? []
+  const venuesQuery = useQuery(['venues', 'cards'], () => loadVenuesList({ limit: 20, offset: 0 }).then((res) => {
+    const cityMap = new Map(cities.map((city) => [city.city_id, city.name]))
+    return res.items.map((venue) => mapVenueResponseToCardItem(venue, cityMap))
+  }), { enabled: cities.length > 0 })
+  const concertsQuery = useQuery(['venues', 'concerts'], () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items))
+  const reviewsQuery = useQuery(['venues', 'reviews'], () =>
+    loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
+  )
+  const venues = venuesQuery.data ?? []
+  const concerts = concertsQuery.data ?? []
+  const reviews = reviewsQuery.data ?? []
 
   const [searchParams] = useSearchParams()
   const venue_id = Number(searchParams.get('venue_id'))
@@ -150,12 +157,13 @@ export function VenuesPage() {
     return filteredVenues.slice(start, start + VENUES_PAGE_SIZE)
   }, [currentPage, filteredVenues])
 
-  if (isLoading) {
+  if (venuesQuery.isLoading || concertsQuery.isLoading || reviewsQuery.isLoading) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
   }
 
-  if (error) {
-    return <section className="page"><div className="placeholder">{error}</div></section>
+  const pageError = venuesQuery.error ?? concertsQuery.error ?? reviewsQuery.error
+  if (pageError) {
+    return <section className="page"><div className="placeholder">{pageError}</div></section>
   }
 
   if (selectedVenue) {

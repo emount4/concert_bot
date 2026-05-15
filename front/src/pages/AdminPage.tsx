@@ -15,7 +15,9 @@ import {
   loadAdminConcertSuggestionById,
   loadAdminConcertSuggestions as loadAdminConcertSuggestionsFromApi,
   loadAdminReviews,
+  loadAdminVenues,
   restoreAdminConcert,
+  restoreVenue,
   updateAdminConcert,
   updateAdminConcertArtist,
 } from '../api/repository'
@@ -170,6 +172,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [venueSaveError, setVenueSaveError] = useState<string | null>(null)
   const [isLoadingSavingVenue, setIsLoadingSavingVenue] = useState(false)
   const [loadingDeleteVenueId, setLoadingDeleteVenueId] = useState<number | null>(null)
+  const [loadingRestoreVenueId, setLoadingRestoreVenueId] = useState<number | null>(null)
   const [venueDeleteError, setVenueDeleteError] = useState<string | null>(null)
   const [hasLoadedVenues, setHasLoadedVenues] = useState(false)
 
@@ -955,6 +958,30 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
       .finally(() => {
         setLoadingDeleteVenueId(null)
+      })
+  }
+
+  function restoreVenueFromAdmin(id: number) {
+    const venue = venues.find((x) => x.id === id) ?? null
+
+    setLoadingRestoreVenueId(id)
+    setVenueDeleteError(null)
+
+    void restoreVenue(id)
+      .then(() => loadAdminVenues({ include_deleted: true }))
+      .then((loadedVenues) => {
+        setVenues(loadedVenues)
+
+        if (venue && currentAdminAccount) {
+          writeAudit(`Админ ${currentAdminAccount.displayName} восстановил площадку «${venue.name}».`)
+        }
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to restore venue:', error)
+        setVenueDeleteError(error instanceof Error ? error.message : 'Ошибка при восстановлении площадки')
+      })
+      .finally(() => {
+        setLoadingRestoreVenueId(null)
       })
   }
 
@@ -1836,13 +1863,10 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                       <button
                         type="button"
                         className="settingsBtn ghost"
-                        onClick={() => {
-                          if (currentAdminAccount) {
-                            writeAudit(`Админ ${currentAdminAccount.displayName} пересчитал статистику площадки «${venue.name}» (мок).`)
-                          }
-                        }}
+                        onClick={() => restoreVenueFromAdmin(venue.id)}
+                        disabled={loadingRestoreVenueId === venue.id}
                       >
-                        Пересчитать
+                        {loadingRestoreVenueId === venue.id ? 'Восстановление...' : 'Восстановить'}
                       </button>
                       <button
                         type="button"
