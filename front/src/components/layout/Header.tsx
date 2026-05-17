@@ -320,25 +320,27 @@ export function Header() {
             if (e.target === e.currentTarget) closeSuggestModal()
           }}
         >
-          <div className="settingsModalCard" role="dialog" aria-modal="true" aria-labelledby={suggestTitleId}>
+          <div className="settingsModalCard suggestModalCard" role="dialog" aria-modal="true" aria-labelledby={suggestTitleId}>
             <div className="settingsModalHeader">
-              <h3 className="settingsModalTitle" id={suggestTitleId}>
-                Предложить концерт
-              </h3>
+              <div className="suggestModalHeading">
+                <h3 className="settingsModalTitle suggestModalTitle" id={suggestTitleId}>
+                  Предложить концерт
+                </h3>
+                <p className="suggestModalLead">Заявка уйдет на модерацию администратору.</p>
+              </div>
               <button type="button" className="settingsBtn ghost" onClick={closeSuggestModal}>
                 Закрыть
               </button>
             </div>
 
-            <p className="settingsHint">Укажи артиста или площадку, дату и любые детали для модерации.</p>
-
             <form
+              className="suggestModalForm"
               onSubmit={(e) => {
                 e.preventDefault()
                 void submitSuggestForm()
               }}
             >
-              <div className="settingsControl" style={{ width: '100%', maxWidth: 560 }}>
+              <div className="settingsControl suggestModalControl">
                 <input
                   className="settingsInput"
                   type="text"
@@ -353,7 +355,7 @@ export function Header() {
                   value={suggestDraft.concert}
                   onChange={(e) => setSuggestDraft((prev) => ({ ...prev, concert: e.target.value }))}
                 />
-                <div className="settingsInline">
+                <div className="settingsInline suggestModalInline">
                   <input
                     className="settingsInput"
                     type="text"
@@ -391,10 +393,10 @@ export function Header() {
                   onChange={(e) => setSuggestDraft((prev) => ({ ...prev, note: e.target.value }))}
                 />
 
-                {suggestError && <p className="settingsError">{suggestError}</p>}
-                {suggestSuccess && <p className="settingsOk">{suggestSuccess}</p>}
+                {suggestError && <p className="settingsError suggestModalMessage error">{suggestError}</p>}
+                {suggestSuccess && <p className="settingsOk suggestModalMessage ok">{suggestSuccess}</p>}
 
-                <div className="settingsActions">
+                <div className="settingsActions suggestModalActions">
                   <button type="button" className="settingsBtn ghost" onClick={closeSuggestModal}>
                     Отмена
                   </button>

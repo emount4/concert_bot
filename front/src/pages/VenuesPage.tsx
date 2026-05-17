@@ -206,7 +206,7 @@ export function VenuesPage() {
           </Link>
         </div>
 
-        <article className="detailHero">
+        <article className="detailHero venueDetailHero">
           {/* Задание 4.4: реальные изображения в карточке площадки (детальная шапка). */}
           <div className="detailHeroMedia venuePhoto" aria-hidden="true">
             <div className="venuePhotoMedia">

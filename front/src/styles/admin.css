@@ -309,6 +309,19 @@
 }
 
 /* Задание 9.3: кастомные стили для кнопки "Выберите файл". */
+.adminFieldLabel {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.adminRange {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
 .adminFileLabel input[type='file'] {
   color: var(--muted);
   font-size: 12px;
@@ -551,7 +564,8 @@
 }
 
 .adminMediaModalCard {
-  width: min(760px, 100%);
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
 }
 
 .adminMediaStage {
@@ -559,6 +573,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
+  min-height: 0;
 }
 
 .adminMediaArrow {
@@ -586,13 +601,18 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
+  background: #02060d;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  max-height: calc(100dvh - 180px);
 }
 
 .adminMediaAsset {
   width: 100%;
-  max-height: 260px;
-  object-fit: cover;
+  height: auto;
+  max-height: calc(100dvh - 180px);
+  object-fit: contain;
   display: block;
 }
 

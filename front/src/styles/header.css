@@ -86,8 +86,8 @@
 }
 
 .profileMenuBtn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
 
   border-radius: 999px;
@@ -111,8 +111,8 @@
 }
 
 .profileMenuAvatar {
-  width: 45px;
-  height: 45px;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
   overflow: hidden;
 
@@ -120,7 +120,6 @@
   place-items: center;
 
   background: rgba(255, 255, 255, 0.04);
-  transform: translateY(-2px);
 }
 
 .profileMenuAvatarImg {
@@ -211,6 +210,125 @@
   flex: 0 0 auto;
 }
 
+.settingsModalCard.suggestModalCard {
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(84vh, 680px);
+  padding: 14px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(39, 64, 111, 0.16), rgba(7, 18, 38, 0) 34%),
+    var(--panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+}
+
+.suggestModalHeading {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settingsModalTitle.suggestModalTitle {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.suggestModalLead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.suggestModalForm {
+  min-width: 0;
+}
+
+.suggestModalControl {
+  width: 100%;
+  max-width: none;
+  gap: 8px;
+}
+
+.suggestModalControl .settingsInput,
+.suggestModalControl .settingsTextarea {
+  min-height: 38px;
+  border-radius: 10px;
+  border-color: rgba(101, 128, 180, 0.38);
+  background: rgba(5, 14, 31, 0.62);
+  padding: 8px 10px;
+  font-size: 13px;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.suggestModalControl .settingsTextarea {
+  min-height: 86px;
+  line-height: 1.45;
+}
+
+.suggestModalControl .settingsInput:hover,
+.suggestModalControl .settingsTextarea:hover {
+  border-color: rgba(128, 157, 210, 0.58);
+}
+
+.suggestModalControl .settingsInput:focus,
+.suggestModalControl .settingsTextarea:focus {
+  outline: none;
+  border-color: rgba(148, 184, 255, 0.88);
+  background: rgba(8, 20, 43, 0.9);
+  box-shadow: 0 0 0 3px rgba(93, 134, 215, 0.18);
+}
+
+.suggestModalInline {
+  align-items: stretch;
+}
+
+.suggestModalInline .settingsInput {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.suggestModalMessage {
+  margin-top: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid;
+  line-height: 1.35;
+}
+
+.suggestModalMessage.error {
+  border-color: rgba(255, 159, 163, 0.38);
+  background: rgba(127, 29, 29, 0.16);
+}
+
+.suggestModalMessage.ok {
+  border-color: rgba(167, 243, 208, 0.32);
+  background: rgba(6, 78, 59, 0.16);
+}
+
+.suggestModalActions {
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.suggestModalActions .settingsBtn {
+  min-height: 36px;
+  min-width: 104px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.suggestModalActions .settingsBtn.primary {
+  border-color: rgba(148, 184, 255, 0.42);
+  background: rgba(39, 64, 111, 0.92);
+}
+
+.suggestModalActions .settingsBtn.primary:hover:not(:disabled) {
+  background: rgba(51, 82, 139, 0.96);
+}
+
 @media (max-width: 640px) {
   :root {
     --header-height: 52px;
@@ -247,5 +365,25 @@
     width: 20px;
     height: 20px;
     flex-basis: 20px;
+  }
+
+  .settingsModalCard.suggestModalCard {
+    width: calc(100vw - 20px);
+    max-height: 86vh;
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .settingsModalTitle.suggestModalTitle {
+    font-size: 18px;
+  }
+
+  .suggestModalInline,
+  .suggestModalActions {
+    flex-direction: column;
+  }
+
+  .suggestModalActions .settingsBtn {
+    width: 100%;
   }
 }

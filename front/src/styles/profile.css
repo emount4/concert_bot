@@ -309,10 +309,19 @@
   line-height: 1.2;
 }
 
+.profileTabsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .profileTabs {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .profileTab {
@@ -345,6 +354,66 @@
   gap: 10px;
   min-width: 0;
   max-width: 100%;
+}
+
+.profileReviewFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.profileReviewFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 8px 4px 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.profileReviewFilter:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fg);
+}
+
+.profileReviewFilter input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.profileReviewFilterIcon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(128, 157, 210, 0.42);
+  display: grid;
+  place-items: center;
+  background: rgba(5, 14, 31, 0.58);
+  color: transparent;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.profileReviewFilter input:checked + .profileReviewFilterIcon {
+  border-color: rgba(148, 184, 255, 0.78);
+  background: rgba(39, 64, 111, 0.9);
+  color: var(--fg);
+}
+
+.profileReviewFilter:focus-within {
+  outline: 2px solid rgba(148, 184, 255, 0.7);
+  outline-offset: 2px;
 }
 
 .profileReviewList {

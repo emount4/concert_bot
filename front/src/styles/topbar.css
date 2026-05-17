@@ -28,7 +28,7 @@
 .sideBarGroup {
   display: grid;
   gap: 6px;
-  justify-items: start;
+  justify-items: center;
 }
 
 .sideBarGroupBottom {
@@ -37,24 +37,25 @@
 
 .sideBarItem {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   height: 44px;
-  padding: 0 10px 0 2px;
-  border-radius: 12px;
+  padding: 0;
+  border-radius: 14px;
   border: 1px solid transparent;
   text-decoration: none;
   color: var(--fg);
   background: transparent;
   box-sizing: border-box;
-  width: calc(var(--sidebar-collapsed) - 16px);
+  width: 44px;
   transition: width 160ms ease;
 }
 
 .sideBar:hover .sideBarItem,
 .sideBar:has(.sideBarItem:focus-visible) .sideBarItem {
   width: calc(var(--sidebar-expanded) - 16px);
+  padding-right: 10px;
 }
 
 .sideBarItem:hover {
@@ -64,12 +65,13 @@
 
 .sideBarItem.active {
   border-color: var(--fg);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .sideIcon {
   width: 20px;
   height: 20px;
-  margin-left: 10px;
+  justify-self: center;
   color: var(--fg);
 }
 

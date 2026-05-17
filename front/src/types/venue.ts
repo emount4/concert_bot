@@ -1,4 +1,5 @@
 import type { AdminVenue } from './admin'
+import { resolveMediaUrl } from '../utils/mediaUrl'
 
 // Задание 4.1: тип карточки площадки для витрины.
 export type VenueCardItem = {
@@ -160,7 +161,7 @@ export function mapVenueResponseToCardItem(venue: VenueResponse, cityNameById: M
     name: venue.name,
     city: cityLabel,
     capacity: venue.capacity,
-    photo_url: venue.photo_url ?? null,
+    photo_url: resolveMediaUrl(venue.photo_url),
     avg_rating_total,
   }
 }
@@ -174,7 +175,7 @@ export function mapVenueResponseToAdminVenue(venue: VenueResponseAdmin, cityLabe
     city_id,
     address: venue.address,
     capacity: venue.capacity,
-    photo_url: venue.photo_url ?? null,
+    photo_url: resolveMediaUrl(venue.photo_url),
     description: venue.description,
     social_links: venue.social_links ?? null,
     stats: venue.stats,

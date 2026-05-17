@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { setDevAdmin } from '../utils/adminAccess'
 import { useBodyScrollLock } from '../utils/useBodyScrollLock'
 import {
@@ -16,11 +16,17 @@ import {
   loadAdminConcertSuggestions as loadAdminConcertSuggestionsFromApi,
   loadAdminReviews,
   loadAdminVenues,
+  rejectAdminReview,
+  returnAdminReviewToPending,
   restoreAdminConcert,
   restoreVenue,
   updateAdminConcert,
   updateAdminConcertArtist,
+  createArtist,
+  updateArtist,
+  uploadReviewMedia,
 } from '../api/repository'
+import { resolveMediaKey, resolveMediaUrl } from '../utils/mediaUrl'
 import {
   appendAuditLog,
   ensureAdminStoreSeeded,
@@ -32,7 +38,6 @@ import {
   setProfileChangeStatus,
   upsertCity,
   loadArtists,
-  upsertArtist,
   removeArtist,
   loadVenues,
   upsertVenue,
@@ -74,6 +79,25 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
 type AdminTab = 'moderation' | 'queue' | 'artists' | 'venues' | 'cities' | 'concerts' | 'accounts' | 'logs'
 type ModerationStream = 'pending' | 'approved' | 'rejected'
 type QueueStream = 'profile' | 'suggestions'
+
+const DEFAULT_CITY_TIMEZONE_OFFSET = 3
+
+function formatUtcOffset(offset: number): string {
+  if (offset === 0) return 'UTC+0'
+  return `UTC${offset > 0 ? '+' : ''}${offset}`
+}
+
+function parseUtcOffset(value: string | null | undefined): number {
+  if (!value) return DEFAULT_CITY_TIMEZONE_OFFSET
+  if (value === 'Europe/Moscow') return DEFAULT_CITY_TIMEZONE_OFFSET
+
+  const match = value.trim().match(/^UTC([+-]\d{1,2}|0)$/i)
+  if (!match) return DEFAULT_CITY_TIMEZONE_OFFSET
+
+  const parsed = Number(match[1])
+  if (!Number.isFinite(parsed)) return DEFAULT_CITY_TIMEZONE_OFFSET
+  return Math.min(14, Math.max(-12, parsed))
+}
 
 function roleLabel(role: AdminAccountRole): string {
   if (role === 'super-admin' || role === 'super_admin') return 'Главный админ'
@@ -148,7 +172,8 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   // Loading states for each section
   const [isLoadingModeration, setIsLoadingModeration] = useState(false)
   const [moderationError, setModerationError] = useState<string | null>(null)
-  const [loadedModerationStreams, setLoadedModerationStreams] = useState<ModerationStream[]>([])
+  const moderationLoadedRef = useRef(new Set<ModerationStream>())
+  const moderationInFlightRef = useRef(new Set<ModerationStream>())
 
   const [isLoadingCities, setIsLoadingCities] = useState(false)
   const [citiesError, setCitiesError] = useState<string | null>(null)
@@ -162,6 +187,10 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [artistsError, setArtistsError] = useState<string | null>(null)
   const [artistSaveError, setArtistSaveError] = useState<string | null>(null)
   const [isLoadingSavingArtist, setIsLoadingSavingArtist] = useState(false)
+  const [isUploadingAdminMedia, setIsUploadingAdminMedia] = useState(false)
+  const [adminMediaUploadError, setAdminMediaUploadError] = useState<string | null>(null)
+  const [adminMediaPreviewUrls, setAdminMediaPreviewUrls] = useState<Record<string, string>>({})
+  const adminMediaObjectUrlsRef = useRef<string[]>([])
   const [artistDeleteError, setArtistDeleteError] = useState<string | null>(null)
   const [loadingDeleteArtistId, setLoadingDeleteArtistId] = useState<number | null>(null)
   const [hasLoadedArtists, setHasLoadedArtists] = useState(false)
@@ -191,17 +220,28 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [hasLoadedAccounts, setHasLoadedAccounts] = useState(false)
   
   const [cities, setCities] = useState<AdminCity[]>([])
+
+  useEffect(() => {
+    return () => {
+      adminMediaObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+      adminMediaObjectUrlsRef.current = []
+    }
+  }, [])
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>(() => loadAuditLogs())
 
   useEffect(() => {
-    if (tab !== 'moderation' || loadedModerationStreams.includes(moderationStream) || isLoadingModeration) return
+    if (tab !== 'moderation') return
 
+    const stream = moderationStream
+    if (moderationLoadedRef.current.has(stream) || moderationInFlightRef.current.has(stream)) return
+
+    moderationInFlightRef.current.add(stream)
     setIsLoadingModeration(true)
     setModerationError(null)
-    void loadAdminReviews({ limit: 20, offset: 0, status: moderationStream })
+    void loadAdminReviews({ limit: 20, offset: 0, status: stream })
       .then((loadedReviews) => {
         setReviews((prev) => {
-          const otherReviews = prev.filter((review) => review.status !== moderationStream)
+          const otherReviews = prev.filter((review) => review.status !== stream)
           return [...otherReviews, ...loadedReviews]
         })
       })
@@ -210,12 +250,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
         setModerationError(error instanceof Error ? error.message : 'Failed to load moderation reviews')
       })
       .finally(() => {
+        moderationInFlightRef.current.delete(stream)
+        moderationLoadedRef.current.add(stream)
         setIsLoadingModeration(false)
-        setLoadedModerationStreams((prev) => (
-          prev.includes(moderationStream) ? prev : [...prev, moderationStream]
-        ))
       })
-  }, [isLoadingModeration, loadedModerationStreams, moderationStream, tab])
+  }, [moderationStream, tab])
 
   useEffect(() => {
     if (!['cities', 'venues'].includes(tab) || hasLoadedCities || isLoadingCities) return
@@ -351,7 +390,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     photo_url: '',
     description: '',
   })
-  const [cityForm, setCityForm] = useState({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
+  const [cityForm, setCityForm] = useState({ id: 0, name: '', slug: '', timezone: formatUtcOffset(DEFAULT_CITY_TIMEZONE_OFFSET) })
   const [concertForm, setConcertForm] = useState<{
     id: string | number
     title: string
@@ -387,8 +426,12 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [approveDraftMediaIds, setApproveDraftMediaIds] = useState<string[]>([])
   const [approveDraftError, setApproveDraftError] = useState<string | null>(null)
   const [isApprovingReview, setIsApprovingReview] = useState(false)
+  const [rejectDraftReview, setRejectDraftReview] = useState<AdminReviewModerationItem | null>(null)
+  const [rejectDraftReason, setRejectDraftReason] = useState('')
+  const [rejectDraftError, setRejectDraftError] = useState<string | null>(null)
+  const [isRejectingReview, setIsRejectingReview] = useState(false)
 
-  useBodyScrollLock(Boolean(activeModerationMedia || approveDraftReview || isVenueModalOpen || isArtistsModalOpen))
+  useBodyScrollLock(Boolean(activeModerationMedia || approveDraftReview || rejectDraftReview || isVenueModalOpen || isArtistsModalOpen))
 
   const pending_count = useMemo(
     () => reviews.filter((review) => review.status === 'pending').length,
@@ -491,11 +534,67 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     setAuditLogs((prev) => [entry, ...prev])
   }
 
-  function markReview(id: number, status: AdminReviewStatus) {
-    setReviews((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)))
+  async function markReview(id: number, status: AdminReviewStatus, rejectionReason?: string) {
+    const review = reviews.find((item) => item.id === id)
+    const reviewKey = review?.review_id ?? String(id)
 
-    if (currentAdminAccount) {
-      writeAudit(`Модератор ${currentAdminAccount.displayName} изменил статус рецензии #${id} на «${statusLabel(status)}».`)
+    try {
+      let updatedReview: AdminReviewModerationItem | null = null
+      if (status === 'rejected') {
+        updatedReview = await rejectAdminReview(reviewKey, rejectionReason ?? '')
+      } else if (status === 'pending') {
+        updatedReview = await returnAdminReviewToPending(reviewKey)
+      }
+
+      setReviews((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? updatedReview ?? { ...item, status, rejection_reason: status === 'rejected' ? rejectionReason ?? item.rejection_reason ?? null : null }
+            : item,
+        ),
+      )
+
+      if (currentAdminAccount) {
+        writeAudit(`Moderator ${currentAdminAccount.displayName} changed review #${id} status to ${statusLabel(status)}.`)
+      }
+    } catch (error) {
+      console.error('[AdminPage] Failed to update review status:', error)
+      setModerationError(error instanceof Error ? error.message : 'Failed to update review status')
+      throw error
+    }
+  }
+
+  function openRejectDraft(review: AdminReviewModerationItem) {
+    setRejectDraftReview(review)
+    setRejectDraftReason(review.rejection_reason ?? '')
+    setRejectDraftError(null)
+  }
+
+  function closeRejectDraft() {
+    setRejectDraftReview(null)
+    setRejectDraftReason('')
+    setRejectDraftError(null)
+    setIsRejectingReview(false)
+  }
+
+  async function applyRejectDraft() {
+    if (!rejectDraftReview) return
+
+    const reason = rejectDraftReason.trim()
+    if (reason.length < 5 || reason.length > 500) {
+      setRejectDraftError('Причина отказа должна быть от 5 до 500 символов.')
+      return
+    }
+
+    setRejectDraftError(null)
+    setIsRejectingReview(true)
+
+    try {
+      await markReview(rejectDraftReview.id, 'rejected', reason)
+      closeRejectDraft()
+    } catch (error) {
+      setRejectDraftError(error instanceof Error ? error.message : 'Не удалось отклонить рецензию.')
+      setIsRejectingReview(false)
     }
   }
 
@@ -692,7 +791,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
             writeAudit(`Админ ${currentAdminAccount.displayName} сохранил город «${next.name}».`)
           }
 
-          setCityForm({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
+          setCityForm({ id: 0, name: '', slug: '', timezone: formatUtcOffset(DEFAULT_CITY_TIMEZONE_OFFSET) })
           setCitySaveError(null)
         })
       })
@@ -735,17 +834,23 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }
 
   function saveArtist() {
-    if (!artistForm.name.trim()) return
+    const artistName = (artistForm.name ?? '').trim()
+    const artistDescription = (artistForm.description ?? '').trim()
+
+    if (!artistName) return
 
     setIsLoadingSavingArtist(true)
     setArtistSaveError(null)
 
-    void upsertArtist({
-      id: artistForm.id !== 0 ? artistForm.id : undefined,
-      name: artistForm.name.trim(),
-      description: artistForm.description.trim(),
-      photo_url: artistForm.photo_url || null,
-    })
+    const payload = {
+      name: artistName,
+      description: artistDescription,
+      photo_key: resolveMediaKey(artistForm.photo_url) || undefined,
+    }
+
+    const request = artistForm.id !== 0 ? updateArtist(artistForm.id, payload) : createArtist(payload)
+
+    void request
       .then((next) => {
         return loadArtists().then((updatedArtists) => {
           setArtists(updatedArtists)
@@ -818,9 +923,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }
 
   function posterKeyFromForm(value: string): string | undefined {
-    const trimmed = value.trim()
-    if (!trimmed || trimmed.startsWith('blob:')) return undefined
-    return trimmed
+    return resolveMediaKey(value) ?? undefined
   }
 
   async function reloadAdminConcerts() {
@@ -1094,12 +1197,43 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     }
   }
 
+  function getAdminPreviewSrc(value: string | null | undefined): string | null {
+    if (!value) return null
+    return adminMediaPreviewUrls[value] ?? resolveMediaUrl(value) ?? value
+  }
+
   function onMediaPick(event: React.ChangeEvent<HTMLInputElement>, onSet: (value: string) => void) {
     const file = event.target.files?.[0]
     if (!file) return
+    const localPreviewUrl = URL.createObjectURL(file)
 
-    const url = URL.createObjectURL(file)
-    onSet(url)
+    setIsUploadingAdminMedia(true)
+    setAdminMediaUploadError(null)
+
+    void uploadReviewMedia([file])
+      .then(([fileKey]) => {
+        if (!fileKey) {
+          throw new Error('Сервис загрузки не вернул ключ файла.')
+        }
+        adminMediaObjectUrlsRef.current.push(localPreviewUrl)
+        setAdminMediaPreviewUrls((prev) => {
+          const previousUrl = prev[fileKey]
+          if (previousUrl && previousUrl !== localPreviewUrl) {
+            URL.revokeObjectURL(previousUrl)
+          }
+          return { ...prev, [fileKey]: localPreviewUrl }
+        })
+        onSet(fileKey)
+      })
+      .catch((error) => {
+        URL.revokeObjectURL(localPreviewUrl)
+        console.error('[AdminPage] Failed to upload media:', error)
+        setAdminMediaUploadError(error instanceof Error ? error.message : 'Не удалось загрузить файл.')
+      })
+      .finally(() => {
+        setIsUploadingAdminMedia(false)
+        event.target.value = ''
+      })
   }
 
   function toggleArtistInConcert(artistId: number) {
@@ -1441,6 +1575,9 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 </p>
                 {review.title && <p className="adminItemTitle">{review.title}</p>}
                 <p className="adminItemPreview">{readableAdminReviewText(review.text)}</p>
+                {review.status === 'rejected' && review.rejection_reason && (
+                  <p className="adminWarningText">Причина отказа: {review.rejection_reason}</p>
+                )}
 
                 <div className="adminItemActions">
                   {review.media && review.media.length > 0 && (
@@ -1467,7 +1604,8 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                   <button
                     type="button"
                     className="settingsBtn ghost"
-                    onClick={() => markReview(review.id, 'rejected')}
+                    onClick={() => openRejectDraft(review)}
+                    disabled={isRejectingReview}
                   >
                     Отклонить
                   </button>
@@ -1553,6 +1691,52 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
             </div>
           )}
 
+          {rejectDraftReview && (
+            <div className="adminModalBackdrop" onClick={closeRejectDraft}>
+              <article className="adminModalCard" onClick={(event) => event.stopPropagation()}>
+                <div className="adminModalHeader">
+                  <h3 className="adminModalTitle">Причина отказа</h3>
+                  <button type="button" className="settingsBtn ghost" onClick={closeRejectDraft} disabled={isRejectingReview}>
+                    Закрыть
+                  </button>
+                </div>
+
+                <p className="adminListMeta">
+                  {rejectDraftReview.concert_title} • {rejectDraftReview.author_name} • {rejectDraftReview.rating_total}
+                </p>
+
+                <textarea
+                  className="adminTextarea"
+                  value={rejectDraftReason}
+                  onChange={(event) => {
+                    setRejectDraftReason(event.target.value)
+                    setRejectDraftError(null)
+                  }}
+                  placeholder="Напишите причину отказа"
+                  minLength={5}
+                  maxLength={500}
+                  disabled={isRejectingReview}
+                />
+                <p className="adminListMeta">{rejectDraftReason.trim().length} / 500</p>
+                {rejectDraftError && <p className="adminErrorText">{rejectDraftError}</p>}
+
+                <div className="adminItemActions">
+                  <button
+                    type="button"
+                    className="settingsBtn primary"
+                    onClick={applyRejectDraft}
+                    disabled={isRejectingReview || rejectDraftReason.trim().length < 5 || rejectDraftReason.trim().length > 500}
+                  >
+                    {isRejectingReview ? 'Отклонение...' : 'Отклонить'}
+                  </button>
+                  <button type="button" className="settingsBtn ghost" onClick={closeRejectDraft} disabled={isRejectingReview}>
+                    Отмена
+                  </button>
+                </div>
+              </article>
+            </div>
+          )}
+
           {approveDraftReview && (
             <div className="adminModalBackdrop" onClick={closeApproveDraft}>
               <article className="adminModalCard" onClick={(event) => event.stopPropagation()}>
@@ -1634,14 +1818,14 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               placeholder="Имя артиста"
               value={artistForm.name}
               onChange={(e) => setArtistForm((prev) => ({ ...prev, name: e.target.value }))}
-              disabled={isLoadingArtists || isLoadingSavingArtist}
+              disabled={isLoadingSavingArtist}
             />
             <textarea
               className="adminTextarea"
               placeholder="Описание"
               value={artistForm.description}
               onChange={(e) => setArtistForm((prev) => ({ ...prev, description: e.target.value }))}
-              disabled={isLoadingArtists || isLoadingSavingArtist}
+              disabled={isLoadingSavingArtist}
             />
             <label className="adminFileLabel">
               Фото артиста
@@ -1649,10 +1833,12 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 type="file"
                 accept="image/*"
                 onChange={(e) => onMediaPick(e, (value) => setArtistForm((prev) => ({ ...prev, photo_url: value })))}
-                disabled={isLoadingArtists || isLoadingSavingArtist}
+                disabled={isLoadingSavingArtist || isUploadingAdminMedia}
               />
             </label>
-            {artistForm.photo_url && <img className="adminPreviewImage" src={artistForm.photo_url} alt="Превью" />}
+            {artistForm.photo_url && <img className="adminPreviewImage" src={getAdminPreviewSrc(artistForm.photo_url) ?? artistForm.photo_url} alt="Превью" />}
+            {isUploadingAdminMedia && <p className="adminListMeta">Загрузка файла...</p>}
+            {adminMediaUploadError && <p className="adminEmpty" style={{ color: '#f44336' }}>{adminMediaUploadError}</p>}
             {artistSaveError && (
               <div style={{ color: '#f44336', fontSize: '14px', marginTop: '8px' }}>
                 ⚠️ {artistSaveError}
@@ -1661,7 +1847,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
             {concertSaveError && <p className="adminWarningText">{concertSaveError}</p>}
 
             <div className="adminItemActions">
-              <button type="button" className="settingsBtn primary" onClick={saveArtist} disabled={isLoadingArtists || isLoadingSavingArtist}>
+              <button type="button" className="settingsBtn primary" onClick={saveArtist} disabled={isLoadingSavingArtist || isUploadingAdminMedia}>
                 {isLoadingSavingArtist ? 'Сохранение...' : 'Сохранить'}
               </button>
               <button
@@ -1671,7 +1857,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                   setArtistForm({ id: 0, name: '', description: '', photo_url: '' })
                   setArtistSaveError(null)
                 }}
-                disabled={isLoadingArtists || isLoadingSavingArtist}
+                disabled={isLoadingSavingArtist || isUploadingAdminMedia}
               >
                 Очистить
               </button>
@@ -1724,8 +1910,8 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                         onClick={() =>
                           setArtistForm({
                             id: artist.id,
-                            name: artist.name,
-                            description: artist.description,
+                            name: artist.name ?? '',
+                            description: artist.description ?? '',
                             photo_url: artist.photo_url ?? '',
                           })
                         }
@@ -1800,16 +1986,19 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 type="file"
                 accept="image/*"
                 onChange={(e) => onMediaPick(e, (value) => setVenueForm((prev) => ({ ...prev, photo_url: value })))}
+                disabled={isLoadingVenues || isLoadingSavingVenue || isUploadingAdminMedia}
               />
             </label>
-            {venueForm.photo_url && <img className="adminPreviewImage" src={venueForm.photo_url} alt="Превью" />}
+            {venueForm.photo_url && <img className="adminPreviewImage" src={getAdminPreviewSrc(venueForm.photo_url) ?? venueForm.photo_url} alt="Превью" />}
+            {isUploadingAdminMedia && <p className="adminListMeta">Загрузка файла...</p>}
+            {adminMediaUploadError && <p className="adminEmpty" style={{ color: '#f44336' }}>{adminMediaUploadError}</p>}
             {venueSaveError && <p className="adminEmpty" style={{ color: '#f44336' }}>{venueSaveError}</p>}
             <div className="adminItemActions">
               <button
                 type="button"
                 className="settingsBtn primary"
                 onClick={saveVenue}
-                disabled={isLoadingVenues || isLoadingSavingVenue}
+                disabled={isLoadingVenues || isLoadingSavingVenue || isUploadingAdminMedia}
               >
                 {isLoadingSavingVenue ? 'Сохранение...' : 'Сохранить'}
               </button>
@@ -1820,7 +2009,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                   setVenueSaveError(null)
                   setVenueForm({ id: 0, name: '', city_id: 0, address: '', capacity: '0', photo_url: '', description: '' })
                 }}
-                disabled={isLoadingVenues || isLoadingSavingVenue}
+                disabled={isLoadingVenues || isLoadingSavingVenue || isUploadingAdminMedia}
               >
                 Очистить
               </button>
@@ -2025,15 +2214,18 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 onChange={(e) =>
                   onMediaPick(e, (value) => setConcertForm((prev) => ({ ...prev, poster_url: value })))
                 }
+                disabled={isLoadingSavingConcert || isUploadingAdminMedia}
               />
             </label>
             {concertForm.poster_url && (
-              <img className="adminPreviewImage" src={concertForm.poster_url} alt="Превью афиши" />
+              <img className="adminPreviewImage" src={getAdminPreviewSrc(concertForm.poster_url) ?? concertForm.poster_url} alt="Превью афиши" />
             )}
+            {isUploadingAdminMedia && <p className="adminListMeta">Загрузка файла...</p>}
+            {adminMediaUploadError && <p className="adminEmpty" style={{ color: '#f44336' }}>{adminMediaUploadError}</p>}
 
             <div className="adminItemActions">
-              <button type="button" className="settingsBtn primary" onClick={saveConcert} disabled={isLoadingSavingConcert}>
-                Сохранить
+              <button type="button" className="settingsBtn primary" onClick={saveConcert} disabled={isLoadingSavingConcert || isUploadingAdminMedia}>
+                {isLoadingSavingConcert ? 'Сохранение...' : 'Сохранить'}
               </button>
               <button
                 type="button"
@@ -2344,13 +2536,19 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               onChange={(e) => setCityForm((prev) => ({ ...prev, slug: e.target.value }))}
               disabled={isLoadingCities || isLoadingSavingCity}
             />
-            <input
-              className="adminInput"
-              placeholder="Timezone"
-              value={cityForm.timezone}
-              onChange={(e) => setCityForm((prev) => ({ ...prev, timezone: e.target.value }))}
-              disabled={isLoadingCities || isLoadingSavingCity}
-            />
+            <label className="adminFieldLabel">
+              Часовой пояс: {cityForm.timezone}
+              <input
+                className="adminRange"
+                type="range"
+                min="-12"
+                max="14"
+                step="1"
+                value={parseUtcOffset(cityForm.timezone)}
+                onChange={(e) => setCityForm((prev) => ({ ...prev, timezone: formatUtcOffset(Number(e.target.value)) }))}
+                disabled={isLoadingCities || isLoadingSavingCity}
+              />
+            </label>
             {citySaveError && (
               <div style={{ color: '#f44336', fontSize: '14px', marginTop: '8px' }}>
                 ⚠️ {citySaveError}
@@ -2364,7 +2562,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 type="button"
                 className="settingsBtn ghost"
                 onClick={() => {
-                  setCityForm({ id: 0, name: '', slug: '', timezone: 'Europe/Moscow' })
+                  setCityForm({ id: 0, name: '', slug: '', timezone: formatUtcOffset(DEFAULT_CITY_TIMEZONE_OFFSET) })
                   setCitySaveError(null)
                 }}
                 disabled={isLoadingCities || isLoadingSavingCity}
@@ -2399,7 +2597,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                       <button
                         type="button"
                         className="settingsBtn ghost"
-                        onClick={() => setCityForm({ id: city.id, name: city.name, slug: city.slug, timezone: city.timezone })}
+                        onClick={() => setCityForm({ id: city.id, name: city.name, slug: city.slug, timezone: formatUtcOffset(parseUtcOffset(city.timezone)) })}
                         disabled={loadingDeleteCityId === city.id}
                       >
                         Изменить

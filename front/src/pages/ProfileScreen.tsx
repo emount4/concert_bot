@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAppData } from '../api/AppDataProvider'
-import { loadArtistCards, loadConcerts, loadPublicProfile, loadReviews, loadVenuesList } from '../api/repository'
+import { loadArtistCards, loadConcerts, loadMyProfile, loadPublicProfile, loadReviews, loadVenuesList } from '../api/repository'
 import { mapVenueResponseToCardItem } from '../types/venue'
 import {
   getMockUserByUsername,
@@ -9,7 +9,7 @@ import {
   MOCK_FAVORITES_BY_USERNAME,
   MOCK_LIKED_REVIEW_IDS_BY_USERNAME,
 } from '../data/mockUsers'
-import type { ProfileReviewStatus } from '../types/profile'
+import type { ProfileReviewItem, ProfileReviewStatus } from '../types/profile'
 import type { ReviewCardItem } from '../types/review'
 import { resolveIsAdmin } from '../utils/adminAccess'
 import { useQuery } from '../utils/useQuery'
@@ -64,6 +64,13 @@ type ProfileBundle = {
   liked: ReviewCardItem[]
 }
 
+type ProfileReviewAuthorContext = {
+  username: string
+  displayName: string
+  avatarUrl: string | null
+  isActive: boolean
+}
+
 function normalizeUsername(value: string): string {
   return value.trim().replace(/^@+/, '').toLowerCase()
 }
@@ -99,10 +106,56 @@ function buildLikesCountByReviewId(): Map<number, number> {
   return out
 }
 
+function numericIdFromString(value: string): number {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
+  }
+  return hash || 1
+}
+
 function moderationTitle(status: ProfileReviewStatus): string {
   if (status === 'pending') return 'На модерации'
   if (status === 'rejected') return 'Отклонена'
   return ''
+}
+
+function mapProfileReviewToVm(item: ProfileReviewItem, author: ProfileReviewAuthorContext): ReviewVm {
+  const reviewId = item.review_id ? numericIdFromString(item.review_id) : item.id
+  const author_name = author.isActive ? author.displayName : 'Удаленный пользователь'
+
+  return {
+    review: {
+      id: reviewId,
+      review_id: item.review_id,
+      concert_id: item.concert_id,
+      concertId: item.concert_id ?? '',
+      author_name,
+      author_username: author.username,
+      author_avatar_url: author.isActive ? author.avatarUrl : null,
+      concert_title: item.concert_title,
+      title: item.title,
+      concert_artist: '',
+      concert_poster_url: null,
+      rating_total: item.rating_total,
+      scores: {
+        performance: item.p1 ?? 0,
+        setlist: item.p2 ?? 0,
+        crowd: item.p3 ?? 0,
+        sound: item.p4 ?? 0,
+        vibe: item.p5 ?? 0,
+      },
+      text: item.text,
+      likes_count: item.likes_count ?? 0,
+      status: item.status,
+      rejection_reason: item.rejection_reason ?? null,
+      created_at: item.created_at,
+    },
+    moderation: {
+      status: item.status,
+      rejection_reason: item.rejection_reason ?? null,
+    },
+  }
 }
 
 function ReviewsIcon() {
@@ -232,9 +285,10 @@ export function ProfileScreen(props: ProfileScreenProps) {
   // Задание 18.2: новая страница профиля (баннер + левый блок с аватаром + табы: рецензии/избранное/лайкнутое).
   const { data, isLoading: appLoading, error: appError } = useAppData()
   const [activeTab, setActiveTab] = useState<ProfileTab>('reviews')
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<ProfileReviewStatus>('approved')
   const reviewsQuery = useQuery(['profile', 'reviews'], () =>
     loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
-    { enabled: !appLoading && !appError },
+    { enabled: !appLoading && !appError && activeTab === 'liked' },
   )
   const artistsQuery = useQuery(['profile', 'artists'], () => loadArtistCards(), {
     enabled: !appLoading && !appError && activeTab === 'favorites',
@@ -259,13 +313,18 @@ export function ProfileScreen(props: ProfileScreenProps) {
   }, [myUsername, props.kind, props.kind === 'user' ? props.username : null])
 
   const isAdmin = resolveIsAdmin()
+  const isOwnProfile = Boolean(myUsername && username === myUsername)
+  const ownReviewsQuery = useQuery(['profile', 'ownReviews', reviewStatusFilter], () =>
+    loadMyProfile(reviewStatusFilter).then((profile) => profile.recent_reviews),
+    { enabled: Boolean(!appLoading && !appError && isOwnProfile && activeTab === 'reviews') },
+  )
 
   const profileQuery = useQuery<ProfileBundle | null>(
     [
       'profile',
       username,
       myUsername,
-      reviewsQuery.data?.length ?? 0,
+      data?.profile?.recent_reviews.length ?? 0,
       artistsQuery.data?.length ?? 0,
       venuesQuery.data?.length ?? 0,
       concertsQuery.data?.length ?? 0,
@@ -321,31 +380,18 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
       const likesCountByReviewId = buildLikesCountByReviewId()
 
-      const moderationByReviewId = new Map<number, { status: ProfileReviewStatus; rejection_reason?: string | null }>()
-      if (isOwn) {
-        for (const item of apiProfile.recent_reviews) {
-          moderationByReviewId.set(item.id, { status: item.status, rejection_reason: item.rejection_reason ?? null })
-        }
-      }
-
-      const allUserReviews = reviews
-        .filter((review) => normalizeUsername(review.author_username ?? '') === username)
-        .map<ReviewVm>((review) => {
-          const moderation = moderationByReviewId.get(review.id) ?? { status: 'approved' as const }
-          const author_name = is_active ? review.author_name : 'Удаленный пользователь'
-          const author_username = username
-
-          return {
-            review: {
-              ...review,
-              author_name,
-              author_username,
-              author_avatar_url: is_active ? review.author_avatar_url : null,
-            },
-            moderation,
-          }
+      const allUserReviews = apiProfile.recent_reviews
+        .map<ReviewVm>((item) => mapProfileReviewToVm(item, {
+          username,
+          displayName: apiProfile.displayName,
+          avatarUrl,
+          isActive: is_active,
+        }))
+        .sort((a, b) => {
+          const left = new Date(a.review.created_at ?? '').getTime()
+          const right = new Date(b.review.created_at ?? '').getTime()
+          return (Number.isFinite(right) ? right : 0) - (Number.isFinite(left) ? left : 0)
         })
-        .sort((a, b) => b.review.id - a.review.id)
 
       const visibleReviews = isOwn ? allUserReviews : allUserReviews.filter((item) => item.moderation.status === 'approved')
 
@@ -414,7 +460,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
       }
     },
     {
-      enabled: Boolean(!appLoading && !appError && !reviewsQuery.isLoading && data && username),
+      enabled: Boolean(!appLoading && !appError && data && username && (activeTab !== 'liked' || !reviewsQuery.isLoading)),
     },
   )
 
@@ -443,6 +489,22 @@ export function ProfileScreen(props: ProfileScreenProps) {
       </section>
     )
   }
+
+  const ownReviewItems = ownReviewsQuery.data ?? (reviewStatusFilter === 'approved' ? data?.profile?.recent_reviews ?? [] : [])
+  const displayedReviews = bundle.isOwn
+    ? ownReviewItems
+        .map((item) => mapProfileReviewToVm(item, {
+          username: bundle.username,
+          displayName: bundle.username,
+          avatarUrl: bundle.avatarUrl,
+          isActive: bundle.is_active,
+        }))
+        .sort((a, b) => {
+          const left = new Date(a.review.created_at ?? '').getTime()
+          const right = new Date(b.review.created_at ?? '').getTime()
+          return (Number.isFinite(right) ? right : 0) - (Number.isFinite(left) ? left : 0)
+        })
+    : bundle.reviews
 
   return (
     <section className="page">
@@ -544,36 +606,71 @@ export function ProfileScreen(props: ProfileScreenProps) {
         </div>
 
         <div className="profileMain">
-          <nav className="profileTabs" aria-label="Навигация по контенту профиля">
-            <button
-              type="button"
-              className={activeTab === 'reviews' ? 'profileTab active' : 'profileTab'}
-              onClick={() => setActiveTab('reviews')}
-            >
-              Рецензии
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'favorites' ? 'profileTab active' : 'profileTab'}
-              onClick={() => setActiveTab('favorites')}
-            >
-              Избранное
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'liked' ? 'profileTab active' : 'profileTab'}
-              onClick={() => setActiveTab('liked')}
-            >
-              Лайкнутое
-            </button>
-          </nav>
+          <div className="profileTabsRow">
+            <nav className="profileTabs" aria-label="Навигация по контенту профиля">
+              <button
+                type="button"
+                className={activeTab === 'reviews' ? 'profileTab active' : 'profileTab'}
+                onClick={() => setActiveTab('reviews')}
+              >
+                Рецензии
+              </button>
+              <button
+                type="button"
+                className={activeTab === 'favorites' ? 'profileTab active' : 'profileTab'}
+                onClick={() => setActiveTab('favorites')}
+              >
+                Избранное
+              </button>
+              <button
+                type="button"
+                className={activeTab === 'liked' ? 'profileTab active' : 'profileTab'}
+                onClick={() => setActiveTab('liked')}
+              >
+                Лайкнутое
+              </button>
+            </nav>
+
+            {bundle.isOwn && activeTab === 'reviews' && (
+              <div className="profileReviewFilters" aria-label="Фильтры рецензий профиля">
+                <label className="profileReviewFilter" title="Показывать отклоненные рецензии">
+                  <input
+                    type="checkbox"
+                    checked={reviewStatusFilter === 'rejected'}
+                    onChange={(event) => setReviewStatusFilter(event.target.checked ? 'rejected' : 'approved')}
+                  />
+                  <span aria-hidden="true" className="profileReviewFilterIcon">
+                    ×
+                  </span>
+                  <span>Удаленные</span>
+                </label>
+                <label className="profileReviewFilter" title="Показывать рецензии, ожидающие модерации">
+                  <input
+                    type="checkbox"
+                    checked={reviewStatusFilter === 'pending'}
+                    onChange={(event) => setReviewStatusFilter(event.target.checked ? 'pending' : 'approved')}
+                  />
+                  <span aria-hidden="true" className="profileReviewFilterIcon">
+                    ✓
+                  </span>
+                  <span>На модерации</span>
+                </label>
+              </div>
+            )}
+          </div>
 
           <section className="profileContent">
             {activeTab === 'reviews' && (
               <>
-                {bundle.reviews.length > 0 ? (
+                {bundle.isOwn && ownReviewsQuery.isLoading ? (
+                  <div className="profileReviewList reviewColumn" aria-busy="true">
+                    <div className="profileReviewSkeleton skeleton" />
+                  </div>
+                ) : bundle.isOwn && ownReviewsQuery.error ? (
+                  <div className="placeholder">{ownReviewsQuery.error}</div>
+                ) : displayedReviews.length > 0 ? (
                   <div className="profileReviewList reviewColumn">
-                    {bundle.reviews.map((item) => (
+                    {displayedReviews.map((item) => (
                       <div key={item.review.id} className="profileReviewItem">
                         <ReviewCard
                           review={item.review}

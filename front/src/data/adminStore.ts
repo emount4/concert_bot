@@ -27,6 +27,7 @@ import type { CreateCityPayload, UpdateCityPayload } from '../types/city'
 import type { ArtistSocialLinks, CreateArtistPayload, UpdateArtistPayload, AdminArtistResponse } from '../types/artist'
 import type { CreateVenueRequest, UpdateVenueRequest } from '../types/venue'
 import { mapVenueResponseToAdminVenue } from '../types/venue'
+import { resolveMediaKey } from '../utils/mediaUrl'
 
 // Задание 19.2: localStorage-store для админских очередей/городов/логов (mock-only), чтобы позже заменить на API.
 
@@ -340,7 +341,7 @@ export async function upsertArtist(nextArtist: AdminArtistUpsertInput): Promise<
       const payload: UpdateArtistPayload = {
         name: nextArtist.name,
         description: nextArtist.description,
-        photo_key: nextArtist.photo_url || undefined,
+        photo_key: resolveMediaKey(nextArtist.photo_url) || undefined,
         social_links: nextArtist.social_links || undefined,
       }
       const updated = await updateArtist(nextArtist.id, payload)
@@ -358,7 +359,7 @@ export async function upsertArtist(nextArtist: AdminArtistUpsertInput): Promise<
     const payload: CreateArtistPayload = {
       name: nextArtist.name,
       description: nextArtist.description,
-      photo_key: nextArtist.photo_url || undefined,
+      photo_key: resolveMediaKey(nextArtist.photo_url) || undefined,
       social_links: nextArtist.social_links || undefined,
     }
     const created = await createArtist(payload)
@@ -465,7 +466,7 @@ export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVen
         name: next.name,
         address: next.address,
         capacity: next.capacity,
-        photo_key: next.photo_url || undefined,
+        photo_key: resolveMediaKey(next.photo_url) || undefined,
         description: next.description ?? '',
         city_id: next.city_id,
       }
@@ -479,7 +480,7 @@ export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVen
       name: next.name,
       address: next.address,
       capacity: next.capacity,
-      photo_key: next.photo_url || undefined,
+      photo_key: resolveMediaKey(next.photo_url) || undefined,
       description: next.description?.trim() || '',
     }
     const created = await createVenue(payload)

@@ -114,3 +114,8 @@
 .detailHero .artistPhoto {
   border-bottom: none;
 }
+
+.venueDetailHero {
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  min-height: 280px;
+}

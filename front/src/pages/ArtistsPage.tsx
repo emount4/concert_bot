@@ -15,7 +15,7 @@ import { useQuery } from '../utils/useQuery'
 type SortDirection = 'desc' | 'asc'
 type ArtistSortBy = 'rating' | 'alphabet'
 type ArtistReviewsFilter = 'all' | 'with_reviews' | 'without_reviews'
-const ARTISTS_PAGE_SIZE = 12
+const ARTISTS_PAGE_SIZE = 10
 const ARTIST_SORT_QUERY: Record<ArtistSortBy, string> = {
   rating: 'rating',
   alphabet: 'name',

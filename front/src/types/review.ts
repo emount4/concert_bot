@@ -32,6 +32,7 @@ export type ReviewCardItem = {
   author_username?: string
   author_avatar_url: string | null
   concert_title: string
+  title?: string
   concert_artist: string
   concert_poster_url: string | null
   rating_total?: number
@@ -69,5 +70,12 @@ export function resolveReviewScores(review: Pick<ReviewCardItem, 'scores'>): Rev
     sound: Number(s.sound) || 0,
     vibe: Number(s.vibe) || 0,
   }
+}
+
+export function calculateReviewRating(p1: number, p2: number, p3: number, p4: number, p5: number): number {
+  const step = (1.6072 - 1.0) / 9.0
+  const k = 1.0 + (p5 - 1) * step
+  const result = (p1 + p2 + p3 + p4) * 1.4 * k
+  return Math.min(90, Math.round(result))
 }
 

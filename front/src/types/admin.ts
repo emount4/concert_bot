@@ -75,6 +75,7 @@ export type AdminReviewModerationItem = {
   created_at: string
   rating_total: number
   status: AdminReviewStatus
+  rejection_reason?: string | null
   text: string
   media?: AdminReviewAttachment[]
 }

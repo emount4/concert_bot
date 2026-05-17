@@ -6,6 +6,7 @@ export type Artist = {
   id: ConcertId
   name: string
   is_main?: boolean
+  photo_url?: string | null
 }
 
 export type Venue = {

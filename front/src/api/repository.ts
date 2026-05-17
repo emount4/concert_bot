@@ -1,5 +1,5 @@
 import { adminRequest, apiRequest } from './client'
-import { API_BASE_URL, DATA_SOURCE_MODE } from './config'
+import { DATA_SOURCE_MODE } from './config'
 import { apiEndpoints } from './endpoints'
 import { MOCK_ADMIN_ACCOUNTS, MOCK_ADMIN_ARTISTS, MOCK_ADMIN_CONCERTS, MOCK_ADMIN_REVIEWS, MOCK_ADMIN_VENUES } from '../data/mockAdmin'
 import { MOCK_ARTISTS } from '../data/mockArtists'
@@ -14,7 +14,8 @@ import type { Artist, ArtistCardItem, CreateArtistPayload, UpdateArtistPayload, 
 import type { City, CreateCityPayload, UpdateCityPayload } from '../types/city'
 import type { Concert } from '../types/concert'
 import type { UserProfile } from '../types/profile'
-import type { ReviewCardItem } from '../types/review'
+import { calculateReviewRating, type ReviewCardItem } from '../types/review'
+import { resolveMediaUrl } from '../utils/mediaUrl'
 import type {
   VenueCardItem,
   VenueResponse,
@@ -143,11 +144,20 @@ type ReviewApiResponse = {
     avatar_url?: string | null
   } | null
   concert_title?: string | null
+  concert?: {
+    id: string
+    title: string
+    poster_url?: string | null
+    artists?: Array<{
+      id: number
+      name: string
+    }>
+  } | null
   media?: Array<{
     media_id: string
     review_id?: string
     media_url: string
-    media_type: 'image' | 'video'
+    media_type?: string | null
     file_size?: number | null
     status?: string
     created_at?: string
@@ -162,10 +172,42 @@ type BatchUploadResponse = {
     upload_form?: Record<string, string> | null
   }>
 }
+
+function normalizeReviewMediaType(mediaType: string | null | undefined, mediaUrl: string | null | undefined): 'image' | 'video' {
+  const normalizedType = mediaType?.trim().toLowerCase() ?? ''
+  if (normalizedType.includes('video') || ['mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv'].includes(normalizedType)) {
+    return 'video'
+  }
+
+  const normalizedUrl = mediaUrl?.split('?')[0]?.split('#')[0]?.toLowerCase() ?? ''
+  if (/\.(mp4|webm|mov|m4v|ogg|ogv)$/.test(normalizedUrl)) {
+    return 'video'
+  }
+
+  return 'image'
+}
 type UserStatsApiResponse = {
   reviews_count: number
   likes_given_count: number
   likes_received_count: number
+}
+type ProfileReviewApiResponse = {
+  review_id: string
+  concert_id?: string | null
+  title?: string | null
+  text?: string | null
+  rating?: number | null
+  rating_total?: number | null
+  p1?: number | null
+  p2?: number | null
+  p3?: number | null
+  p4?: number | null
+  p5?: number | null
+  created_at?: string | null
+  concert_title?: string | null
+  likes_count?: number | null
+  status?: string | null
+  rejection_reason?: string | null
 }
 type UserMeApiResponse = {
   id: string
@@ -181,6 +223,7 @@ type UserMeApiResponse = {
   is_banned: boolean
   created_at: string
   stats?: UserStatsApiResponse | null
+  reviews?: ProfileReviewApiResponse[] | null
 }
 type PublicProfileApiResponse = {
   username: string
@@ -189,22 +232,18 @@ type PublicProfileApiResponse = {
   banner_url?: string | null
   created_at: string
   stats?: UserStatsApiResponse | null
-}
-
-function resolveApiAssetUrl(value: string | null | undefined): string | null {
-  if (!value) return null
-  if (/^(?:https?:|data:|blob:)/i.test(value)) return value
-
-  const apiOrigin = new URL(API_BASE_URL, globalThis.location?.origin).origin
-  const normalizedPath = value.startsWith('/') ? value : `/${value}`
-  return `${apiOrigin}${normalizedPath}`
+  reviews?: ProfileReviewApiResponse[] | null
 }
 
 function mapConcertResponseToConcert(concert: Concert): Concert {
   return {
     ...concert,
     concert_id: concert.concert_id ?? String(concert.id),
-    poster_url: resolveApiAssetUrl(concert.poster_url),
+    poster_url: resolveMediaUrl(concert.poster_url),
+    artists: (concert.artists ?? []).map((artist) => ({
+      ...artist,
+      photo_url: resolveMediaUrl(artist.photo_url),
+    })),
   }
 }
 
@@ -224,7 +263,7 @@ function mapAdminConcertResponseToAdminConcert(concert: AdminConcert): AdminConc
   return {
     ...concert,
     concert_id: concert.concert_id ?? String(concert.id),
-    poster_url: resolveApiAssetUrl(concert.poster_url),
+    poster_url: resolveMediaUrl(concert.poster_url),
     venue_id: concert.venue_id ?? concert.venue?.id ?? 0,
     artist_ids: Array.isArray(concert.artist_ids) ? concert.artist_ids : artists.map((artist) => artist.id),
     stats: concert.stats ?? null,
@@ -249,11 +288,25 @@ function mapArtistResponseToCardItem(artist: Artist): ArtistCardItem {
     artist_id: String(artist.id),
     id: artist.id,
     name: artist.name,
-    photo_url: resolveApiAssetUrl(artist.photo_url),
+    photo_url: resolveMediaUrl(artist.photo_url),
     avg_rating_total,
     reviews_count: reviewsCount,
     concerts_count: artist.stats?.concerts_count ?? 0,
     social_links: artist.social_links ?? null,
+  }
+}
+
+function mapArtistResponseToArtist(artist: Artist): Artist {
+  return {
+    ...artist,
+    photo_url: resolveMediaUrl(artist.photo_url),
+  }
+}
+
+function mapAdminArtistResponseToAdminArtist(artist: AdminArtistResponse): AdminArtistResponse {
+  return {
+    ...artist,
+    photo_url: resolveMediaUrl(artist.photo_url),
   }
 }
 
@@ -267,19 +320,24 @@ function numericIdFromString(value: string): number {
 
 function mapReviewResponseToCardItem(review: ReviewApiResponse, concerts: Concert[] = []): ReviewCardItem {
   const concert = concerts.find((item) => String(item.concert_id ?? item.id) === String(review.concert_id))
+  const reviewConcert = review.concert ?? null
+  const reviewConcertId = reviewConcert?.id ?? review.concert_id
+  const reviewConcertArtists = reviewConcert?.artists?.map((artist) => artist.name).join(', ')
   const authorName = review.author?.username ?? 'unknown'
+  const localRating = calculateReviewRating(Number(review.p1) || 0, Number(review.p2) || 0, Number(review.p3) || 0, Number(review.p4) || 0, Number(review.p5) || 0)
   return {
     id: numericIdFromString(review.review_id),
     review_id: review.review_id,
-    concert_id: review.concert_id,
-    concertId: review.concert_id,
+    concert_id: reviewConcertId,
+    concertId: reviewConcertId,
     author_name: authorName,
     author_username: review.author?.username,
-    author_avatar_url: resolveApiAssetUrl(review.author?.avatar_url),
+    author_avatar_url: resolveMediaUrl(review.author?.avatar_url),
     concert_title: review.concert_title ?? concert?.title ?? 'Концерт',
-    concert_artist: concert?.artists.map((artist) => artist.name).join(', ') ?? '',
-    concert_poster_url: concert?.poster_url ?? null,
-    rating_total: review.rating_total ?? undefined,
+    title: review.title ?? undefined,
+    concert_artist: reviewConcertArtists ?? concert?.artists.map((artist) => artist.name).join(', ') ?? '',
+    concert_poster_url: resolveMediaUrl(reviewConcert?.poster_url) ?? concert?.poster_url ?? null,
+    rating_total: localRating || (review.rating_total ?? undefined),
     scores: {
       performance: Number(review.p1) || 0,
       setlist: Number(review.p2) || 0,
@@ -290,8 +348,8 @@ function mapReviewResponseToCardItem(review: ReviewApiResponse, concerts: Concer
     text: review.text ?? '',
     media: (review.media ?? []).map((media) => ({
       id: media.media_id,
-      type: media.media_type,
-      url: resolveApiAssetUrl(media.media_url) ?? media.media_url,
+      type: normalizeReviewMediaType(media.media_type, media.media_url),
+      url: resolveMediaUrl(media.media_url) ?? media.media_url,
       file_size: media.file_size,
       status: media.status,
     })),
@@ -303,8 +361,34 @@ function mapReviewResponseToCardItem(review: ReviewApiResponse, concerts: Concer
   }
 }
 
+function mapProfileReviewResponseToProfileReview(review: ProfileReviewApiResponse): UserProfile['recent_reviews'][number] {
+  const hasParams = [review.p1, review.p2, review.p3, review.p4, review.p5].every((value) => typeof value === 'number')
+  const localRating = hasParams
+    ? calculateReviewRating(Number(review.p1), Number(review.p2), Number(review.p3), Number(review.p4), Number(review.p5))
+    : null
+  return {
+    id: numericIdFromString(review.review_id),
+    review_id: review.review_id,
+    concert_id: review.concert_id ?? undefined,
+    concert_title: review.concert_title ?? 'Концерт',
+    title: review.title ?? '',
+    text: review.text ?? '',
+    created_at: review.created_at ?? '',
+    status: (review.status ?? 'approved') as UserProfile['recent_reviews'][number]['status'],
+    rejection_reason: review.rejection_reason ?? null,
+    rating_total: localRating ?? review.rating_total ?? review.rating ?? 0,
+    p1: review.p1 ?? undefined,
+    p2: review.p2 ?? undefined,
+    p3: review.p3 ?? undefined,
+    p4: review.p4 ?? undefined,
+    p5: review.p5 ?? undefined,
+    likes_count: review.likes_count ?? 0,
+  }
+}
+
 function mapMeResponseToProfile(profile: UserMeApiResponse): UserProfile {
   const stats = profile.stats
+  const reviews = (profile.reviews ?? []).map(mapProfileReviewResponseToProfileReview)
   return {
     user_id: profile.id,
     id: profile.id,
@@ -318,20 +402,21 @@ function mapMeResponseToProfile(profile: UserMeApiResponse): UserProfile {
     likes_received_count: stats?.likes_received_count ?? 0,
     approved_count: stats?.reviews_count ?? 0,
     pending_count: 0,
-    avatar_url: resolveApiAssetUrl(profile.avatar_url),
-    banner_url: resolveApiAssetUrl(profile.banner_url),
+    avatar_url: resolveMediaUrl(profile.avatar_url),
+    banner_url: resolveMediaUrl(profile.banner_url),
     telegram_id: profile.telegram_id ?? null,
     telegram_username: profile.telegram_username ?? null,
     role_id: profile.role_id,
     is_email_verified: profile.is_email_verified,
     is_banned: profile.is_banned,
     is_active: !profile.is_banned,
-    recent_reviews: [],
+    recent_reviews: reviews,
   }
 }
 
 function mapPublicProfileResponseToProfile(profile: PublicProfileApiResponse): UserProfile {
   const stats = profile.stats
+  const reviews = (profile.reviews ?? []).map(mapProfileReviewResponseToProfileReview)
   return {
     id: profile.username,
     displayName: profile.username,
@@ -343,15 +428,16 @@ function mapPublicProfileResponseToProfile(profile: PublicProfileApiResponse): U
     likes_received_count: stats?.likes_received_count ?? 0,
     approved_count: stats?.reviews_count ?? 0,
     pending_count: 0,
-    avatar_url: resolveApiAssetUrl(profile.avatar_url),
-    banner_url: resolveApiAssetUrl(profile.banner_url),
+    avatar_url: resolveMediaUrl(profile.avatar_url),
+    banner_url: resolveMediaUrl(profile.banner_url),
     is_active: true,
-    recent_reviews: [],
+    recent_reviews: reviews,
   }
 }
 
 function mapReviewResponseToAdminModerationItem(review: ReviewApiResponse): AdminReviewModerationItem {
   const authorName = review.author?.username ?? review.user_id ?? 'unknown'
+  const localRating = calculateReviewRating(Number(review.p1) || 0, Number(review.p2) || 0, Number(review.p3) || 0, Number(review.p4) || 0, Number(review.p5) || 0)
   return {
     id: numericIdFromString(review.review_id),
     review_id: review.review_id,
@@ -360,13 +446,14 @@ function mapReviewResponseToAdminModerationItem(review: ReviewApiResponse): Admi
     concert_title: review.concert_title ?? 'Концерт',
     title: review.title ?? '',
     created_at: review.created_at ?? '',
-    rating_total: review.rating_total ?? 0,
+    rating_total: localRating || (review.rating_total ?? 0),
     status: (review.status ?? 'pending') as AdminReviewModerationItem['status'],
+    rejection_reason: review.rejection_reason ?? null,
     text: review.text ?? '',
     media: (review.media ?? []).map((media) => ({
       id: media.media_id,
-      type: media.media_type,
-      url: resolveApiAssetUrl(media.media_url) ?? media.media_url,
+      type: normalizeReviewMediaType(media.media_type, media.media_url),
+      url: resolveMediaUrl(media.media_url) ?? media.media_url,
     })),
   }
 }
@@ -418,12 +505,18 @@ function normalizeUsername(input: string): string {
   return input.trim().replace(/^@+/, '').toLowerCase()
 }
 
-export async function loadMyProfile(): Promise<UserProfile> {
+export async function loadMyProfile(includeStatuses = 'approved'): Promise<UserProfile> {
   if (DATA_SOURCE_MODE === 'mock') {
-    return applyProfileOverrides(MOCK_PROFILE)
+    const statuses = new Set(includeStatuses.split(',').map((status) => status.trim()).filter(Boolean))
+    const profile = applyProfileOverrides(MOCK_PROFILE)
+    return {
+      ...profile,
+      recent_reviews: profile.recent_reviews.filter((review) => statuses.has(review.status)),
+    }
   }
 
-  const response = await apiRequest<UserMeApiResponse>(apiEndpoints.users.me)
+  const query = buildQuery({ include_statuses: includeStatuses })
+  const response = await apiRequest<UserMeApiResponse>(`${apiEndpoints.users.me}${query}`)
   return mapMeResponseToProfile(response)
 }
 
@@ -556,7 +649,7 @@ export async function createReview(payload: CreateReviewPayload): Promise<Review
       p3: payload.p3,
       p4: payload.p4,
       p5: payload.p5,
-      rating_total: payload.p1 + payload.p2 + payload.p3 + payload.p4 + payload.p5,
+      rating_total: calculateReviewRating(payload.p1, payload.p2, payload.p3, payload.p4, payload.p5),
       status: 'pending',
       author: {
         username: MOCK_PROFILE.handle,
@@ -579,7 +672,9 @@ async function uploadFileWithTicket(file: File, ticket: BatchUploadResponse['ite
   if (ticket.upload_form && Object.keys(ticket.upload_form).length > 0) {
     const form = new FormData()
     Object.entries(ticket.upload_form).forEach(([key, value]) => {
-      form.append(key, value)
+      if (key !== 'url') {
+        form.append(key, value)
+      }
     })
     form.append('file', file)
 
@@ -688,7 +783,12 @@ export async function loadAdminData(): Promise<AdminSeedData> {
     adminRequest<PagedListResponse<ReviewApiResponse>>(apiEndpoints.admin.pendingReviews).then((res) =>
       res.items.map(mapReviewResponseToAdminModerationItem),
     ),
-    adminRequest<ListResponse<AdminArtist>>(apiEndpoints.admin.artists).then((res) => res.items),
+    adminRequest<ListResponse<AdminArtist>>(apiEndpoints.admin.artists).then((res) =>
+      res.items.map((artist) => ({
+        ...artist,
+        photo_url: resolveMediaUrl(artist.photo_url),
+      })),
+    ),
     loadAdminVenuesMapped({ include_deleted: true }),
     loadAdminConcerts({ include_deleted: true }),
     adminRequest<ListResponse<AdminAccount>>(apiEndpoints.admin.users).then((res) => res.items),
@@ -722,6 +822,17 @@ export async function loadAdminReviews(params?: AdminReviewsListParams): Promise
     return MOCK_ADMIN_REVIEWS
   }
 
+  if (params?.status === 'approved') {
+    const query = buildQuery({
+      limit: params.limit,
+      offset: params.offset,
+      sort: 'created_at',
+      direction: 'DESC',
+    })
+    const response = await apiRequest<PagedListResponse<ReviewApiResponse>>(`${apiEndpoints.reviews.list}${query}`)
+    return response.items.map(mapReviewResponseToAdminModerationItem)
+  }
+
   const query = buildQuery(params ?? {})
   const response = await adminRequest<PagedListResponse<ReviewApiResponse>>(`${apiEndpoints.admin.pendingReviews}${query}`)
   return response.items.map(mapReviewResponseToAdminModerationItem)
@@ -736,6 +847,26 @@ export async function approveAdminReview(
   }
 
   const response = await adminRequest<ReviewApiResponse | null>(apiEndpoints.admin.approveReview(reviewId), 'POST', payload)
+  return response ? mapReviewResponseToAdminModerationItem(response) : null
+}
+
+export async function rejectAdminReview(reviewId: string, reason: string): Promise<AdminReviewModerationItem | null> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    return null
+  }
+
+  const response = await adminRequest<ReviewApiResponse | null>(apiEndpoints.admin.rejectReview(reviewId), 'POST', {
+    rejection_reason: reason,
+  })
+  return response ? mapReviewResponseToAdminModerationItem(response) : null
+}
+
+export async function returnAdminReviewToPending(reviewId: string): Promise<AdminReviewModerationItem | null> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    return null
+  }
+
+  const response = await adminRequest<ReviewApiResponse | null>(apiEndpoints.admin.returnReviewToPending(reviewId), 'POST')
   return response ? mapReviewResponseToAdminModerationItem(response) : null
 }
 
@@ -1061,7 +1192,7 @@ export async function loadArtists(): Promise<Artist[]> {
 
   console.log('[loadArtists] Loading artists from API...')
   const response = await apiRequest<ListResponse<Artist>>(apiEndpoints.artists.list)
-  return response.items
+  return response.items.map(mapArtistResponseToArtist)
 }
 
 export async function loadArtistCardsPage(params?: PublicArtistsListParams): Promise<PagedListResponse<ArtistCardItem>> {
@@ -1098,7 +1229,8 @@ export async function getArtistById(artistId: number | string): Promise<Artist> 
     }
   }
 
-  return apiRequest<Artist>(apiEndpoints.artists.byId(artistId))
+  const response = await apiRequest<Artist>(apiEndpoints.artists.byId(artistId))
+  return mapArtistResponseToArtist(response)
 }
 
 export async function createArtist(payload: CreateArtistPayload): Promise<Artist> {
@@ -1108,7 +1240,7 @@ export async function createArtist(payload: CreateArtistPayload): Promise<Artist
       id: nextId,
       name: payload.name,
       description: payload.description || '',
-      photo_url: null,
+      photo_url: resolveMediaUrl(payload.photo_key) ?? null,
       social_links: payload.social_links,
       status: 'active',
       created_at: new Date().toISOString(),
@@ -1116,7 +1248,8 @@ export async function createArtist(payload: CreateArtistPayload): Promise<Artist
     return newArtist
   }
 
-  return apiRequest<Artist>(apiEndpoints.artists.create, 'POST', payload)
+  const response = await apiRequest<Artist>(apiEndpoints.artists.create, 'POST', payload)
+  return mapArtistResponseToArtist(response)
 }
 
 export async function updateArtist(artistId: number | string, payload: UpdateArtistPayload): Promise<Artist> {
@@ -1127,14 +1260,15 @@ export async function updateArtist(artistId: number | string, payload: UpdateArt
       id: artist.id,
       name: payload.name || artist.name,
       description: payload.description || '',
-      photo_url: artist.photo_url,
+      photo_url: resolveMediaUrl(payload.photo_key) ?? artist.photo_url,
       social_links: payload.social_links,
       status: 'active',
       created_at: new Date().toISOString(),
     }
   }
 
-  return apiRequest<Artist>(apiEndpoints.artists.update(artistId), 'PATCH', payload)
+  const response = await adminRequest<Artist>(apiEndpoints.admin.artistById(artistId), 'PATCH', payload)
+  return mapArtistResponseToArtist(response)
 }
 
 export async function deleteArtistSoft(artistId: number | string): Promise<void> {
@@ -1169,7 +1303,8 @@ export async function restoreArtist(artistId: number | string): Promise<Artist> 
     }
   }
 
-  return apiRequest<Artist>(apiEndpoints.artists.restore(artistId), 'POST')
+  const response = await apiRequest<Artist>(apiEndpoints.artists.restore(artistId), 'POST')
+  return mapArtistResponseToArtist(response)
 }
 
 export async function loadAdminArtists(
@@ -1190,6 +1325,6 @@ export async function loadAdminArtists(
   const query = queryParams.toString()
   const url = query ? `${apiEndpoints.admin.artists}?${query}` : apiEndpoints.admin.artists
   const response = await adminRequest<ListResponse<AdminArtistResponse>>(url)
-  return response.items
+  return response.items.map(mapAdminArtistResponseToAdminArtist)
 }
 

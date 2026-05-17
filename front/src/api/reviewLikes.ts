@@ -1,9 +1,10 @@
 import { apiRequest } from './client'
-import { API_BASE_URL, DATA_SOURCE_MODE } from './config'
+import { DATA_SOURCE_MODE } from './config'
 import { apiEndpoints } from './endpoints'
 import { MOCK_REVIEWS } from '../data/mockReviews'
 import { getMockUserByDisplayName, getMockUserByUsername } from '../data/mockUsers'
 import type { ReviewLikeUser } from '../types/review'
+import { resolveMediaUrl } from '../utils/mediaUrl'
 
 type ListResponse<T> = { items: T[] }
 type ReviewLikeApiUser = {
@@ -31,21 +32,12 @@ function enrichMockLikers(likers: ReviewLikeUser[]): ReviewLikeUser[] {
   })
 }
 
-function resolveApiAssetUrl(value: string | null | undefined): string | null {
-  if (!value) return null
-  if (/^(?:https?:|data:|blob:)/i.test(value)) return value
-
-  const apiOrigin = new URL(API_BASE_URL, globalThis.location?.origin).origin
-  const normalizedPath = value.startsWith('/') ? value : `/${value}`
-  return `${apiOrigin}${normalizedPath}`
-}
-
 function mapApiLiker(user: ReviewLikeApiUser): ReviewLikeUser {
   const username = user.username ?? user.id ?? 'unknown'
   return {
     name: username,
     username,
-    avatar_url: resolveApiAssetUrl(user.avatar_url),
+    avatar_url: resolveMediaUrl(user.avatar_url),
   }
 }
 

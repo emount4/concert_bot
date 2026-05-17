@@ -241,6 +241,11 @@
     grid-template-columns: 180px minmax(0, 1fr);
   }
 
+  .venueDetailHero {
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    min-height: 240px;
+  }
+
   .detailConcertItem {
     width: min(72vw, 240px);
   }
@@ -435,6 +440,12 @@
 
   .detailHero {
     grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .venueDetailHero {
+    grid-template-columns: 1fr;
+    min-height: 0;
   }
 
   .detailHeroMedia {
@@ -444,6 +455,17 @@
 
   .detailHeroBody {
     width: 100%;
+    padding-right: 0;
+  }
+
+  .detailFavoriteBtn,
+  .detailRatingCircle {
+    position: static;
+    transform: none;
+  }
+
+  .detailFavoriteBtn {
+    margin-left: auto;
   }
 
   .detailHeroTitle {
@@ -586,6 +608,34 @@
   .rateModalTitle {
     font-size: 18px;
     margin-bottom: 12px;
+  }
+
+  .reviewMediaBackdrop {
+    padding: 8px;
+  }
+
+  .reviewMediaCard,
+  .adminMediaModalCard {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    padding: 10px;
+  }
+
+  .reviewMediaStage,
+  .adminMediaStage {
+    grid-template-columns: 1fr;
+  }
+
+  .reviewMediaArrow,
+  .adminMediaArrow {
+    display: none;
+  }
+
+  .reviewMediaItem,
+  .reviewMediaAsset,
+  .adminMediaItem,
+  .adminMediaAsset {
+    max-height: calc(100dvh - 150px);
   }
 
   .rateModalBody {

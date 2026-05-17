@@ -9,7 +9,7 @@ import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
 import { useBodyScrollLock } from '../utils/useBodyScrollLock'
 import type { Concert, ConcertStats } from '../types/concert'
-import { getReviewConcertIdKey } from '../types/review'
+import { calculateReviewRating, getReviewConcertIdKey } from '../types/review'
 import { useQuery } from '../utils/useQuery'
 
 type ScoreState = {
@@ -303,11 +303,7 @@ export function RateConcertPage() {
     }).format(date)
   }, [concert])
   // Задание 11.2: итоговая оценка считается по формуле из plan.txt.
-  const objectiveSum = scores.performance + scores.setlist + scores.crowd + scores.sound
-  const vibeMultiplier = Math.pow(1.6072, (scores.vibe - 1) / 9)
-  const overallRaw = objectiveSum * 1.4 * vibeMultiplier
-  const rating_total = Math.min(90, overallRaw)
-  const overallRounded = Math.round(rating_total)
+  const overallRounded = calculateReviewRating(scores.performance, scores.setlist, scores.crowd, scores.sound, scores.vibe)
   const avg_rating_total =
     !concert?.stats.reviews_count ||
     concert.stats.avg_rating_total === null ||

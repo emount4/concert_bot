@@ -48,17 +48,17 @@ function ReviewsIcon() {
 }
 
 export function ConcertCard({ concert }: ConcertCardProps) {
-  // Задание 2.2: карточка работает с API-структурой концерта.
-  const artistsLabel = concert.artists.map((artist) => artist.name).join(', ') || 'Артист не указан'
+  const mainArtists = concert.artists.filter((artist) => artist.is_main === true)
+  const artistsLabel = mainArtists.map((artist) => artist.name).join(', ') || 'Артист не указан'
   const rating = concert.stats.avg_rating_total
   const hasReviews = concert.stats.reviews_count > 0
   const roundedRating = hasReviews && rating !== null && rating > 0 ? Math.round(rating) : null
   const [isPosterFailed, setIsPosterFailed] = useState(false)
-  const posterUrl = isPosterFailed ? null : concert.poster_url
+  const fallbackArtistPhotoUrl = mainArtists.find((artist) => artist.photo_url)?.photo_url ?? null
+  const posterUrl = isPosterFailed ? null : concert.poster_url || fallbackArtistPhotoUrl
 
   return (
     <article className="concertCard">
-      {/* Задание 2.3: заменить заглушку афиши на реальное изображение (если есть URL). */}
       <div className="concertPoster" aria-label="Постер концерта">
         {posterUrl ? (
           <img
@@ -122,4 +122,3 @@ export function ConcertCard({ concert }: ConcertCardProps) {
     </article>
   )
 }
-

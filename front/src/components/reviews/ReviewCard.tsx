@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { resolveReviewScores, type ReviewCardItem, type ReviewLikeUser } from '../../types/review'
 import { loadReviewLikers, toggleReviewLike } from '../../api/reviewLikes'
 import { DATA_SOURCE_MODE } from '../../api/config'
@@ -162,9 +162,9 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const media = review.media ?? []
   const currentMedia = media[currentMediaIndex] ?? null
-  const navigate = useNavigate()
   const authorLinkParam = encodeURIComponent(review.author_username ?? review.author_name)
   const reviewKey = review.review_id ?? String(review.id)
+  const concertHref = `/concerts/${encodeURIComponent(String(review.concert_id ?? review.concertId))}/rate`
 
   const allowTextToggle = textMode === 'collapsible'
 
@@ -322,11 +322,10 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
           </div>
         </div>
 
-        <button
-          type="button"
+        <Link
+          to={concertHref}
           className="reviewConcertPosterWrap reviewPosterBtn"
           aria-label="Открыть страницу оценивания концерта"
-          onClick={() => navigate(`/concerts/${review.concertId}/rate`)}
         >
           <div className="reviewConcertPosterMedia">
             {review.concert_poster_url ? (
@@ -347,11 +346,11 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
             <p className="reviewPosterTooltipTitle">{review.concert_title}</p>
             <p className="reviewPosterTooltipArtist">{review.concert_artist}</p>
           </div>
-        </button>
+        </Link>
       </header>
 
       <div className="reviewBody">
-        <h2 className="reviewConcertTitle">{review.concert_title}</h2>
+        <h2 className="reviewConcertTitle">{review.title?.trim() || review.concert_title}</h2>
 
         <p className={expanded ? 'reviewText expanded' : 'reviewText'}>{review.text}</p>
 
