@@ -13,6 +13,9 @@ export const apiEndpoints = {
   users: {
     me: '/users/me',
     patchMe: '/users/me',
+    likedReviews: '/users/me/liked-reviews',
+    likedReviewsByUsername: (username: string) => `/users/${encodeURIComponent(username)}/liked-reviews`,
+    profileModeration: '/users/me/profile-moderation',
     profileByUsername: (username: string) => `/users/${encodeURIComponent(username)}`,
     notifications: '/users/notifications',
   },
@@ -58,9 +61,13 @@ export const apiEndpoints = {
     presignUpload: '/media/presign',
   },
   favorites: {
-    list: '/favorites',
     create: '/favorites',
-    remove: (targetId: string) => `/favorites/${encodeURIComponent(targetId)}`,
+    remove: (targetType: string, targetId: string) =>
+      `/favorites/${encodeURIComponent(targetType)}/${encodeURIComponent(targetId)}`,
+    byUsername: (username: string, type?: string) => {
+      const base = `/users/${encodeURIComponent(username)}/favorites`
+      return type ? `${base}?type=${encodeURIComponent(type)}` : base
+    },
   },
   admin: {
     users: '/admin/users',
@@ -68,8 +75,11 @@ export const apiEndpoints = {
     approveReview: (reviewId: string) => `/review/${encodeURIComponent(reviewId)}/approve`,
     rejectReview: (reviewId: string) => `/review/${encodeURIComponent(reviewId)}/reject`,
     returnReviewToPending: (reviewId: string) => `/review/${encodeURIComponent(reviewId)}/pending`,
-    pendingProfiles: '/admin/profiles/pending',
-    resolveProfile: (moderationId: string) => `/admin/profiles/${encodeURIComponent(moderationId)}/resolve`,
+    pendingProfiles: '/admin/moderation/profile-requests',
+    approveProfileRequest: (moderationId: string | number) =>
+      `/admin/moderation/profile-requests/${encodeURIComponent(String(moderationId))}/approve`,
+    rejectProfileRequest: (moderationId: string | number) =>
+      `/admin/moderation/profile-requests/${encodeURIComponent(String(moderationId))}/reject`,
     artists: '/admin/artists',
     artistById: (artistId: string | number) => `/admin/artists/${encodeURIComponent(String(artistId))}`,
     venues: '/admin/venues',

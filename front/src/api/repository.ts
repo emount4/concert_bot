@@ -6,13 +6,22 @@ import { MOCK_ARTISTS } from '../data/mockArtists'
 import { MOCK_CONCERTS } from '../data/mockConcerts'
 import { MOCK_PROFILE } from '../data/mockProfile'
 import { MOCK_REVIEWS } from '../data/mockReviews'
-import { getMockUserByUsername } from '../data/mockUsers'
+import { getMockUserByUsername, MOCK_FAVORITES_BY_USERNAME, MOCK_LIKED_REVIEW_IDS_BY_USERNAME, type MockFavorites } from '../data/mockUsers'
 import { MOCK_VENUES } from '../data/mockVenues'
 import { applyProfileOverrides } from '../data/profileStore'
-import type { AdminAccount, AdminArtist, AdminConcert, AdminConcertSuggestion, AdminReviewModerationItem, AdminVenue } from '../types/admin'
+import type {
+  AdminAccount,
+  AdminArtist,
+  AdminConcert,
+  AdminConcertSuggestion,
+  AdminProfileChangeRequest,
+  AdminReviewModerationItem,
+  AdminVenue,
+} from '../types/admin'
 import type { Artist, ArtistCardItem, CreateArtistPayload, UpdateArtistPayload, AdminArtistResponse } from '../types/artist'
 import type { City, CreateCityPayload, UpdateCityPayload } from '../types/city'
 import type { Concert } from '../types/concert'
+import type { FavoriteItem, FavoriteTargetType } from '../types/favorite'
 import type { UserProfile } from '../types/profile'
 import { calculateReviewRating, type ReviewCardItem } from '../types/review'
 import { resolveMediaUrl } from '../utils/mediaUrl'
@@ -73,6 +82,10 @@ type AdminReviewsListParams = {
   limit?: number
   offset?: number
   status?: string
+}
+type AdminProfileModerationListParams = {
+  limit?: number
+  offset?: number
 }
 export type AdminConcertArtistPayload = {
   artist_id: number
@@ -173,6 +186,16 @@ type BatchUploadResponse = {
   }>
 }
 
+type FavoriteApiResponse = {
+  id?: number
+  favorite_id?: number
+  target_type?: string
+  target_id?: string | number
+  name?: string | null
+  image_url?: string | null
+  created_at?: string | null
+}
+
 function normalizeReviewMediaType(mediaType: string | null | undefined, mediaUrl: string | null | undefined): 'image' | 'video' {
   const normalizedType = mediaType?.trim().toLowerCase() ?? ''
   if (normalizedType.includes('video') || ['mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv'].includes(normalizedType)) {
@@ -205,9 +228,28 @@ type ProfileReviewApiResponse = {
   p5?: number | null
   created_at?: string | null
   concert_title?: string | null
+  concert?: {
+    id?: string | null
+    title?: string | null
+    poster_url?: string | null
+    artists?: Array<{
+      id?: number
+      name?: string | null
+    }> | null
+  } | null
   likes_count?: number | null
+  is_liked_by_me?: boolean | null
   status?: string | null
   rejection_reason?: string | null
+  media?: Array<{
+    media_id: string
+    review_id?: string
+    media_url: string
+    media_type?: string | null
+    file_size?: number | null
+    status?: string
+    created_at?: string
+  }> | null
 }
 type UserMeApiResponse = {
   id: string
@@ -226,6 +268,7 @@ type UserMeApiResponse = {
   reviews?: ProfileReviewApiResponse[] | null
 }
 type PublicProfileApiResponse = {
+  id?: string | null
   username: string
   bio?: string | null
   avatar_url?: string | null
@@ -233,6 +276,32 @@ type PublicProfileApiResponse = {
   created_at: string
   stats?: UserStatsApiResponse | null
   reviews?: ProfileReviewApiResponse[] | null
+}
+export type UpdateMyProfilePayload = {
+  username?: string
+  bio?: string | null
+  avatar_key?: string | null
+  banner_key?: string | null
+}
+type ProfileModerationApiStatus = 'pending' | 'approved' | 'rejected'
+type ProfileModerationApiItem = {
+  id: number | string
+  user?: {
+    id?: string
+    username?: string
+    avatar_url?: string | null
+  } | null
+  field_name: string
+  old_value?: string | null
+  new_value?: string | null
+  status: ProfileModerationApiStatus
+  moderated_by_user_id?: string | null
+  created_at: string
+  updated_at?: string | null
+}
+type ProfileModerationApiResponse = {
+  items: ProfileModerationApiItem[]
+  page_count?: number
 }
 
 function mapConcertResponseToConcert(concert: Concert): Concert {
@@ -330,6 +399,7 @@ function mapReviewResponseToCardItem(review: ReviewApiResponse, concerts: Concer
     review_id: review.review_id,
     concert_id: reviewConcertId,
     concertId: reviewConcertId,
+    author_id: review.author?.id ?? review.user_id,
     author_name: authorName,
     author_username: review.author?.username,
     author_avatar_url: resolveMediaUrl(review.author?.avatar_url),
@@ -366,11 +436,14 @@ function mapProfileReviewResponseToProfileReview(review: ProfileReviewApiRespons
   const localRating = hasParams
     ? calculateReviewRating(Number(review.p1), Number(review.p2), Number(review.p3), Number(review.p4), Number(review.p5))
     : null
+  const concert = review.concert ?? null
   return {
     id: numericIdFromString(review.review_id),
     review_id: review.review_id,
-    concert_id: review.concert_id ?? undefined,
-    concert_title: review.concert_title ?? 'Концерт',
+    concert_id: review.concert_id ?? concert?.id ?? undefined,
+    concert_title: review.concert_title ?? concert?.title ?? 'Концерт',
+    concert_poster_url: resolveMediaUrl(concert?.poster_url),
+    concert_artist: (concert?.artists ?? []).map((artist) => artist.name).filter(Boolean).join(', '),
     title: review.title ?? '',
     text: review.text ?? '',
     created_at: review.created_at ?? '',
@@ -383,6 +456,14 @@ function mapProfileReviewResponseToProfileReview(review: ProfileReviewApiRespons
     p4: review.p4 ?? undefined,
     p5: review.p5 ?? undefined,
     likes_count: review.likes_count ?? 0,
+    is_liked_by_me: review.is_liked_by_me ?? false,
+    media: (review.media ?? []).map((media) => ({
+      id: media.media_id,
+      type: normalizeReviewMediaType(media.media_type, media.media_url),
+      url: resolveMediaUrl(media.media_url) ?? media.media_url,
+      file_size: media.file_size,
+      status: media.status,
+    })),
   }
 }
 
@@ -418,7 +499,8 @@ function mapPublicProfileResponseToProfile(profile: PublicProfileApiResponse): U
   const stats = profile.stats
   const reviews = (profile.reviews ?? []).map(mapProfileReviewResponseToProfileReview)
   return {
-    id: profile.username,
+    user_id: profile.id ?? undefined,
+    id: profile.id ?? profile.username,
     displayName: profile.username,
     handle: `@${profile.username}`,
     created_at: profile.created_at,
@@ -432,6 +514,57 @@ function mapPublicProfileResponseToProfile(profile: PublicProfileApiResponse): U
     banner_url: resolveMediaUrl(profile.banner_url),
     is_active: true,
     recent_reviews: reviews,
+  }
+}
+
+function profileModerationFieldToType(fieldName: string): AdminProfileChangeRequest['type'] {
+  if (fieldName === 'avatar_key' || fieldName === 'avatar_url') return 'avatar'
+  if (fieldName === 'banner_key' || fieldName === 'banner_url') return 'banner'
+  if (fieldName === 'bio') return 'bio'
+  return 'username'
+}
+
+function mapProfileModerationResponse(item: ProfileModerationApiItem, profile?: UserProfile | null): AdminProfileChangeRequest {
+  const type = profileModerationFieldToType(item.field_name)
+  const apiUsername = item.user?.username ?? ''
+  const displayName = profile?.displayName ?? apiUsername
+  const base = {
+    id: String(item.id),
+    created_at: item.created_at,
+    requested_by_username: profile?.handle ? normalizeUsername(profile.handle) : apiUsername,
+    requested_by_displayName: displayName,
+    type,
+    status: item.status,
+  }
+
+  if (type === 'avatar') {
+    return {
+      ...base,
+      old_avatar_url: resolveMediaUrl(item.old_value),
+      new_avatar_url: resolveMediaUrl(item.new_value),
+    }
+  }
+
+  if (type === 'banner') {
+    return {
+      ...base,
+      old_banner_url: resolveMediaUrl(item.old_value),
+      new_banner_url: resolveMediaUrl(item.new_value),
+    }
+  }
+
+  if (type === 'bio') {
+    return {
+      ...base,
+      old_bio: item.old_value ?? null,
+      new_bio: item.new_value ?? null,
+    }
+  }
+
+  return {
+    ...base,
+    old_username: item.old_value ?? null,
+    new_username: item.new_value ?? null,
   }
 }
 
@@ -505,6 +638,132 @@ function normalizeUsername(input: string): string {
   return input.trim().replace(/^@+/, '').toLowerCase()
 }
 
+const FAVORITES_OVERRIDES_KEY = 'concert_bot.favorites.overrides'
+const FAVORITES_REVISION_KEY = 'concert_bot.favorites.revision'
+const FAVORITE_TARGET_KEY: Record<FavoriteTargetType, keyof MockFavorites> = {
+  artist: 'artists',
+  venue: 'venues',
+  concert: 'concerts',
+}
+
+type FavoritesOverridesStore = Record<string, MockFavorites>
+
+function readFavoritesOverrides(): FavoritesOverridesStore {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const raw = window.localStorage.getItem(FAVORITES_OVERRIDES_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as FavoritesOverridesStore
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeFavoritesOverrides(value: FavoritesOverridesStore): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    window.localStorage.setItem(FAVORITES_OVERRIDES_KEY, JSON.stringify(value))
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function bumpFavoritesRevision(): number {
+  if (typeof window === 'undefined') return 0
+  const next = Date.now()
+  try {
+    window.localStorage.setItem(FAVORITES_REVISION_KEY, String(next))
+  } catch {
+    // ignore storage failures
+  }
+  return next
+}
+
+export function getFavoritesRevision(): number {
+  if (typeof window === 'undefined') return 0
+  try {
+    const raw = window.localStorage.getItem(FAVORITES_REVISION_KEY)
+    return raw ? Number(raw) || 0 : 0
+  } catch {
+    return 0
+  }
+}
+
+function loadMockFavoritesForUser(username: string): MockFavorites {
+  const normalized = normalizeUsername(username)
+  const overrides = readFavoritesOverrides()
+  return overrides[normalized] ?? MOCK_FAVORITES_BY_USERNAME[normalized] ?? { artists: [], venues: [], concerts: [] }
+}
+
+function saveMockFavoritesForUser(username: string, favorites: MockFavorites): void {
+  const normalized = normalizeUsername(username)
+  const overrides = readFavoritesOverrides()
+  overrides[normalized] = favorites
+  writeFavoritesOverrides(overrides)
+  bumpFavoritesRevision()
+}
+
+function toMockFavoriteId(value: string | number): number {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  if (Number.isFinite(parsed)) return parsed
+  return numericIdFromString(String(value))
+}
+
+function mapFavoriteApiItem(item: FavoriteApiResponse): FavoriteItem {
+  const id = item.id ?? item.favorite_id ?? numericIdFromString(`${item.target_type ?? 'favorite'}:${item.target_id ?? ''}`)
+  const targetType = (item.target_type ?? 'concert') as FavoriteTargetType
+  return {
+    id,
+    target_type: targetType,
+    target_id: String(item.target_id ?? ''),
+    name: item.name ?? 'Избранное',
+    image_url: resolveMediaUrl(item.image_url),
+    created_at: item.created_at ?? new Date().toISOString(),
+  }
+}
+
+function buildMockFavoriteItem(targetType: FavoriteTargetType, targetId: number): FavoriteItem | null {
+  if (targetType === 'artist') {
+    const artist = MOCK_ARTISTS.find((item) => item.id === targetId)
+    if (!artist) return null
+    return {
+      id: numericIdFromString(`artist:${targetId}`),
+      target_type: 'artist',
+      target_id: String(targetId),
+      name: artist.name,
+      image_url: resolveMediaUrl(artist.photo_url),
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  if (targetType === 'venue') {
+    const venue = MOCK_VENUES.find((item) => item.id === targetId)
+    if (!venue) return null
+    return {
+      id: numericIdFromString(`venue:${targetId}`),
+      target_type: 'venue',
+      target_id: String(targetId),
+      name: venue.name,
+      image_url: resolveMediaUrl(venue.photo_url),
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  const concert = MOCK_CONCERTS.find((item) => Number(item.id) === targetId || Number(item.concert_id) === targetId)
+  if (!concert) return null
+  return {
+    id: numericIdFromString(`concert:${targetId}`),
+    target_type: 'concert',
+    target_id: String(targetId),
+    name: concert.title ?? 'Концерт',
+    image_url: resolveMediaUrl(concert.poster_url),
+    created_at: new Date().toISOString(),
+  }
+}
+
 export async function loadMyProfile(includeStatuses = 'approved'): Promise<UserProfile> {
   if (DATA_SOURCE_MODE === 'mock') {
     const statuses = new Set(includeStatuses.split(',').map((status) => status.trim()).filter(Boolean))
@@ -518,6 +777,58 @@ export async function loadMyProfile(includeStatuses = 'approved'): Promise<UserP
   const query = buildQuery({ include_statuses: includeStatuses })
   const response = await apiRequest<UserMeApiResponse>(`${apiEndpoints.users.me}${query}`)
   return mapMeResponseToProfile(response)
+}
+
+export async function updateMyProfile(payload: UpdateMyProfilePayload): Promise<UserProfile> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    return loadMyProfile()
+  }
+
+  const response = await apiRequest<UserMeApiResponse>(apiEndpoints.users.patchMe, 'PATCH', payload)
+  return mapMeResponseToProfile(response)
+}
+
+export async function loadMyProfileModerationRequests(
+  status?: ProfileModerationApiStatus,
+  profile?: UserProfile | null,
+): Promise<AdminProfileChangeRequest[]> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    return []
+  }
+
+  const query = status ? buildQuery({ status }) : ''
+  const response = await apiRequest<ProfileModerationApiResponse>(`${apiEndpoints.users.profileModeration}${query}`)
+  return response.items.map((item) => mapProfileModerationResponse(item, profile))
+}
+
+export async function loadAdminProfileModerationRequests(
+  params: AdminProfileModerationListParams = { limit: 20, offset: 0 },
+): Promise<PagedListResponse<AdminProfileChangeRequest>> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    return { items: [], page_count: 0 }
+  }
+
+  const query = buildQuery({
+    limit: params.limit ?? 20,
+    offset: params.offset ?? 0,
+  })
+  const response = await adminRequest<ProfileModerationApiResponse>(`${apiEndpoints.admin.pendingProfiles}${query}`)
+  return {
+    items: response.items.map((item) => mapProfileModerationResponse(item)),
+    page_count: response.page_count ?? 0,
+  }
+}
+
+export async function approveAdminProfileModerationRequest(requestId: string | number): Promise<void> {
+  if (DATA_SOURCE_MODE === 'mock') return
+
+  await adminRequest<void>(apiEndpoints.admin.approveProfileRequest(requestId), 'POST')
+}
+
+export async function rejectAdminProfileModerationRequest(requestId: string | number): Promise<void> {
+  if (DATA_SOURCE_MODE === 'mock') return
+
+  await adminRequest<void>(apiEndpoints.admin.rejectProfileRequest(requestId), 'POST')
 }
 
 export async function loadPublicProfile(username: string): Promise<UserProfile> {
@@ -622,6 +933,111 @@ export async function loadReviews(params?: PublicReviewsListParams): Promise<Pag
     ...response,
     items: response.items.map((review) => mapReviewResponseToCardItem(review)),
   }
+}
+
+export async function loadMyLikedReviews(): Promise<ReviewCardItem[]> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    const profile = applyProfileOverrides(MOCK_PROFILE)
+    const username = normalizeUsername(profile.handle)
+    const likedIds = new Set((MOCK_LIKED_REVIEW_IDS_BY_USERNAME[username] ?? []).map(String))
+    return MOCK_REVIEWS.filter((review) => likedIds.has(String(review.review_id ?? review.id)))
+  }
+
+  const response = await apiRequest<PagedListResponse<ReviewApiResponse> | ReviewApiResponse[]>(apiEndpoints.users.likedReviews)
+  const items = Array.isArray(response) ? response : response.items
+  return items.map((review) => mapReviewResponseToCardItem(review))
+}
+
+export async function loadUserLikedReviews(username: string, params: { limit?: number; offset?: number } = {}): Promise<ReviewCardItem[]> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    const key = normalizeUsername(username)
+    const likedIds = new Set((MOCK_LIKED_REVIEW_IDS_BY_USERNAME[key] ?? []).map(String))
+    return MOCK_REVIEWS.filter((review) => likedIds.has(String(review.review_id ?? review.id)))
+  }
+
+  const query = buildQuery({
+    limit: params.limit ?? 20,
+    offset: params.offset ?? 0,
+  })
+  const response = await apiRequest<PagedListResponse<ReviewApiResponse> | ReviewApiResponse[]>(
+    `${apiEndpoints.users.likedReviewsByUsername(username)}${query}`,
+  )
+  const items = Array.isArray(response) ? response : response.items
+  return items.map((review) => mapReviewResponseToCardItem(review))
+}
+
+export async function loadUserFavorites(
+  username: string,
+  params: { type?: FavoriteTargetType } = {},
+): Promise<FavoriteItem[]> {
+  if (!username) return []
+
+  if (DATA_SOURCE_MODE === 'mock') {
+    const favorites = loadMockFavoritesForUser(username)
+    const targetTypes: FavoriteTargetType[] = params.type ? [params.type] : ['concert', 'artist', 'venue']
+    return targetTypes
+      .flatMap((targetType) => {
+        const key = FAVORITE_TARGET_KEY[targetType]
+        return favorites[key].map((id) => buildMockFavoriteItem(targetType, id)).filter((item): item is FavoriteItem => Boolean(item))
+      })
+  }
+
+  const response = await apiRequest<ListResponse<FavoriteApiResponse> | FavoriteApiResponse[]>(
+    apiEndpoints.favorites.byUsername(username, params.type),
+  )
+  const items = Array.isArray(response) ? response : response.items
+  return items.map(mapFavoriteApiItem)
+}
+
+export async function addFavorite(targetType: FavoriteTargetType, targetId: string | number): Promise<FavoriteItem> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    const profile = applyProfileOverrides(MOCK_PROFILE)
+    const username = normalizeUsername(profile.handle)
+    const favorites = loadMockFavoritesForUser(username)
+    const key = FAVORITE_TARGET_KEY[targetType]
+    const normalizedId = toMockFavoriteId(targetId)
+    const nextList = favorites[key].includes(normalizedId)
+      ? favorites[key]
+      : [...favorites[key], normalizedId]
+    const next = { ...favorites, [key]: nextList }
+    saveMockFavoritesForUser(username, next)
+    return (
+      buildMockFavoriteItem(targetType, normalizedId) ?? {
+        id: numericIdFromString(`${targetType}:${normalizedId}`),
+        target_type: targetType,
+        target_id: String(normalizedId),
+        name: 'Избранное',
+        image_url: null,
+        created_at: new Date().toISOString(),
+      }
+    )
+  }
+
+  const response = await apiRequest<FavoriteApiResponse>(apiEndpoints.favorites.create, 'POST', {
+    target_type: targetType,
+    target_id: String(targetId),
+  })
+  bumpFavoritesRevision()
+  return mapFavoriteApiItem(response)
+}
+
+export async function removeFavorite(targetType: FavoriteTargetType, targetId: string | number): Promise<void> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    const profile = applyProfileOverrides(MOCK_PROFILE)
+    const username = normalizeUsername(profile.handle)
+    const favorites = loadMockFavoritesForUser(username)
+    const key = FAVORITE_TARGET_KEY[targetType]
+    const normalizedId = toMockFavoriteId(targetId)
+    const next = {
+      ...favorites,
+      [key]: favorites[key].filter((id) => id !== normalizedId),
+    }
+    saveMockFavoritesForUser(username, next)
+    return
+  }
+
+  await apiRequest<void>(apiEndpoints.favorites.remove(targetType, String(targetId)), 'DELETE')
+  bumpFavoritesRevision()
 }
 
 export async function loadReviewById(reviewId: string | number): Promise<ReviewCardItem> {

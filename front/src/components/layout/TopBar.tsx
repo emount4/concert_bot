@@ -43,8 +43,19 @@ function SideIcon({ kind }: { kind: SideItem['icon'] }) {
   if (kind === 'artists') {
     return (
       <svg className="sideIcon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 12.5a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M5.5 20.5a6.5 6.5 0 0 1 13 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path
+          d="M12 14a3.2 3.2 0 0 0 3.2-3.2V6.2a3.2 3.2 0 0 0-6.4 0v4.6A3.2 3.2 0 0 0 12 14Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+        <path
+          d="M6.8 10.5a5.2 5.2 0 0 0 10.4 0M12 15.7v4.8M8.7 20.5h6.6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
       </svg>
     )
   }
@@ -52,9 +63,20 @@ function SideIcon({ kind }: { kind: SideItem['icon'] }) {
   if (kind === 'venues') {
     return (
       <svg className="sideIcon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4.5 20.5h15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M6.5 20.5v-13l5.5-3 5.5 3v13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M9.5 10.5h5M9.5 13.5h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path
+          d="M5 20.5V8.7L12 4l7 4.7v11.8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M3.8 20.5h16.4M8.5 20.5v-7h7v7M9 9.5h.01M12 9.5h.01M15 9.5h.01"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
       </svg>
     )
   }

@@ -223,9 +223,9 @@ export async function upsertCity(nextCity: Omit<AdminCity, 'id'> & { id?: number
     if (nextCity.id) {
       const payload: UpdateCityPayload = {
         name: nextCity.name,
-        slug: nextCity.slug,
         timezone: nextCity.timezone,
       }
+      if (nextCity.slug?.trim()) payload.slug = nextCity.slug.trim()
       const updated = await updateCity(nextCity.id, payload)
       return {
         id: updated.city_id,
@@ -237,9 +237,9 @@ export async function upsertCity(nextCity: Omit<AdminCity, 'id'> & { id?: number
 
     const payload: CreateCityPayload = {
       name: nextCity.name,
-      slug: nextCity.slug,
       timezone: nextCity.timezone,
     }
+    if (nextCity.slug?.trim()) payload.slug = nextCity.slug.trim()
     const created = await createCity(payload)
     return {
       id: created.city_id,
@@ -454,6 +454,7 @@ type AdminVenueUpsertInput = {
   capacity: number
   photo_url: string | null
   description?: string
+  social_links?: Record<string, string> | null
 }
 
 export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVenue> {
@@ -469,6 +470,7 @@ export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVen
         photo_key: resolveMediaKey(next.photo_url) || undefined,
         description: next.description ?? '',
         city_id: next.city_id,
+        social_links: next.social_links ?? null,
       }
       const updated = await updateVenue(next.id, payload)
       const citiesAfter = await loadCities().catch(() => cities)
@@ -482,6 +484,7 @@ export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVen
       capacity: next.capacity,
       photo_key: resolveMediaKey(next.photo_url) || undefined,
       description: next.description?.trim() || '',
+      social_links: next.social_links ?? null,
     }
     const created = await createVenue(payload)
     const citiesAfter = await loadCities().catch(() => cities)
@@ -500,6 +503,7 @@ export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVen
               address: next.address,
               capacity: next.capacity,
               photo_url: next.photo_url,
+              social_links: next.social_links ?? null,
             }
           : v,
       )
@@ -516,6 +520,7 @@ export async function upsertVenue(next: AdminVenueUpsertInput): Promise<AdminVen
       address: next.address,
       capacity: next.capacity,
       photo_url: next.photo_url,
+      social_links: next.social_links ?? null,
     }
     saveVenues([result, ...prev])
     return result

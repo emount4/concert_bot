@@ -143,6 +143,14 @@
   font-size: 14px;
   margin: 0 0 8px;
   line-height: 1.2;
+  display: -webkit-box;
+  min-height: calc(14px * 1.2 * 2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .homeConcertCompact .concertMeta {
@@ -429,6 +437,17 @@
     flex-basis: 100%;
   }
 
+  .homeCarouselTop5 .homeCarouselItem {
+    flex-basis: min(76vw, 260px);
+    min-width: min(76vw, 260px);
+  }
+
+  .homeConcertCompact .concert_title {
+    min-height: calc(14px * 1.2 * 2);
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+  }
+
   .homeTopsGrid {
     grid-template-columns: 1fr;
   }
@@ -437,9 +456,21 @@
     font-size: 20px;
   }
 
+  .homeSectionHeader {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .homeSectionHeader .homeSectionTitle {
+    flex: 1 1 auto;
+  }
+
   .homeSelect {
-    width: 100%;
-    max-width: 100%;
+    width: min(40vw, 170px);
+    max-width: 40vw;
+    flex: 0 0 min(40vw, 170px);
+    padding: 7px 26px 7px 9px;
+    font-size: 14px;
   }
 
   .homeTopHeader {

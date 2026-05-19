@@ -27,7 +27,7 @@ function scoreRow(review: ReviewCardItem): ScoreChip[] {
     { label: 'Исполнение', value: s.performance },
     { label: 'Динамика / трек-лист', value: s.setlist },
     { label: 'Харизма', value: s.crowd },
-    { label: 'Звук', value: s.sound },
+    { label: 'Звук/Визуал', value: s.sound },
     { label: 'Вайб', value: s.vibe },
   ]
 }
@@ -74,35 +74,23 @@ function HeartIcon({ filled }: { filled: boolean }) {
   )
 }
 
-function UsersIcon() {
+function LikersListIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
-        d="M9 11.3a3.6 3.6 0 1 0-3.6-3.6A3.6 3.6 0 0 0 9 11.3Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M3.2 20.2a6.1 6.1 0 0 1 11.6 0"
+        d="M8.2 7.2h10.1M8.2 12h10.1M8.2 16.8h10.1"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
       />
       <path
-        d="M16.7 10.5a2.8 2.8 0 1 0-2.8-2.8"
+        d="M5.4 7.2h.01M5.4 12h.01M5.4 16.8h.01"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
-      />
-      <path
-        d="M16.2 13.7a5.3 5.3 0 0 1 4.6 6.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   )
@@ -376,7 +364,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
                 aria-label="Показать список лайкнувших"
                 title="Показать список лайкнувших"
               >
-                <UsersIcon />
+                <LikersListIcon />
               </button>
             )}
 

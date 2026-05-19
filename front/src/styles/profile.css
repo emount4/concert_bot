@@ -315,12 +315,15 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .profileTabs {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -361,10 +364,14 @@
   flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
+  flex: 0 1 auto;
   margin-left: auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .profileReviewFilter {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -379,6 +386,13 @@
   line-height: 1;
   cursor: pointer;
   user-select: none;
+  white-space: nowrap;
+  max-width: 100%;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .profileReviewFilter:hover {
@@ -395,6 +409,7 @@
 .profileReviewFilterIcon {
   width: 18px;
   height: 18px;
+  flex: 0 0 18px;
   border-radius: 999px;
   border: 1px solid rgba(128, 157, 210, 0.42);
   display: grid;
@@ -411,9 +426,44 @@
   color: var(--fg);
 }
 
+.profileReviewFilter:has(input:checked) {
+  border-color: rgba(148, 184, 255, 0.72);
+  background: rgba(29, 55, 101, 0.72);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px rgba(148, 184, 255, 0.28);
+}
+
 .profileReviewFilter:focus-within {
-  outline: 2px solid rgba(148, 184, 255, 0.7);
-  outline-offset: 2px;
+  outline: none;
+  border-color: rgba(148, 184, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(148, 184, 255, 0.28);
+}
+
+.profileReviewFilter span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 720px) {
+  .profileTabsRow {
+    align-items: stretch;
+  }
+
+  .profileTabs,
+  .profileReviewFilters {
+    width: 100%;
+  }
+
+  .profileReviewFilters {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .profileReviewFilter {
+    flex: 1 1 150px;
+    justify-content: center;
+  }
 }
 
 .profileReviewList {
@@ -734,6 +784,14 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
+}
+
+.profileReviewList > .reviewCard {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  align-self: stretch;
   box-sizing: border-box;
 }
 

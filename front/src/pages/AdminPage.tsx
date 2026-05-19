@@ -4,6 +4,7 @@ import { setDevAdmin } from '../utils/adminAccess'
 import { useBodyScrollLock } from '../utils/useBodyScrollLock'
 import {
   addAdminConcertArtist,
+  approveAdminProfileModerationRequest,
   approveAdminReview,
   createAdminConcert,
   deleteAdminConcertArtist,
@@ -14,9 +15,11 @@ import {
   loadAdminConcerts,
   loadAdminConcertSuggestionById,
   loadAdminConcertSuggestions as loadAdminConcertSuggestionsFromApi,
+  loadAdminProfileModerationRequests,
   loadAdminReviews,
   loadAdminVenues,
   rejectAdminReview,
+  rejectAdminProfileModerationRequest,
   returnAdminReviewToPending,
   restoreAdminConcert,
   restoreVenue,
@@ -29,13 +32,10 @@ import {
 import { resolveMediaKey, resolveMediaUrl } from '../utils/mediaUrl'
 import {
   appendAuditLog,
-  ensureAdminStoreSeeded,
   loadAuditLogs,
   loadCities,
-  loadProfileChangeRequests,
   removeCity,
   setConcertSuggestionStatus,
-  setProfileChangeStatus,
   upsertCity,
   loadArtists,
   removeArtist,
@@ -43,7 +43,6 @@ import {
   upsertVenue,
   removeVenue as apiRemoveVenue,
 } from '../data/adminStore'
-import { setProfileOverride } from '../data/profileStore'
 import type {
   AdminAccount,
   AdminAccountRole,
@@ -79,8 +78,35 @@ export function AdminPage({ isAdmin }: AdminPageProps) {
 type AdminTab = 'moderation' | 'queue' | 'artists' | 'venues' | 'cities' | 'concerts' | 'accounts' | 'logs'
 type ModerationStream = 'pending' | 'approved' | 'rejected'
 type QueueStream = 'profile' | 'suggestions'
+type AdminSocialForm = {
+  vk: string
+  telegram: string
+  website: string
+}
 
 const DEFAULT_CITY_TIMEZONE_OFFSET = 3
+
+function emptySocialForm(): AdminSocialForm {
+  return { vk: '', telegram: '', website: '' }
+}
+
+function socialFormFromLinks(links: Record<string, string | null | undefined> | null | undefined): AdminSocialForm {
+  return {
+    vk: links?.vk ?? links?.vkontakte ?? '',
+    telegram: links?.telegram ?? links?.tg ?? '',
+    website: links?.website ?? links?.site ?? '',
+  }
+}
+
+function socialLinksFromForm(form: AdminSocialForm): Record<string, string> | null {
+  const entries = [
+    ['vk', form.vk.trim()],
+    ['telegram', form.telegram.trim()],
+    ['website', form.website.trim()],
+  ].filter(([, value]) => value.length > 0)
+
+  return entries.length > 0 ? Object.fromEntries(entries) : null
+}
 
 function formatUtcOffset(offset: number): string {
   if (offset === 0) return 'UTC+0'
@@ -163,10 +189,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [concerts, setConcerts] = useState<AdminConcert[]>([])
   const [accounts, setAccounts] = useState<AdminAccount[]>([])
 
-  const [profileChanges, setProfileChanges] = useState<AdminProfileChangeRequest[]>(() => {
-    ensureAdminStoreSeeded()
-    return loadProfileChangeRequests()
-  })
+  const [profileChanges, setProfileChanges] = useState<AdminProfileChangeRequest[]>([])
   const [concertSuggestions, setConcertSuggestions] = useState<AdminConcertSuggestion[]>([])
   
   // Loading states for each section
@@ -214,6 +237,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null)
   const [hasLoadedSuggestions, setHasLoadedSuggestions] = useState(false)
+  const [isLoadingProfileChanges, setIsLoadingProfileChanges] = useState(false)
+  const [profileChangesError, setProfileChangesError] = useState<string | null>(null)
+  const [hasLoadedProfileChanges, setHasLoadedProfileChanges] = useState(false)
+  const [profileChangeActionId, setProfileChangeActionId] = useState<string | null>(null)
+  const [profileChangeActionError, setProfileChangeActionError] = useState<string | null>(null)
 
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
   const [accountsError, setAccountsError] = useState<string | null>(null)
@@ -341,6 +369,26 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }, [hasLoadedConcerts, isLoadingConcerts, tab])
 
   useEffect(() => {
+    if (tab !== 'queue' || hasLoadedProfileChanges || isLoadingProfileChanges) return
+
+    setIsLoadingProfileChanges(true)
+    setProfileChangesError(null)
+    void loadAdminProfileModerationRequests({ limit: 20, offset: 0 })
+      .then((loadedProfileChanges) => {
+        setProfileChanges(loadedProfileChanges.items)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load profile moderation requests:', error)
+        setProfileChangesError(error instanceof Error ? error.message : 'Failed to load profile moderation requests')
+        setProfileChanges([])
+      })
+      .finally(() => {
+        setIsLoadingProfileChanges(false)
+        setHasLoadedProfileChanges(true)
+      })
+  }, [hasLoadedProfileChanges, isLoadingProfileChanges, tab])
+
+  useEffect(() => {
     if (tab !== 'queue' || hasLoadedSuggestions || isLoadingSuggestions) return
 
     setIsLoadingSuggestions(true)
@@ -380,7 +428,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }, [hasLoadedAccounts, isLoadingAccounts, tab])
 
-  const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', photo_url: '' })
+  const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', photo_url: '', social_links: emptySocialForm() })
   const [venueForm, setVenueForm] = useState({
     id: 0,
     name: '',
@@ -389,6 +437,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     capacity: '0',
     photo_url: '',
     description: '',
+    social_links: emptySocialForm(),
   })
   const [cityForm, setCityForm] = useState({ id: 0, name: '', slug: '', timezone: formatUtcOffset(DEFAULT_CITY_TIMEZONE_OFFSET) })
   const [concertForm, setConcertForm] = useState<{
@@ -683,42 +732,47 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     }
   }
 
-  function approveProfileChange(requestId: string) {
+  async function approveProfileChange(requestId: string) {
     const request = profileChanges.find((x) => x.id === requestId) ?? null
     if (!request) return
 
-    setProfileChanges((prev) => prev.map((item) => (item.id === requestId ? { ...item, status: 'approved' } : item)))
-    setProfileChangeStatus(requestId, 'approved')
+    setProfileChangeActionId(requestId)
+    setProfileChangeActionError(null)
 
-    if (request.type === 'username' && request.new_username) {
-      setProfileOverride({ handle: `@${request.new_username}` })
-    }
-    if (request.type === 'bio' && request.new_bio !== undefined) {
-      setProfileOverride({ bio: request.new_bio ?? '' })
-    }
-    if (request.type === 'avatar') {
-      setProfileOverride({ avatar_url: request.new_avatar_url ?? null })
-    }
-    if (request.type === 'banner') {
-      setProfileOverride({ banner_url: request.new_banner_url ?? null })
-    }
+    try {
+      await approveAdminProfileModerationRequest(requestId)
+      setProfileChanges((prev) => prev.filter((item) => item.id !== requestId))
 
-    if (currentAdminAccount) {
-      writeAudit(`Модератор ${currentAdminAccount.displayName} одобрил изменение профиля (${request.type}) для @${request.requested_by_username}.`)
-    }
+      if (currentAdminAccount) {
+        writeAudit(`Модератор ${currentAdminAccount.displayName} одобрил изменение профиля (${request.type}) для @${request.requested_by_username}.`)
+      }
 
-    void refreshAppData()
+      void refreshAppData()
+    } catch (error) {
+      setProfileChangeActionError(error instanceof Error ? error.message : 'Не удалось принять заявку профиля.')
+    } finally {
+      setProfileChangeActionId(null)
+    }
   }
 
-  function rejectProfileChange(requestId: string) {
+  async function rejectProfileChange(requestId: string) {
     const request = profileChanges.find((x) => x.id === requestId) ?? null
     if (!request) return
 
-    setProfileChanges((prev) => prev.map((item) => (item.id === requestId ? { ...item, status: 'rejected' } : item)))
-    setProfileChangeStatus(requestId, 'rejected')
+    setProfileChangeActionId(requestId)
+    setProfileChangeActionError(null)
 
-    if (currentAdminAccount) {
-      writeAudit(`Модератор ${currentAdminAccount.displayName} отклонил изменение профиля (${request.type}) для @${request.requested_by_username}.`)
+    try {
+      await rejectAdminProfileModerationRequest(requestId)
+      setProfileChanges((prev) => prev.filter((item) => item.id !== requestId))
+
+      if (currentAdminAccount) {
+        writeAudit(`Модератор ${currentAdminAccount.displayName} отклонил изменение профиля (${request.type}) для @${request.requested_by_username}.`)
+      }
+    } catch (error) {
+      setProfileChangeActionError(error instanceof Error ? error.message : 'Не удалось отклонить заявку профиля.')
+    } finally {
+      setProfileChangeActionId(null)
     }
   }
 
@@ -772,17 +826,19 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }
 
   function saveCity() {
-    if (!cityForm.name.trim() || !cityForm.slug.trim() || !cityForm.timezone.trim()) return
+    if (!cityForm.name.trim() || !cityForm.timezone.trim()) return
 
     setIsLoadingSavingCity(true)
     setCitySaveError(null)
 
-    void upsertCity({
+    const cityPayload = {
       id: cityForm.id ? cityForm.id : undefined,
       name: cityForm.name.trim(),
-      slug: cityForm.slug.trim(),
       timezone: cityForm.timezone.trim(),
-    })
+      ...(cityForm.slug.trim() ? { slug: cityForm.slug.trim() } : {}),
+    }
+
+    void upsertCity(cityPayload)
       .then((next) => {
         return loadCities().then((updatedCities) => {
           setCities(updatedCities)
@@ -842,13 +898,18 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     setIsLoadingSavingArtist(true)
     setArtistSaveError(null)
 
+    const isEditingArtist = artistForm.id !== 0
+    const artistSocialLinks = socialLinksFromForm(artistForm.social_links)
     const payload = {
       name: artistName,
       description: artistDescription,
       photo_key: resolveMediaKey(artistForm.photo_url) || undefined,
+      social_links: artistSocialLinks ?? (isEditingArtist ? null : undefined),
     }
 
-    const request = artistForm.id !== 0 ? updateArtist(artistForm.id, payload) : createArtist(payload)
+    const request = isEditingArtist
+      ? updateArtist(artistForm.id, payload)
+      : createArtist({ ...payload, social_links: artistSocialLinks ?? undefined })
 
     void request
       .then((next) => {
@@ -859,7 +920,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
             writeAudit(`Админ ${currentAdminAccount.displayName} сохранил артиста «${next.name}».`)
           }
 
-          setArtistForm({ id: 0, name: '', description: '', photo_url: '' })
+          setArtistForm({ id: 0, name: '', description: '', photo_url: '', social_links: emptySocialForm() })
           setArtistSaveError(null)
         })
       })
@@ -889,6 +950,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       capacity,
       photo_url: venueForm.photo_url || null,
       description: venueForm.description.trim(),
+      social_links: socialLinksFromForm(venueForm.social_links),
     })
       .then((next) => {
         return loadVenues().then((loadedVenues) => {
@@ -898,7 +960,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
             writeAudit(`Админ ${currentAdminAccount.displayName} сохранил площадку «${next.name}».`)
           }
 
-          setVenueForm({ id: 0, name: '', city_id: 0, address: '', capacity: '0', photo_url: '', description: '' })
+          setVenueForm({ id: 0, name: '', city_id: 0, address: '', capacity: '0', photo_url: '', description: '', social_links: emptySocialForm() })
           setVenueSaveError(null)
         })
       })
@@ -1258,11 +1320,10 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
         <article className="adminDenied">
           <h2 className="adminDeniedTitle">Доступ только для администратора</h2>
           <p className="adminDeniedText">
-            Сейчас у вашего пользователя нет роли администратора. Для продакшена эта роль должна
-            приходить с бэкенда (например, из <code>/api/me</code>).
+            Сейчас у вашего пользователя нет роли администратора.
           </p>
           <p className="adminDeniedText">
-            Для локальной разработки можно временно разблокировать админку кнопкой ниже.
+            Войдите под аккаунтом администратора или обратитесь к владельцу проекта.
           </p>
 
           <div className="adminDeniedActions">
@@ -1274,7 +1335,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 window.location.reload()
               }}
             >
-              Включить dev-админа
+              Обновить доступ
             </button>
             <button
               type="button"
@@ -1284,7 +1345,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 window.location.reload()
               }}
             >
-              Сбросить dev-админа
+              Сбросить доступ
             </button>
           </div>
         </article>
@@ -1383,7 +1444,18 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
           {queueStream === 'profile' && (
             <>
-              {profileChanges.length > 0 ? (
+              {profileChangeActionError && (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  Ошибка: {profileChangeActionError}
+                </div>
+              )}
+              {isLoadingProfileChanges ? (
+                <div className="adminEmpty">Загрузка заявок профилей...</div>
+              ) : profileChangesError && profileChanges.length === 0 ? (
+                <div className="adminEmpty" style={{ color: '#f44336' }}>
+                  Ошибка: {profileChangesError}
+                </div>
+              ) : profileChanges.length > 0 ? (
                 profileChanges.map((req) => (
                   <article key={req.id} className="adminItemCard">
                     <div className="adminItemTop">
@@ -1420,10 +1492,10 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                       <div className="adminMediaDiff">
                         <div className="adminMediaDiffCol">
                           <p className="adminDiffLabel">Было</p>
-                          <div className="adminMediaThumb">
+                          <div className={req.type === 'avatar' ? 'adminMediaThumb adminMediaThumbAvatar' : 'adminMediaThumb'}>
                             {(req.type === 'avatar' ? req.old_avatar_url : req.old_banner_url) ? (
                               <img
-                                className="adminMediaThumbImg"
+                                className={req.type === 'avatar' ? 'adminMediaThumbImg adminMediaThumbImgAvatar' : 'adminMediaThumbImg'}
                                 src={(req.type === 'avatar' ? req.old_avatar_url : req.old_banner_url) as string}
                                 alt=""
                                 loading="lazy"
@@ -1431,16 +1503,16 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                                 referrerPolicy="no-referrer"
                               />
                             ) : (
-                              <div className="adminMediaThumbPlaceholder" />
+                              <div className={req.type === 'avatar' ? 'adminMediaThumbPlaceholder adminMediaThumbPlaceholderAvatar' : 'adminMediaThumbPlaceholder'} />
                             )}
                           </div>
                         </div>
                         <div className="adminMediaDiffCol">
                           <p className="adminDiffLabel">Стало</p>
-                          <div className="adminMediaThumb">
+                          <div className={req.type === 'avatar' ? 'adminMediaThumb adminMediaThumbAvatar' : 'adminMediaThumb'}>
                             {(req.type === 'avatar' ? req.new_avatar_url : req.new_banner_url) ? (
                               <img
-                                className="adminMediaThumbImg"
+                                className={req.type === 'avatar' ? 'adminMediaThumbImg adminMediaThumbImgAvatar' : 'adminMediaThumbImg'}
                                 src={(req.type === 'avatar' ? req.new_avatar_url : req.new_banner_url) as string}
                                 alt=""
                                 loading="lazy"
@@ -1448,7 +1520,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                                 referrerPolicy="no-referrer"
                               />
                             ) : (
-                              <div className="adminMediaThumbPlaceholder" />
+                              <div className={req.type === 'avatar' ? 'adminMediaThumbPlaceholder adminMediaThumbPlaceholderAvatar' : 'adminMediaThumbPlaceholder'} />
                             )}
                           </div>
                         </div>
@@ -1457,10 +1529,20 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
                     {req.status === 'pending' && (
                       <div className="adminItemActions">
-                        <button type="button" className="settingsBtn primary" onClick={() => approveProfileChange(req.id)}>
+                        <button
+                          type="button"
+                          className="settingsBtn primary"
+                          disabled={profileChangeActionId === req.id}
+                          onClick={() => approveProfileChange(req.id)}
+                        >
                           Принять
                         </button>
-                        <button type="button" className="settingsBtn ghost" onClick={() => rejectProfileChange(req.id)}>
+                        <button
+                          type="button"
+                          className="settingsBtn ghost"
+                          disabled={profileChangeActionId === req.id}
+                          onClick={() => rejectProfileChange(req.id)}
+                        >
                           Отклонить
                         </button>
                         <button
@@ -1625,7 +1707,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
           {activeModerationMedia && (
             <div
-              className="adminModalBackdrop"
+              className="adminModalBackdrop adminMediaModalBackdrop"
               onClick={() => {
                 setActiveModerationMedia(null)
                 setActiveModerationMediaIndex(0)
@@ -1739,7 +1821,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
           {approveDraftReview && (
             <div className="adminModalBackdrop" onClick={closeApproveDraft}>
-              <article className="adminModalCard" onClick={(event) => event.stopPropagation()}>
+              <article className="adminModalCard adminApproveModalCard" onClick={(event) => event.stopPropagation()}>
                 <div className="adminModalHeader">
                   <h3 className="adminModalTitle">Одобрение с правками</h3>
                   <button type="button" className="settingsBtn ghost" onClick={closeApproveDraft}>
@@ -1747,50 +1829,64 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                   </button>
                 </div>
 
-                <p className="adminListMeta">
-                  {approveDraftReview.concert_title} • {approveDraftReview.author_name} • {approveDraftReview.rating_total}
-                </p>
+                <div className="adminApproveModalBody">
+                  <p className="adminListMeta">
+                    {approveDraftReview.concert_title} • {approveDraftReview.author_name} • {approveDraftReview.rating_total}
+                  </p>
 
-                <input
-                  className="adminInput"
-                  value={approveDraftTitle}
-                  onChange={(e) => setApproveDraftTitle(e.target.value)}
-                  placeholder="Финальный заголовок"
-                  maxLength={255}
-                  disabled={isApprovingReview}
-                />
-                <textarea
-                  className="adminTextarea"
-                  value={approveDraftText}
-                  onChange={(e) => setApproveDraftText(e.target.value)}
-                  disabled={isApprovingReview}
-                />
+                  <input
+                    className="adminInput"
+                    value={approveDraftTitle}
+                    onChange={(e) => setApproveDraftTitle(e.target.value)}
+                    placeholder="Финальный заголовок"
+                    maxLength={255}
+                    disabled={isApprovingReview}
+                  />
+                  <textarea
+                    className="adminTextarea"
+                    value={approveDraftText}
+                    onChange={(e) => setApproveDraftText(e.target.value)}
+                    disabled={isApprovingReview}
+                  />
 
-                {approveDraftError && <p className="adminErrorText">{approveDraftError}</p>}
+                  {approveDraftError && <p className="adminErrorText">{approveDraftError}</p>}
 
-                {approveDraftReview.media && approveDraftReview.media.length > 0 && (
-                  <>
-                    <p className="adminInlineLabel">Медиа (снимите галочки, чтобы убрать из публикации)</p>
-                    <div className="adminModalList" role="list" aria-label="Медиа вложения">
-                      {approveDraftReview.media.map((m) => (
-                        <label key={m.id} className="adminModalOption" role="listitem">
-                          <div className="adminChecklistRow">
-                            <input
-                              type="checkbox"
-                              checked={approveDraftMediaIds.includes(m.id)}
-                              onChange={(e) => toggleApproveDraftMedia(m.id, e.target.checked)}
-                              disabled={isApprovingReview}
-                            />
-                            <span className="adminModalOptionTitle">{m.type === 'video' ? 'Видео' : 'Фото'}</span>
+                  {approveDraftReview.media && approveDraftReview.media.length > 0 && (
+                    <>
+                      <p className="adminInlineLabel">Медиа (снимите галочки, чтобы убрать из публикации)</p>
+                      <div className="adminModalList adminApproveMediaList" role="list" aria-label="Медиа вложения">
+                        {approveDraftReview.media.map((m, index) => (
+                          <div key={m.id} className="adminModalOption adminMediaOption" role="listitem">
+                            <div className="adminMediaOptionTop">
+                              <label className="adminChecklistRow">
+                                <input
+                                  type="checkbox"
+                                  checked={approveDraftMediaIds.includes(m.id)}
+                                  onChange={(e) => toggleApproveDraftMedia(m.id, e.target.checked)}
+                                  disabled={isApprovingReview}
+                                />
+                                <span className="adminModalOptionTitle">{m.type === 'video' ? 'Видео' : 'Фото'}</span>
+                              </label>
+                              <button
+                                type="button"
+                                className="settingsBtn ghost adminMediaViewBtn"
+                                onClick={() => {
+                                  setActiveModerationMedia(approveDraftReview)
+                                  setActiveModerationMediaIndex(index)
+                                }}
+                              >
+                                Просмотр
+                              </button>
+                            </div>
+                            <span className="adminModalOptionMeta">{m.url}</span>
                           </div>
-                          <span className="adminModalOptionMeta">{m.url}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </>
-                )}
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
 
-                <div className="adminItemActions">
+                <div className="adminItemActions adminApproveModalActions">
                   <button
                     type="button"
                     className="settingsBtn primary"
@@ -1827,6 +1923,35 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               onChange={(e) => setArtistForm((prev) => ({ ...prev, description: e.target.value }))}
               disabled={isLoadingSavingArtist}
             />
+            <div className="adminSocialFields" aria-label="Соцсети артиста">
+              <input
+                className="adminInput"
+                placeholder="VK"
+                value={artistForm.social_links.vk}
+                onChange={(e) =>
+                  setArtistForm((prev) => ({ ...prev, social_links: { ...prev.social_links, vk: e.target.value } }))
+                }
+                disabled={isLoadingSavingArtist}
+              />
+              <input
+                className="adminInput"
+                placeholder="Telegram"
+                value={artistForm.social_links.telegram}
+                onChange={(e) =>
+                  setArtistForm((prev) => ({ ...prev, social_links: { ...prev.social_links, telegram: e.target.value } }))
+                }
+                disabled={isLoadingSavingArtist}
+              />
+              <input
+                className="adminInput"
+                placeholder="Сайт"
+                value={artistForm.social_links.website}
+                onChange={(e) =>
+                  setArtistForm((prev) => ({ ...prev, social_links: { ...prev.social_links, website: e.target.value } }))
+                }
+                disabled={isLoadingSavingArtist}
+              />
+            </div>
             <label className="adminFileLabel">
               Фото артиста
               <input
@@ -1836,7 +1961,13 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 disabled={isLoadingSavingArtist || isUploadingAdminMedia}
               />
             </label>
-            {artistForm.photo_url && <img className="adminPreviewImage" src={getAdminPreviewSrc(artistForm.photo_url) ?? artistForm.photo_url} alt="Превью" />}
+            {artistForm.photo_url && (
+              <img
+                className="adminPreviewImage adminPreviewImageArtist"
+                src={getAdminPreviewSrc(artistForm.photo_url) ?? artistForm.photo_url}
+                alt="Превью"
+              />
+            )}
             {isUploadingAdminMedia && <p className="adminListMeta">Загрузка файла...</p>}
             {adminMediaUploadError && <p className="adminEmpty" style={{ color: '#f44336' }}>{adminMediaUploadError}</p>}
             {artistSaveError && (
@@ -1854,7 +1985,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 type="button"
                 className="settingsBtn ghost"
                 onClick={() => {
-                  setArtistForm({ id: 0, name: '', description: '', photo_url: '' })
+                  setArtistForm({ id: 0, name: '', description: '', photo_url: '', social_links: emptySocialForm() })
                   setArtistSaveError(null)
                 }}
                 disabled={isLoadingSavingArtist || isUploadingAdminMedia}
@@ -1897,7 +2028,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                         className="settingsBtn ghost"
                         onClick={() => {
                           if (currentAdminAccount) {
-                            writeAudit(`Админ ${currentAdminAccount.displayName} пересчитал статистику артиста «${artist.name}» (мок).`)
+                            writeAudit(`Админ ${currentAdminAccount.displayName} пересчитал статистику артиста «${artist.name}».`)
                           }
                         }}
                         disabled={loadingDeleteArtistId === artist.id}
@@ -1913,6 +2044,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                             name: artist.name ?? '',
                             description: artist.description ?? '',
                             photo_url: artist.photo_url ?? '',
+                            social_links: socialFormFromLinks(artist.social_links),
                           })
                         }
                         disabled={loadingDeleteArtistId === artist.id}
@@ -1980,6 +2112,32 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               value={venueForm.description}
               onChange={(e) => setVenueForm((prev) => ({ ...prev, description: e.target.value }))}
             />
+            <div className="adminSocialFields" aria-label="Соцсети площадки">
+              <input
+                className="adminInput"
+                placeholder="VK"
+                value={venueForm.social_links.vk}
+                onChange={(e) =>
+                  setVenueForm((prev) => ({ ...prev, social_links: { ...prev.social_links, vk: e.target.value } }))
+                }
+              />
+              <input
+                className="adminInput"
+                placeholder="Telegram"
+                value={venueForm.social_links.telegram}
+                onChange={(e) =>
+                  setVenueForm((prev) => ({ ...prev, social_links: { ...prev.social_links, telegram: e.target.value } }))
+                }
+              />
+              <input
+                className="adminInput"
+                placeholder="Сайт"
+                value={venueForm.social_links.website}
+                onChange={(e) =>
+                  setVenueForm((prev) => ({ ...prev, social_links: { ...prev.social_links, website: e.target.value } }))
+                }
+              />
+            </div>
             <label className="adminFileLabel">
               Фото площадки
               <input
@@ -1989,7 +2147,13 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 disabled={isLoadingVenues || isLoadingSavingVenue || isUploadingAdminMedia}
               />
             </label>
-            {venueForm.photo_url && <img className="adminPreviewImage" src={getAdminPreviewSrc(venueForm.photo_url) ?? venueForm.photo_url} alt="Превью" />}
+            {venueForm.photo_url && (
+              <img
+                className="adminPreviewImage adminPreviewImageVenue"
+                src={getAdminPreviewSrc(venueForm.photo_url) ?? venueForm.photo_url}
+                alt="Превью"
+              />
+            )}
             {isUploadingAdminMedia && <p className="adminListMeta">Загрузка файла...</p>}
             {adminMediaUploadError && <p className="adminEmpty" style={{ color: '#f44336' }}>{adminMediaUploadError}</p>}
             {venueSaveError && <p className="adminEmpty" style={{ color: '#f44336' }}>{venueSaveError}</p>}
@@ -2007,7 +2171,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 className="settingsBtn ghost"
                 onClick={() => {
                   setVenueSaveError(null)
-                  setVenueForm({ id: 0, name: '', city_id: 0, address: '', capacity: '0', photo_url: '', description: '' })
+                  setVenueForm({ id: 0, name: '', city_id: 0, address: '', capacity: '0', photo_url: '', description: '', social_links: emptySocialForm() })
                 }}
                 disabled={isLoadingVenues || isLoadingSavingVenue || isUploadingAdminMedia}
               >
@@ -2074,6 +2238,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                             capacity: String(venue.capacity),
                             photo_url: venue.photo_url ?? '',
                             description: venue.description ?? '',
+                            social_links: socialFormFromLinks(venue.social_links),
                           })
                         }
                       >
@@ -2218,7 +2383,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               />
             </label>
             {concertForm.poster_url && (
-              <img className="adminPreviewImage" src={getAdminPreviewSrc(concertForm.poster_url) ?? concertForm.poster_url} alt="Превью афиши" />
+              <img
+                className="adminPreviewImage adminPreviewImagePoster"
+                src={getAdminPreviewSrc(concertForm.poster_url) ?? concertForm.poster_url}
+                alt="Превью афиши"
+              />
             )}
             {isUploadingAdminMedia && <p className="adminListMeta">Загрузка файла...</p>}
             {adminMediaUploadError && <p className="adminEmpty" style={{ color: '#f44336' }}>{adminMediaUploadError}</p>}
@@ -2590,14 +2759,14 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                     <div>
                       <p className="adminListTitle">{city.name}</p>
                       <p className="adminListMeta">
-                        {city.slug} • {city.timezone}
+                        {[city.slug, city.timezone].filter(Boolean).join(' • ')}
                       </p>
                     </div>
                     <div className="adminRowActions">
                       <button
                         type="button"
                         className="settingsBtn ghost"
-                        onClick={() => setCityForm({ id: city.id, name: city.name, slug: city.slug, timezone: formatUtcOffset(parseUtcOffset(city.timezone)) })}
+                        onClick={() => setCityForm({ id: city.id, name: city.name, slug: city.slug ?? '', timezone: formatUtcOffset(parseUtcOffset(city.timezone)) })}
                         disabled={loadingDeleteCityId === city.id}
                       >
                         Изменить

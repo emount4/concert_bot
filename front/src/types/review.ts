@@ -18,6 +18,7 @@ export type ReviewMediaAttachment = {
 }
 
 export type ReviewLikeUser = {
+  id?: string
   name: string
   username?: string
   avatar_url?: string | null
@@ -28,6 +29,7 @@ export type ReviewCardItem = {
   concert_id?: string
   id: number
   concertId: ConcertId
+  author_id?: string
   author_name: string
   author_username?: string
   author_avatar_url: string | null

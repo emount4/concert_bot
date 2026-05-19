@@ -144,7 +144,9 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
   padding-right: 56px;
+  padding-bottom: 76px;
 }
 
 .detailHeroTitle {
@@ -167,10 +169,14 @@
 }
 
 .artistSocialLinks {
-  margin-top: auto;
-  padding-top: 14px;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin-top: 0;
+  padding-top: 0;
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -220,8 +226,10 @@
   color: var(--muted);
 }
 
-.detailRatingCircle {
-  margin-top: auto;
+.ratingCircle.detailRatingCircle {
+  position: absolute;
+  left: 0;
+  bottom: 0;
   align-self: flex-start;
 }
 

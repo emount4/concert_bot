@@ -378,12 +378,18 @@
     font-size: 18px;
   }
 
-  .suggestModalInline,
-  .suggestModalActions {
+  .suggestModalInline {
     flex-direction: column;
+  }
+
+  .suggestModalActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
 
   .suggestModalActions .settingsBtn {
     width: 100%;
+    min-width: 0;
   }
 }

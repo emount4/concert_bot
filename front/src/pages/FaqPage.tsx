@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { AccordionItem } from '../components/faq/AccordionItem'
 
 type FaqItem = {
@@ -28,6 +28,7 @@ export function FaqPage() {
 
   const [activeCategoryId, setActiveCategoryId] = useState<string>('')
   const [search, setSearch] = useState('')
+  const [searchDraft, setSearchDraft] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -60,6 +61,11 @@ export function FaqPage() {
 
   const categories = payload?.categories ?? []
   const normalizedQuery = search.trim().toLowerCase()
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSearch(searchDraft)
+  }
 
   const visibleCategories = useMemo(() => {
     if (!payload) return []
@@ -104,16 +110,19 @@ export function FaqPage() {
 
         <div className="infoSection" aria-label="Поиск по FAQ">
           <h2 className="infoSectionTitle">Поиск</h2>
-          <div className="faqSearch">
+          <form className="faqSearch" onSubmit={submitSearch} role="search">
             <input
               className="faqSearchInput"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
               placeholder="Начните вводить вопрос или ключевое слово"
               aria-label="Поиск по FAQ"
               type="search"
             />
-          </div>
+            <button type="submit" className="settingsBtn primary searchSubmitBtn">
+              Искать
+            </button>
+          </form>
 
           {/* На мобилке — верхний фильтр */}
           <div className="faqTopFilter" role="tablist" aria-label="Категории">

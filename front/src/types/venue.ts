@@ -11,6 +11,7 @@ export type VenueCardItem = {
   photo_url: string | null
   photo_source?: string | null
   avg_rating_total: number | null
+  social_links?: VenueSocialLinks | null
 }
 
 // ——— API (Venues resource) ———
@@ -163,6 +164,7 @@ export function mapVenueResponseToCardItem(venue: VenueResponse, cityNameById: M
     capacity: venue.capacity,
     photo_url: resolveMediaUrl(venue.photo_url),
     avg_rating_total,
+    social_links: venue.social_links ?? null,
   }
 }
 

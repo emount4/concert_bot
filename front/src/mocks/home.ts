@@ -12,7 +12,7 @@ export const SCORE_OPTIONS: Array<{ key: ScoreKey; label: string }> = [
   { key: 'performance', label: 'Исполнение' },
   { key: 'setlist', label: 'Динамика / трек-лист' },
   { key: 'crowd', label: 'Харизма' },
-  { key: 'sound', label: 'Звук' },
+  { key: 'sound', label: 'Звук/Визуал' },
   { key: 'vibe', label: 'Вайб' },
 ]
 

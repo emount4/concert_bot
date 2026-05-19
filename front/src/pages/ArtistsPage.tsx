@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArtistCard } from '../components/artists/ArtistCard'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
-import { loadArtistCardsPage, loadConcerts, loadReviews } from '../api/repository'
+import { FilterIcon, SearchIcon } from '../components/common/ControlIcons'
+import { addFavorite, getFavoritesRevision, loadUserFavorites, removeFavorite, getArtistById, loadArtistCardsPage, loadConcerts, loadReviews } from '../api/repository'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
 import { getConcertIdKey } from '../types/concert'
 import { getReviewConcertIdKey } from '../types/review'
 import { useQuery } from '../utils/useQuery'
+import { useAuthStore } from '../store/useAuthStore'
 
 type SortDirection = 'desc' | 'asc'
 type ArtistSortBy = 'rating' | 'alphabet'
@@ -21,7 +23,7 @@ const ARTIST_SORT_QUERY: Record<ArtistSortBy, string> = {
   alphabet: 'name',
 }
 
-type ArtistSocialKind = 'vk' | 'telegram' | 'youtube'
+type ArtistSocialKind = 'vk' | 'telegram' | 'youtube' | 'website'
 
 function normalizeSocialUrl(value: string | null | undefined): string | null {
   if (!value) return null
@@ -39,6 +41,7 @@ function getArtistSocialLinks(socialLinks: Record<string, string | null | undefi
     { kind: 'vk', label: 'VK', keys: ['vk', 'vkontakte'] },
     { kind: 'telegram', label: 'Telegram', keys: ['telegram', 'tg'] },
     { kind: 'youtube', label: 'YouTube', keys: ['youtube', 'yt'] },
+    { kind: 'website', label: 'Сайт', keys: ['website', 'site', 'url'] },
   ]
 
   return candidates
@@ -48,6 +51,11 @@ function getArtistSocialLinks(socialLinks: Record<string, string | null | undefi
       return href ? { ...candidate, href } : null
     })
     .filter((item): item is { kind: ArtistSocialKind; label: string; keys: string[]; href: string } => Boolean(item))
+}
+
+function getEntityIdKey(entity: { id?: string | number; artist_id?: string | number } | null | undefined): string {
+  if (!entity) return ''
+  return entity.artist_id !== undefined && entity.artist_id !== null ? String(entity.artist_id) : String(entity.id ?? '')
 }
 
 function SocialIcon({ kind }: { kind: ArtistSocialKind }) {
@@ -67,6 +75,14 @@ function SocialIcon({ kind }: { kind: ArtistSocialKind }) {
     )
   }
 
+  if (kind === 'website') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2.2a9.8 9.8 0 1 0 0 19.6 9.8 9.8 0 0 0 0-19.6Zm6.8 8.8h-3.1a15.3 15.3 0 0 0-1.2-5 7.7 7.7 0 0 1 4.3 5Zm-6.8-6.6c.7 1 1.4 3.2 1.6 6.6h-3.2c.2-3.4.9-5.6 1.6-6.6ZM4.4 13h3.8c.1 1.8.4 3.5.9 4.9A7.8 7.8 0 0 1 4.4 13Zm3.8-2H4.4A7.8 7.8 0 0 1 9.1 6c-.5 1.4-.8 3.1-.9 5Zm3.8 8.6c-.7-1-1.4-3.2-1.6-6.6h3.2c-.2 3.4-.9 5.6-1.6 6.6Zm2.5-1.7c.5-1.4.8-3.1.9-4.9h3.8a7.8 7.8 0 0 1-4.7 4.9Z" />
+      </svg>
+    )
+  }
+
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M21.4 7.1a2.6 2.6 0 0 0-1.8-1.8C18 4.9 12 4.9 12 4.9s-6 0-7.6.4a2.6 2.6 0 0 0-1.8 1.8 27.1 27.1 0 0 0-.4 4.9s0 3.2.4 4.9a2.6 2.6 0 0 0 1.8 1.8c1.6.4 7.6.4 7.6.4s6 0 7.6-.4a2.6 2.6 0 0 0 1.8-1.8c.4-1.7.4-4.9.4-4.9s0-3.2-.4-4.9ZM10 15.1V8.9l5.2 3.1-5.2 3.1Z" />
@@ -77,11 +93,20 @@ function SocialIcon({ kind }: { kind: ArtistSocialKind }) {
 export function ArtistsPage() {
   // Задание 12.2: поиск, фильтрация и сортировка списка артистов как в концертах.
   const [search, setSearch] = useState('')
+  const [searchDraft, setSearchDraft] = useState('')
   const [reviewsFilter, setReviewsFilter] = useState<ArtistReviewsFilter>('all')
   const [sortBy, setSortBy] = useState<ArtistSortBy>('rating')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [reviewsFilterDraft, setReviewsFilterDraft] = useState<ArtistReviewsFilter>('all')
+  const [sortByDraft, setSortByDraft] = useState<ArtistSortBy>('rating')
+  const [sortDirectionDraft, setSortDirectionDraft] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [isFavoriteBusy, setIsFavoriteBusy] = useState(false)
+  const [favoriteError, setFavoriteError] = useState<string | null>(null)
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const authUser = useAuthStore((state) => state.user)
+  const isAuth = useAuthStore((state) => state.isAuth)
 
   const artistsQuery = useQuery(
     ['artists', 'cards', currentPage, sortBy, sortDirection, search, reviewsFilter],
@@ -98,19 +123,36 @@ export function ArtistsPage() {
   const artists = artistsQuery.data?.items ?? []
 
   const [searchParams] = useSearchParams()
-  const artistId = Number(searchParams.get('artistId'))
-  const selectedArtist = Number.isFinite(artistId)
-    ? artists.find((item) => item.id === artistId) ?? null
+  const artistIdParam = searchParams.get('artistId')?.trim() ?? ''
+  const selectedArtistFromList = artistIdParam
+    ? artists.find((item) => getEntityIdKey(item) === artistIdParam) ?? null
     : null
-  const shouldLoadArtistDetails = Boolean(selectedArtist)
+  const selectedArtistQuery = useQuery(
+    ['artists', 'detail', artistIdParam],
+    () => getArtistById(artistIdParam),
+    { enabled: Boolean(artistIdParam && !selectedArtistFromList) },
+  )
+  const selectedArtist = selectedArtistFromList ?? selectedArtistQuery.data ?? null
+  const selectedArtistIdKey = getEntityIdKey(selectedArtist)
+  const shouldLoadArtistDetails = Boolean(artistIdParam && selectedArtist)
+  const favoritesUsername = useMemo(() => {
+    const raw = authUser?.username ?? ''
+    return raw.trim().replace(/^@+/, '').toLowerCase()
+  }, [authUser?.username])
+  const favoritesRevision = getFavoritesRevision()
+  const favoritesQuery = useQuery(
+    ['favorites', 'artist', favoritesUsername, favoritesRevision],
+    () => loadUserFavorites(favoritesUsername, { type: 'artist' }),
+    { enabled: Boolean(isAuth && favoritesUsername) },
+  )
 
   const concertsQuery = useQuery(
-    ['artists', 'concerts', selectedArtist?.id ?? 'list'],
+    ['artists', 'concerts', selectedArtistIdKey || 'list'],
     () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items),
     { enabled: shouldLoadArtistDetails },
   )
   const reviewsQuery = useQuery(
-    ['artists', 'reviews', selectedArtist?.id ?? 'list'],
+    ['artists', 'reviews', selectedArtistIdKey || 'list'],
     () => loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
     { enabled: shouldLoadArtistDetails },
   )
@@ -118,8 +160,17 @@ export function ArtistsPage() {
   const reviews = reviewsQuery.data ?? []
 
   useEffect(() => {
-    setIsFavorite(false)
-  }, [selectedArtist?.id])
+    if (!selectedArtistIdKey || !isAuth || !favoritesUsername) {
+      setIsFavorite(false)
+      return
+    }
+    const favorites = favoritesQuery.data ?? []
+    setIsFavorite(favorites.some((item) => item.target_id === selectedArtistIdKey))
+  }, [favoritesQuery.data, favoritesUsername, isAuth, selectedArtistIdKey])
+
+  useEffect(() => {
+    setFavoriteError(null)
+  }, [selectedArtistIdKey])
 
   const artistStats = useMemo(() => {
     const out = new Map<number, { concertsCount: number; reviews_count: number }>()
@@ -164,31 +215,97 @@ export function ArtistsPage() {
   const pageCount = artistsQuery.data?.page_count ?? 0
   const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
 
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSearch(searchDraft)
+    setCurrentPage(1)
+  }
+
+  const openFilters = () => {
+    setReviewsFilterDraft(reviewsFilter)
+    setSortByDraft(sortBy)
+    setSortDirectionDraft(sortDirection)
+    setIsFiltersOpen(true)
+  }
+
+  const applyFilters = () => {
+    setSearch(searchDraft)
+    setReviewsFilter(reviewsFilterDraft)
+    setSortBy(sortByDraft)
+    setSortDirection(sortDirectionDraft)
+    setCurrentPage(1)
+    setIsFiltersOpen(false)
+  }
+
+  const resetFilterDrafts = () => {
+    setSearchDraft('')
+    setReviewsFilterDraft('all')
+    setSortByDraft('rating')
+    setSortDirectionDraft('desc')
+  }
+
   useEffect(() => {
     if (pageCount > 0 && currentPage > pageCount) {
       setCurrentPage(pageCount)
     }
   }, [currentPage, pageCount])
 
-  if (artistsQuery.isLoading || (shouldLoadArtistDetails && (concertsQuery.isLoading || reviewsQuery.isLoading))) {
+  const handleFavoriteToggle = async () => {
+    if (!selectedArtistIdKey) return
+    if (!isAuth || !favoritesUsername) {
+      setFavoriteError('Нужно войти, чтобы добавить в избранное.')
+      return
+    }
+    if (isFavoriteBusy) return
+
+    setIsFavoriteBusy(true)
+    setFavoriteError(null)
+
+    try {
+      if (isFavorite) {
+        await removeFavorite('artist', selectedArtistIdKey)
+        setIsFavorite(false)
+      } else {
+        await addFavorite('artist', selectedArtistIdKey)
+        setIsFavorite(true)
+      }
+      await favoritesQuery.refetch()
+    } catch (error) {
+      setFavoriteError(error instanceof Error ? error.message : 'Не удалось обновить избранное.')
+    } finally {
+      setIsFavoriteBusy(false)
+    }
+  }
+
+  if (
+    (!artistIdParam && artistsQuery.isLoading) ||
+    (artistIdParam && !selectedArtist && selectedArtistQuery.isLoading) ||
+    (shouldLoadArtistDetails && (concertsQuery.isLoading || reviewsQuery.isLoading))
+  ) {
     return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
   }
 
-  const pageError = artistsQuery.error ?? (shouldLoadArtistDetails ? concertsQuery.error ?? reviewsQuery.error : null)
+  const pageError = artistIdParam
+    ? selectedArtistQuery.error ?? (shouldLoadArtistDetails ? concertsQuery.error ?? reviewsQuery.error : null)
+    : artistsQuery.error
   if (pageError) {
     return <section className="page"><div className="placeholder">{pageError}</div></section>
   }
 
   if (selectedArtist) {
     const artistConcerts = concerts
-      .filter((concert) => concert.artists.some((artist) => artist.id === selectedArtist.id))
+      .filter((concert) => concert.artists.some((artist) => getEntityIdKey(artist) === selectedArtistIdKey))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     const artistConcertIds = new Set(artistConcerts.map((concert) => getConcertIdKey(concert)))
     const artistReviews = reviews
       .filter((review) => artistConcertIds.has(getReviewConcertIdKey(review)))
       .sort((a, b) => b.id - a.id)
-    const roundedScore =
-      Number.isFinite(selectedArtist.avg_rating_total) ? Math.round(selectedArtist.avg_rating_total as number) : null
+    const selectedArtistRating = 'avg_rating_total' in selectedArtist
+      ? selectedArtist.avg_rating_total
+      : selectedArtist.stats?.reviews_count
+        ? selectedArtist.stats.sum_rating_total / selectedArtist.stats.reviews_count
+        : null
+    const roundedScore = Number.isFinite(selectedArtistRating) ? Math.round(selectedArtistRating as number) : null
     const socialLinks = getArtistSocialLinks(selectedArtist.social_links)
     // Задание 13.3: раскладка средней оценки артиста по параметрам (до десятых).
     const artistAvgScores = computeAvgScoresFromReviews(artistReviews)
@@ -202,7 +319,7 @@ export function ArtistsPage() {
           </Link>
         </div>
 
-        <article className="detailHero">
+        <article className="detailHero artistDetailHero">
           {/* Задание 3.4: реальные изображения в карточке артиста (детальная шапка). */}
           <div className="detailHeroMedia artistPhoto" aria-hidden="true">
             <div className="artistPhotoMedia">
@@ -227,7 +344,8 @@ export function ArtistsPage() {
               <button
                 type="button"
                 className={`rateHeroFavoriteBtn detailFavoriteBtn ${isFavorite ? 'active' : ''}`}
-                onClick={() => setIsFavorite((v) => !v)}
+                onClick={() => void handleFavoriteToggle()}
+                disabled={isFavoriteBusy}
                 aria-label="В избранное"
                 title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
               >
@@ -242,6 +360,7 @@ export function ArtistsPage() {
                 Рецензий: <strong>{artistReviews.length}</strong>
               </p>
             </div>
+            {favoriteError && <p className="reviewLikeError">{favoriteError}</p>}
             {roundedScore !== null && (
               <RatingBreakdownBadge
                 value={roundedScore}
@@ -253,7 +372,7 @@ export function ArtistsPage() {
                         { label: 'Исполнение', value: artistAvgScores.performance },
                         { label: 'Динамика / трек-лист', value: artistAvgScores.setlist },
                         { label: 'Харизма', value: artistAvgScores.crowd },
-                        { label: 'Звук', value: artistAvgScores.sound },
+                        { label: 'Звук/Визуал', value: artistAvgScores.sound },
                         { label: 'Вайб', value: artistAvgScores.vibe },
                       ]
                     : []
@@ -324,63 +443,75 @@ export function ArtistsPage() {
 
       <div className="concertControls">
         <div className="concertControlsRow">
-          <input
-            className="concertSearch"
-            type="search"
-            placeholder="Поиск по артисту"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-
-          <select
-            className="concertSelect"
-            value={reviewsFilter}
-            onChange={(e) => setReviewsFilter(e.target.value as ArtistReviewsFilter)}
-          >
-            <option value="all">Рецензии: любые</option>
-            <option value="with_reviews">Есть рецензии</option>
-            <option value="without_reviews">Нет рецензий</option>
-          </select>
-
-          <select
-            className="concertSelect"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as ArtistSortBy)}
-          >
-            <option value="rating">Сортировка: оценка</option>
-            <option value="alphabet">Сортировка: алфавит</option>
-          </select>
+          <form className="concertSearchGroup" onSubmit={submitSearch} role="search">
+            <input
+              className="concertSearch"
+              type="search"
+              placeholder="Поиск по артисту"
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+            />
+            <button type="submit" className="settingsBtn primary searchSubmitBtn" aria-label="Искать" title="Искать">
+              <SearchIcon />
+            </button>
+          </form>
 
           <button
             type="button"
-            className="settingsBtn ghost sortDirectionBtn"
-            onClick={() => setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-            aria-label={
-              sortDirection === 'desc'
-                ? 'Сортировка по убыванию, нажмите для возрастания'
-                : 'Сортировка по возрастанию, нажмите для убывания'
-            }
-            title={sortDirection === 'desc' ? 'По убыванию' : 'По возрастанию'}
+            className="settingsBtn ghost filterOpenBtn"
+            onClick={openFilters}
+            aria-label="Фильтры"
+            title="Фильтры"
           >
-            {sortDirection === 'desc' ? '↓' : '↑'}
+            <FilterIcon />
           </button>
         </div>
 
-        <div className="concertControlsRow">
-          <button
-            type="button"
-            className="settingsBtn ghost"
-            onClick={() => {
-              setSearch('')
-              setReviewsFilter('all')
-              setSortBy('rating')
-              setSortDirection('desc')
-            }}
-          >
-            Сбросить фильтры
-          </button>
-        </div>
       </div>
+
+      {isFiltersOpen && (
+        <div className="filtersModalBackdrop" role="presentation" onClick={() => setIsFiltersOpen(false)}>
+          <div className="filtersModal" role="dialog" aria-modal="true" aria-label="Фильтры артистов" onClick={(e) => e.stopPropagation()}>
+            <div className="filtersModalHeader">
+              <h2 className="filtersModalTitle">Фильтры</h2>
+              <button type="button" className="settingsBtn ghost" onClick={() => setIsFiltersOpen(false)}>Закрыть</button>
+            </div>
+            <div className="filtersModalGrid">
+              <label className="filtersField">
+                <span>Рецензии</span>
+                <select className="concertSelect" value={reviewsFilterDraft} onChange={(e) => setReviewsFilterDraft(e.target.value as ArtistReviewsFilter)}>
+                  <option value="all">Любые</option>
+                  <option value="with_reviews">Есть рецензии</option>
+                  <option value="without_reviews">Нет рецензий</option>
+                </select>
+              </label>
+              <label className="filtersField">
+                <span>Сортировка</span>
+                <select className="concertSelect" value={sortByDraft} onChange={(e) => setSortByDraft(e.target.value as ArtistSortBy)}>
+                  <option value="rating">Оценка</option>
+                  <option value="alphabet">Алфавит</option>
+                </select>
+              </label>
+              <label className="filtersField">
+                <span>Направление</span>
+                <button type="button" className="settingsBtn ghost" onClick={() => setSortDirectionDraft((prev) => (prev === 'desc' ? 'asc' : 'desc'))}>
+                  {sortDirectionDraft === 'desc' ? 'По убыванию' : 'По возрастанию'}
+                </button>
+              </label>
+            </div>
+            <div className="filtersModalActions">
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={resetFilterDrafts}
+              >
+                Сбросить фильтры
+              </button>
+              <button type="button" className="settingsBtn primary" onClick={applyFilters}>Готово</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Задание 3.4: карточки артистов с фото-заглушкой, ником и средней оценкой. */}
       {filteredArtists.length > 0 ? (

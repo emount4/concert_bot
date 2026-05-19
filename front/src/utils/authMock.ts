@@ -159,7 +159,7 @@ export async function loginWithEmailPassword(payload: LoginPayload): Promise<Log
   if (!user || user.password !== password) {
     return {
       ok: false,
-      message: 'Неверные данные. Для мока используйте demo@concert.bot / demo123',
+      message: 'Неверные данные. Проверьте email и пароль.',
     }
   }
 
@@ -291,7 +291,7 @@ export async function changePasswordMock(payload: ChangePasswordPayload): Promis
   const users = readUsers()
   const idx = users.findIndex((item) => item.email === currentEmail)
   if (idx < 0) {
-    return { ok: false, message: 'Пользователь не найден (мок).' }
+    return { ok: false, message: 'Пользователь не найден.' }
   }
 
   if (users[idx]?.password !== oldPassword) {
@@ -332,7 +332,7 @@ export async function deleteAccountMock(payload: DeleteAccountPayload): Promise<
   const users = readUsers()
   const idx = users.findIndex((item) => item.email === currentEmail)
   if (idx < 0) {
-    return { ok: false, message: 'Пользователь не найден (мок).' }
+    return { ok: false, message: 'Пользователь не найден.' }
   }
 
   if (users[idx]?.password !== password) {

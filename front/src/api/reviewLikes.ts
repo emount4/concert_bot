@@ -35,6 +35,7 @@ function enrichMockLikers(likers: ReviewLikeUser[]): ReviewLikeUser[] {
 function mapApiLiker(user: ReviewLikeApiUser): ReviewLikeUser {
   const username = user.username ?? user.id ?? 'unknown'
   return {
+    id: user.id,
     name: username,
     username,
     avatar_url: resolveMediaUrl(user.avatar_url),

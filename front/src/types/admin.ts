@@ -47,7 +47,7 @@ export type AdminConcertSuggestion = {
 export type AdminCity = {
   id: number
   name: string
-  slug: string
+  slug?: string
   timezone: string
 }
 

@@ -134,7 +134,7 @@
 
   .rateHeroMain {
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
+    gap: 10px;
   }
 
   .rateHeroContent {
@@ -149,7 +149,7 @@
 
   .rateHeroPosterWrapper {
     order: 2;
-    width: min(340px, 52vw);
+    width: clamp(160px, 32vw, 240px);
     justify-self: start;
   }
 
@@ -169,15 +169,19 @@
 
   .rateHeroTitle {
     order: 3;
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .rateHeroLinks {
     order: 4;
+    margin-top: 10px;
   }
 
   .rateHeroAverageBadge {
     order: 5;
+    width: 48px;
+    height: 48px;
+    font-size: 19px;
   }
 
   .rateLinkChip {
@@ -209,7 +213,7 @@
 
 @media (min-width: 641px) and (max-width: 1024px) {
   .rateHero {
-    padding: 18px;
+    padding: 12px;
   }
 
   .rateHeroMain {
@@ -217,11 +221,11 @@
   }
 
   .rateHeroPosterWrapper {
-    width: clamp(230px, 38vw, 320px);
+    width: clamp(180px, 30vw, 240px);
   }
 
   .rateHeroTitle {
-    font-size: 26px;
+    font-size: 22px;
   }
 }
 
@@ -299,6 +303,11 @@
   .concertSearch,
   .concertSelect {
     width: 100%;
+  }
+
+  .concertSearchGroup {
+    width: auto;
+    min-width: 0;
   }
 
   .adminHeader {
@@ -456,12 +465,17 @@
   .detailHeroBody {
     width: 100%;
     padding-right: 0;
+    padding-bottom: 0;
   }
 
   .detailFavoriteBtn,
   .detailRatingCircle {
     position: static;
     transform: none;
+  }
+
+  .ratingCircle.detailRatingCircle {
+    position: static;
   }
 
   .detailFavoriteBtn {
@@ -472,8 +486,62 @@
     font-size: 22px;
   }
 
+  .artistDetailHero {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: hidden;
+    padding-bottom: 82px;
+  }
+
+  .artistDetailHero .detailHeroMedia {
+    width: min(100%, 420px);
+    align-self: center;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .artistDetailHero .detailHeroBody {
+    position: static;
+    padding: 0;
+    gap: 12px;
+  }
+
+  .artistDetailHero .detailHeroTitleRow {
+    display: block;
+    padding-right: 58px;
+  }
+
+  .artistDetailHero .detailFavoriteBtn {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 3;
+    margin-left: 0;
+  }
+
+  .artistDetailHero .detailStatsRow {
+    margin-top: 0;
+  }
+
+  .artistDetailHero .ratingCircle.detailRatingCircle {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    align-self: auto;
+  }
+
+  .artistDetailHero .artistSocialLinks {
+    position: static;
+    justify-content: flex-start;
+    margin-top: 0;
+  }
+
   .artistSocialLinks {
     margin-top: 16px;
+    position: static;
+    justify-content: flex-start;
   }
 
   .detailConcertItem {
@@ -508,7 +576,7 @@
   }
 
   .rateHeroTitle {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .rateHero,
@@ -518,15 +586,19 @@
     padding: 12px;
   }
 
+  .rateHero .photoSource {
+    display: none;
+  }
+
   .rateHeroPosterWrapper {
-    width: 100%;
+    width: min(180px, 56vw);
     min-width: 0;
-    justify-self: stretch;
+    justify-self: start;
   }
 
   .rateHeroPoster {
     width: 100%;
-    min-height: 180px;
+    min-height: 0;
   }
 
   .rateHeroInfoRow {
@@ -657,8 +729,88 @@
     grid-template-columns: 1fr;
   }
 
+  .rateHeroMain {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .rateHeroTitle {
+    font-size: 18px;
+  }
+
+  .rateHeroTags {
+    gap: 6px;
+    padding-right: 34px;
+  }
+
+  .rateHeroTag,
+  .rateLinkChip {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .rateHeroFavoriteBtn {
+    font-size: 22px;
+  }
+
+  .rateHeroAverageBadge {
+    width: 42px;
+    height: 42px;
+    font-size: 17px;
+  }
+
   .concertControlsRow {
     gap: 6px;
+  }
+
+  .concertSearchGroup,
+  .faqSearch {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .searchSubmitBtn {
+    width: 40px;
+    min-width: 40px;
+    flex-basis: 40px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .filterOpenBtn {
+    width: 40px;
+    min-width: 40px;
+    flex: 0 0 40px;
+  }
+
+  .filtersModalBackdrop {
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .filtersModal {
+    width: min(100%, 520px);
+    max-height: min(88dvh, 680px);
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .filtersModalGrid {
+    gap: 10px;
+    margin: 14px 0;
+  }
+
+  .filtersModalActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .filtersModalActions .settingsBtn {
+    width: 100%;
+    min-width: 0;
   }
 
   .concertSearch,

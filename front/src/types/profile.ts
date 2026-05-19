@@ -4,6 +4,8 @@ export type ProfileReviewStatus = 'approved' | 'pending' | 'rejected'
 export type ProfileReviewItem = {
   review_id?: string
   concert_id?: string
+  concert_poster_url?: string | null
+  concert_artist?: string
   id: number
   concert_title: string
   title: string
@@ -18,6 +20,14 @@ export type ProfileReviewItem = {
   p4?: number
   p5?: number
   likes_count?: number
+  is_liked_by_me?: boolean
+  media?: Array<{
+    id: string
+    type: 'image' | 'video'
+    url: string
+    file_size?: number | null
+    status?: string
+  }>
 }
 
 export type UserProfile = {

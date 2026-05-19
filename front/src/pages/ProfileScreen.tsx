@@ -1,16 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAppData } from '../api/AppDataProvider'
-import { loadArtistCards, loadConcerts, loadMyProfile, loadPublicProfile, loadReviews, loadVenuesList } from '../api/repository'
-import { mapVenueResponseToCardItem } from '../types/venue'
+import { getFavoritesRevision, loadMyLikedReviews, loadMyProfile, loadPublicProfile, loadUserFavorites, loadUserLikedReviews } from '../api/repository'
 import {
   getMockUserByUsername,
   getMockUsernameByDisplayName,
-  MOCK_FAVORITES_BY_USERNAME,
   MOCK_LIKED_REVIEW_IDS_BY_USERNAME,
 } from '../data/mockUsers'
 import type { ProfileReviewItem, ProfileReviewStatus } from '../types/profile'
 import type { ReviewCardItem } from '../types/review'
+import type { FavoriteItem } from '../types/favorite'
 import { resolveIsAdmin } from '../utils/adminAccess'
 import { useQuery } from '../utils/useQuery'
 import { ReviewCard } from '../components/reviews/ReviewCard'
@@ -42,6 +41,7 @@ type ReviewVm = {
 }
 
 type ProfileBundle = {
+  userId: string
   username: string
   is_active: boolean
   createdAt: string | null
@@ -56,11 +56,6 @@ type ProfileBundle = {
     likes_given: number
   }
   reviews: ReviewVm[]
-  favorites: {
-    concerts: FavoriteIconVm[]
-    artists: FavoriteIconVm[]
-    venues: FavoriteIconVm[]
-  }
   liked: ReviewCardItem[]
 }
 
@@ -135,8 +130,8 @@ function mapProfileReviewToVm(item: ProfileReviewItem, author: ProfileReviewAuth
       author_avatar_url: author.isActive ? author.avatarUrl : null,
       concert_title: item.concert_title,
       title: item.title,
-      concert_artist: '',
-      concert_poster_url: null,
+      concert_artist: item.concert_artist ?? '',
+      concert_poster_url: item.concert_poster_url ?? null,
       rating_total: item.rating_total,
       scores: {
         performance: item.p1 ?? 0,
@@ -146,7 +141,9 @@ function mapProfileReviewToVm(item: ProfileReviewItem, author: ProfileReviewAuth
         vibe: item.p5 ?? 0,
       },
       text: item.text,
+      media: item.media,
       likes_count: item.likes_count ?? 0,
+      is_liked_by_me: item.is_liked_by_me ?? false,
       status: item.status,
       rejection_reason: item.rejection_reason ?? null,
       created_at: item.created_at,
@@ -286,21 +283,6 @@ export function ProfileScreen(props: ProfileScreenProps) {
   const { data, isLoading: appLoading, error: appError } = useAppData()
   const [activeTab, setActiveTab] = useState<ProfileTab>('reviews')
   const [reviewStatusFilter, setReviewStatusFilter] = useState<ProfileReviewStatus>('approved')
-  const reviewsQuery = useQuery(['profile', 'reviews'], () =>
-    loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
-    { enabled: !appLoading && !appError && activeTab === 'liked' },
-  )
-  const artistsQuery = useQuery(['profile', 'artists'], () => loadArtistCards(), {
-    enabled: !appLoading && !appError && activeTab === 'favorites',
-  })
-  const venuesQuery = useQuery(
-    ['profile', 'venues'],
-    () => loadVenuesList({ limit: 20, offset: 0 }).then((res) => res.items.map((venue) => mapVenueResponseToCardItem(venue, new Map()))),
-    { enabled: !appLoading && !appError && activeTab === 'favorites' },
-  )
-  const concertsQuery = useQuery(['profile', 'concerts'], () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items), {
-    enabled: !appLoading && !appError && activeTab === 'favorites',
-  })
 
   const myUsername = useMemo(() => {
     const handle = data?.profile?.handle
@@ -316,7 +298,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
   const isOwnProfile = Boolean(myUsername && username === myUsername)
   const ownReviewsQuery = useQuery(['profile', 'ownReviews', reviewStatusFilter], () =>
     loadMyProfile(reviewStatusFilter).then((profile) => profile.recent_reviews),
-    { enabled: Boolean(!appLoading && !appError && isOwnProfile && activeTab === 'reviews') },
+    { enabled: Boolean(!appLoading && !appError && isOwnProfile && activeTab === 'reviews' && reviewStatusFilter !== 'approved') },
   )
 
   const profileQuery = useQuery<ProfileBundle | null>(
@@ -325,18 +307,14 @@ export function ProfileScreen(props: ProfileScreenProps) {
       username,
       myUsername,
       data?.profile?.recent_reviews.length ?? 0,
-      artistsQuery.data?.length ?? 0,
-      venuesQuery.data?.length ?? 0,
-      concertsQuery.data?.length ?? 0,
-      activeTab,
+      data?.profile?.bio ?? '',
+      data?.profile?.avatar_url ?? '',
+      data?.profile?.banner_url ?? '',
     ],
     async () => {
       if (!data) return null
       if (!username) return null
-      const reviews = reviewsQuery.data ?? []
-      const artists = artistsQuery.data ?? []
-      const venues = venuesQuery.data ?? []
-      const concerts = concertsQuery.data ?? []
+      const reviews: ReviewCardItem[] = []
 
       // Имитация сетевой задержки даже в mock-режиме.
       await sleep(350)
@@ -345,7 +323,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
       const showAdminBadge = isOwn && isAdmin
 
       const apiProfile = isOwn ? data.profile : await loadPublicProfile(username)
-      const stableSocialKey = isOwn ? (getMockUsernameByDisplayName(data.profile.displayName) ?? username) : username
+      const stableSocialKey = isOwn ? (getMockUsernameByDisplayName(apiProfile.displayName) ?? username) : username
 
       let userFromDirectory = getMockUserByUsername(username)
       if (!userFromDirectory) {
@@ -401,38 +379,6 @@ export function ProfileScreen(props: ProfileScreenProps) {
         visibleReviews.reduce((sum, item) => sum + (likesCountByReviewId.get(item.review.id) ?? 0), 0)
       const likes_given = apiProfile.likes_given_count ?? (MOCK_LIKED_REVIEW_IDS_BY_USERNAME[stableSocialKey] ?? []).length
 
-      const favoritesIds = MOCK_FAVORITES_BY_USERNAME[stableSocialKey] ?? { artists: [], venues: [], concerts: [] }
-
-      const favoriteArtists: FavoriteIconVm[] = favoritesIds.artists
-        .map((id) => artists.find((artist) => artist.id === id) ?? null)
-        .filter((v): v is NonNullable<typeof v> => Boolean(v))
-        .map((artist) => ({
-          key: `artist-${artist.id}`,
-          title: artist.name,
-          imageUrl: artist.photo_url,
-          to: `/artists?artistId=${artist.id}`,
-        }))
-
-      const favoriteVenues: FavoriteIconVm[] = favoritesIds.venues
-        .map((id) => venues.find((venue) => venue.id === id) ?? null)
-        .filter((v): v is NonNullable<typeof v> => Boolean(v))
-        .map((venue) => ({
-          key: `venue-${venue.id}`,
-          title: venue.name,
-          imageUrl: venue.photo_url,
-          to: `/venues?venue_id=${venue.id}`,
-        }))
-
-      const favoriteConcerts: FavoriteIconVm[] = favoritesIds.concerts
-        .map((id) => concerts.find((concert) => concert.id === id) ?? null)
-        .filter((v): v is NonNullable<typeof v> => Boolean(v))
-        .map((concert) => ({
-          key: `concert-${concert.id}`,
-          title: concert.title ?? 'Концерт',
-          imageUrl: concert.poster_url,
-          to: `/concerts/${concert.id}/rate`,
-        }))
-
       const likedReviewIds = MOCK_LIKED_REVIEW_IDS_BY_USERNAME[stableSocialKey] ?? []
       const liked = likedReviewIds
         .map((id) => reviews.find((review) => review.id === id) ?? null)
@@ -441,6 +387,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
         .sort((a, b) => b.id - a.id)
 
       return {
+        userId: String(apiProfile.user_id ?? apiProfile.id ?? username),
         username,
         is_active,
         createdAt,
@@ -451,20 +398,59 @@ export function ProfileScreen(props: ProfileScreenProps) {
         showAdminBadge,
         stats: { reviews: reviewsCount, likes_received, likes_given },
         reviews: visibleReviews,
-        favorites: {
-          concerts: favoriteConcerts,
-          artists: favoriteArtists,
-          venues: favoriteVenues,
-        },
         liked,
       }
     },
     {
-      enabled: Boolean(!appLoading && !appError && data && username && (activeTab !== 'liked' || !reviewsQuery.isLoading)),
+      enabled: Boolean(!appLoading && !appError && data && username),
     },
   )
+  const favoritesRevision = getFavoritesRevision()
+  const favoritesQuery = useQuery(
+    ['profile', 'favorites', username, favoritesRevision],
+    () => loadUserFavorites(username ?? ''),
+    { enabled: Boolean(!appLoading && !appError && activeTab === 'favorites' && username) },
+  )
+  const likedReviewsUsername = profileQuery.data?.username ?? username ?? ''
+  const likedReviewsQuery = useQuery(
+    ['profile', 'likedReviews', likedReviewsUsername],
+    () => (isOwnProfile ? loadMyLikedReviews() : loadUserLikedReviews(likedReviewsUsername, { limit: 20, offset: 0 })),
+    { enabled: Boolean(!appLoading && !appError && activeTab === 'liked' && likedReviewsUsername && profileQuery.data) },
+  )
 
-  const title = props.kind === 'me' ? 'Мой профиль' : 'Профиль пользователя'
+  const favoritesItems = favoritesQuery.data ?? []
+  const displayedFavorites = useMemo(() => {
+    const grouped: Record<'concert' | 'artist' | 'venue', FavoriteIconVm[]> = {
+      concert: [],
+      artist: [],
+      venue: [],
+    }
+
+    favoritesItems.forEach((item: FavoriteItem) => {
+      const base: FavoriteIconVm = {
+        key: `${item.target_type}-${item.target_id}`,
+        title: item.name,
+        imageUrl: item.image_url,
+        to:
+          item.target_type === 'artist'
+            ? `/artists?artistId=${item.target_id}`
+            : item.target_type === 'venue'
+              ? `/venues?venue_id=${item.target_id}`
+              : `/concerts/${item.target_id}/rate`,
+      }
+      grouped[item.target_type].push(base)
+    })
+
+    return {
+      concerts: grouped.concert,
+      artists: grouped.artist,
+      venues: grouped.venue,
+    }
+  }, [favoritesItems])
+  const isFavoritesLoading = favoritesQuery.isLoading
+  const favoritesError = favoritesQuery.error
+
+  const title = props.kind === 'me' || isOwnProfile ? 'Мой профиль' : 'Профиль пользователя'
 
   if (appLoading || profileQuery.isLoading) {
     return <ProfileSkeleton title={title} />
@@ -505,6 +491,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
           return (Number.isFinite(right) ? right : 0) - (Number.isFinite(left) ? left : 0)
         })
     : bundle.reviews
+  const displayedLikedReviews = likedReviewsQuery.data ?? bundle.liked
 
   return (
     <section className="page">
@@ -695,12 +682,19 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
             {activeTab === 'favorites' && (
               <>
+                {isFavoritesLoading ? (
+                  <div className="profileReviewList reviewColumn" aria-busy="true">
+                    <div className="profileReviewSkeleton skeleton" />
+                  </div>
+                ) : favoritesError ? (
+                  <div className="placeholder">{favoritesError}</div>
+                ) : (
                 <div className="profileFavoritesBlocks" aria-label="Избранное">
                   {(
                     [
-                      { title: 'Концерты', items: bundle.favorites.concerts },
-                      { title: 'Артисты', items: bundle.favorites.artists },
-                      { title: 'Площадки', items: bundle.favorites.venues },
+                      { title: 'Концерты', items: displayedFavorites.concerts },
+                      { title: 'Артисты', items: displayedFavorites.artists },
+                      { title: 'Площадки', items: displayedFavorites.venues },
                     ] as const
                   ).map((block) => (
                     <article key={block.title} className="profileFavoritesBlock">
@@ -744,14 +738,21 @@ export function ProfileScreen(props: ProfileScreenProps) {
                     </article>
                   ))}
                 </div>
+                )}
               </>
             )}
 
             {activeTab === 'liked' && (
               <>
-                {bundle.liked.length > 0 ? (
+                {likedReviewsQuery.isLoading ? (
+                  <div className="profileReviewList reviewColumn" aria-busy="true">
+                    <div className="profileReviewSkeleton skeleton" />
+                  </div>
+                ) : likedReviewsQuery.error ? (
+                  <div className="placeholder">{likedReviewsQuery.error}</div>
+                ) : displayedLikedReviews.length > 0 ? (
                   <div className="profileReviewList reviewColumn">
-                    {bundle.liked.map((review) => (
+                    {displayedLikedReviews.map((review) => (
                       <ReviewCard key={review.id} review={review} />
                     ))}
                   </div>

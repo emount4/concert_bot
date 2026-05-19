@@ -6,6 +6,10 @@
   padding-top: var(--header-height);
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body.modalOpen {
   overflow: hidden;
 }

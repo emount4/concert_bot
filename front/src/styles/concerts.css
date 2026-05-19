@@ -8,7 +8,16 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.concertSearchGroup {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .concertSearch,
@@ -61,11 +70,136 @@
 
 .concertSearch {
   flex: 1;
-  min-width: 220px;
+  min-width: 0;
+}
+
+.searchSubmitBtn {
+  width: 44px;
+  min-height: 36px;
+  padding-inline: 0;
+  flex: 0 0 44px;
+}
+
+.filterOpenBtn {
+  width: 44px;
+  min-height: 36px;
+  padding-inline: 0;
+  flex: 0 0 44px;
+}
+
+.searchSubmitBtn,
+.filterOpenBtn {
+  display: inline-grid;
+  place-items: center;
+}
+
+.controlBtnIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.filtersModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(3, 9, 22, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.filtersModal {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 36px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
+  padding: 16px;
+}
+
+.filtersModalHeader,
+.filtersModalActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.filtersModalTitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.filtersModalHeader .settingsBtn {
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 12px;
+}
+
+.filtersModalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.filtersField {
+  grid-column: 1 / -1;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.filtersField > span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.filtersField .concertSelect,
+.filtersField .settingsBtn {
+  width: 100%;
+}
+
+.filtersToggle {
+  min-height: 44px;
+  justify-content: flex-start;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  width: 100%;
+}
+
+.filtersToggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: #4a6fb8;
+}
+
+.filtersModalActions {
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.filtersModalActions .settingsBtn {
+  min-height: 42px;
+  width: auto;
+  min-width: 124px;
+  border-radius: 12px;
 }
 
 .concertRangeInput {
-  min-width: 150px;
+  min-width: 0;
   padding-right: 10px;
   background-image: none;
 }
@@ -85,12 +219,17 @@
 .concertToggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 12px;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
   color: var(--muted);
+}
+
+.concertToggle:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fg);
 }
 
 .concertToggle input {

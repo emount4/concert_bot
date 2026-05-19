@@ -4,6 +4,22 @@
   gap: 16px;
 }
 
+.reviewGrid .reviewCard {
+  height: 100%;
+  align-self: stretch;
+}
+
+.reviewGrid .reviewBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.reviewGrid .reviewFooter {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
 .reviewDetailPage {
   min-height: calc(100vh - var(--header-height, 56px) - 120px);
   display: flex;

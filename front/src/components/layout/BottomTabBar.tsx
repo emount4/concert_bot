@@ -60,9 +60,14 @@ function TabIcon({ kind }: { kind: TabItem['icon'] }) {
   if (kind === 'artists') {
     return (
       <svg className="bottomTabIcon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 12.5a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
         <path
-          d="M5.5 20.5a6.5 6.5 0 0 1 13 0"
+          d="M12 14a3.2 3.2 0 0 0 3.2-3.2V6.2a3.2 3.2 0 0 0-6.4 0v4.6A3.2 3.2 0 0 0 12 14Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+        <path
+          d="M6.8 10.5a5.2 5.2 0 0 0 10.4 0M12 15.7v4.8M8.7 20.5h6.6"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.8"

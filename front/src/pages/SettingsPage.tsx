@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppData } from '../api/AppDataProvider'
+import { DATA_SOURCE_MODE } from '../api/config'
+import { loadMyProfileModerationRequests, updateMyProfile, uploadReviewMedia } from '../api/repository'
 import { enqueueProfileChangeRequest, loadProfileChangeRequests } from '../data/adminStore'
 import type { AdminProfileChangeRequest } from '../types/admin'
 import { changePasswordMock, deleteAccountMock, getCurrentUserEmail } from '../utils/authMock'
@@ -45,7 +47,7 @@ function moderationHint() {
 
 export function SettingsPage() {
   // Задание 7.2: страница настроек в 5 блоков (профиль/безопасность/UX/приватность/юридическое) на моках.
-  const { data, isLoading, error } = useAppData()
+  const { data, isLoading, error, refresh } = useAppData()
   const navigate = useNavigate()
 
   const profile = data?.profile ?? null
@@ -77,6 +79,11 @@ export function SettingsPage() {
 
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null)
+  const [profilePatchStatus, setProfilePatchStatus] = useState<string | null>(null)
+  const [profilePatchError, setProfilePatchError] = useState<string | null>(null)
+  const [profilePatchBusy, setProfilePatchBusy] = useState(false)
+  const [profileModerationError, setProfileModerationError] = useState<string | null>(null)
+  const [isLoadingProfileModeration, setIsLoadingProfileModeration] = useState(false)
 
   const [themeMode, setThemeMode] = useState<ThemeMode>('system')
   const [language, setLanguage] = useState<'ru'>('ru')
@@ -95,6 +102,31 @@ export function SettingsPage() {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  async function refreshProfileModerationRequests(currentProfile = profile) {
+    if (!currentProfile) {
+      setProfileChangeRequests([])
+      return
+    }
+
+    if (DATA_SOURCE_MODE === 'mock') {
+      const byDisplayName = loadProfileChangeRequests().filter((req) => req.requested_by_displayName === currentProfile.displayName)
+      setProfileChangeRequests(byDisplayName)
+      setProfileModerationError(null)
+      return
+    }
+
+    setIsLoadingProfileModeration(true)
+    setProfileModerationError(null)
+    try {
+      const requests = await loadMyProfileModerationRequests(undefined, currentProfile)
+      setProfileChangeRequests(requests)
+    } catch (error) {
+      setProfileModerationError(error instanceof Error ? error.message : 'Не удалось загрузить заявки на модерацию.')
+    } finally {
+      setIsLoadingProfileModeration(false)
+    }
+  }
+
   useEffect(() => {
     setUsernameDraft(initialUsername)
     setBioDraft(initialBio)
@@ -104,9 +136,8 @@ export function SettingsPage() {
       return
     }
 
-    const byDisplayName = loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName)
-    setProfileChangeRequests(byDisplayName)
-  }, [initialUsername, initialBio])
+    void refreshProfileModerationRequests(profile)
+  }, [initialUsername, initialBio, profile?.displayName])
 
   useEffect(() => {
     if (!avatarFile) {
@@ -173,6 +204,23 @@ export function SettingsPage() {
     setUsernameCheck(taken.has(normalized.toLowerCase()) ? { state: 'taken' } : { state: 'available' })
   }
 
+  async function submitProfilePatch(payload: Parameters<typeof updateMyProfile>[0], successMessage: string) {
+    setProfilePatchBusy(true)
+    setProfilePatchError(null)
+    setProfilePatchStatus(null)
+
+    try {
+      await updateMyProfile(payload)
+      await refresh()
+      await refreshProfileModerationRequests()
+      setProfilePatchStatus(successMessage)
+    } catch (error) {
+      setProfilePatchError(error instanceof Error ? error.message : 'Не удалось отправить заявку на модерацию.')
+    } finally {
+      setProfilePatchBusy(false)
+    }
+  }
+
   function submitUsernameChange() {
     const normalized = normalizeUsername(usernameDraft)
     if (!looksLikeUsername(normalized)) {
@@ -189,61 +237,121 @@ export function SettingsPage() {
 
     if (!profile) return
 
-    enqueueProfileChangeRequest({
-      requested_by_username: normalizeUsername(profile.handle),
-      requested_by_displayName: profile.displayName,
-      type: 'username',
-      old_username: initialUsername,
-      new_username: normalized,
-    })
-    setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
-  }
-
-  function submitBioChange() {
-    if (!bioDraft.trim()) {
+    if (DATA_SOURCE_MODE === 'mock') {
+      enqueueProfileChangeRequest({
+        requested_by_username: normalizeUsername(profile.handle),
+        requested_by_displayName: profile.displayName,
+        type: 'username',
+        old_username: initialUsername,
+        new_username: normalized,
+      })
+      setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
       return
     }
 
+    void submitProfilePatch({ username: normalized }, 'Заявка на смену username отправлена на модерацию.')
+  }
+
+  function submitBioChange() {
     if (!profile) return
 
-    enqueueProfileChangeRequest({
-      requested_by_username: normalizeUsername(profile.handle),
-      requested_by_displayName: profile.displayName,
-      type: 'bio',
-      old_bio: initialBio,
-      new_bio: bioDraft,
-    })
-    setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
+    const nextBio = bioDraft.trim() ? bioDraft : null
+
+    if (nextBio === null && !initialBio.trim()) return
+
+    void submitProfilePatch({ bio: nextBio }, nextBio === null ? 'Заявка на удаление описания отправлена на модерацию.' : 'Заявка на обновление описания отправлена на модерацию.')
+  }
+
+  function submitBioDelete() {
+    setBioDraft('')
+    if (!profile) return
+    if (!initialBio.trim()) return
+
+    void submitProfilePatch({ bio: null }, 'Заявка на удаление описания отправлена на модерацию.')
   }
 
   async function submitAvatarChange() {
     if (!avatarFile) return
     if (!profile) return
 
-    const dataUrl = await fileToDataUrl(avatarFile)
-    enqueueProfileChangeRequest({
-      requested_by_username: normalizeUsername(profile.handle),
-      requested_by_displayName: profile.displayName,
-      type: 'avatar',
-      old_avatar_url: profile.avatar_url,
-      new_avatar_url: dataUrl,
-    })
-    setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
+    if (DATA_SOURCE_MODE === 'mock') {
+      const dataUrl = await fileToDataUrl(avatarFile)
+      enqueueProfileChangeRequest({
+        requested_by_username: normalizeUsername(profile.handle),
+        requested_by_displayName: profile.displayName,
+        type: 'avatar',
+        old_avatar_url: profile.avatar_url,
+        new_avatar_url: dataUrl,
+      })
+      setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
+      return
+    }
+
+    setProfilePatchBusy(true)
+    setProfilePatchError(null)
+    setProfilePatchStatus(null)
+    try {
+      const [avatarKey] = await uploadReviewMedia([avatarFile])
+      if (!avatarKey) throw new Error('Сервис загрузки не вернул ключ аватарки.')
+      await updateMyProfile({ avatar_key: avatarKey })
+      await refresh()
+      await refreshProfileModerationRequests()
+      setAvatarFile(null)
+      setProfilePatchStatus('Заявка на смену аватарки отправлена на модерацию.')
+    } catch (error) {
+      setProfilePatchError(error instanceof Error ? error.message : 'Не удалось отправить аватарку на модерацию.')
+    } finally {
+      setProfilePatchBusy(false)
+    }
+  }
+
+  function submitAvatarDelete() {
+    if (!profile?.avatar_url) return
+
+    setAvatarFile(null)
+    void submitProfilePatch({ avatar_key: null }, 'Заявка на удаление аватарки отправлена на модерацию.')
   }
 
   async function submitBannerChange() {
     if (!bannerFile) return
     if (!profile) return
 
-    const dataUrl = await fileToDataUrl(bannerFile)
-    enqueueProfileChangeRequest({
-      requested_by_username: normalizeUsername(profile.handle),
-      requested_by_displayName: profile.displayName,
-      type: 'banner',
-      old_banner_url: profile.banner_url ?? null,
-      new_banner_url: dataUrl,
-    })
-    setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
+    if (DATA_SOURCE_MODE === 'mock') {
+      const dataUrl = await fileToDataUrl(bannerFile)
+      enqueueProfileChangeRequest({
+        requested_by_username: normalizeUsername(profile.handle),
+        requested_by_displayName: profile.displayName,
+        type: 'banner',
+        old_banner_url: profile.banner_url ?? null,
+        new_banner_url: dataUrl,
+      })
+      setProfileChangeRequests(loadProfileChangeRequests().filter((req) => req.requested_by_displayName === profile.displayName))
+      return
+    }
+
+    setProfilePatchBusy(true)
+    setProfilePatchError(null)
+    setProfilePatchStatus(null)
+    try {
+      const [bannerKey] = await uploadReviewMedia([bannerFile])
+      if (!bannerKey) throw new Error('Сервис загрузки не вернул ключ баннера.')
+      await updateMyProfile({ banner_key: bannerKey })
+      await refresh()
+      await refreshProfileModerationRequests()
+      setBannerFile(null)
+      setProfilePatchStatus('Заявка на смену баннера отправлена на модерацию.')
+    } catch (error) {
+      setProfilePatchError(error instanceof Error ? error.message : 'Не удалось отправить баннер на модерацию.')
+    } finally {
+      setProfilePatchBusy(false)
+    }
+  }
+
+  function submitBannerDelete() {
+    if (!profile?.banner_url) return
+
+    setBannerFile(null)
+    void submitProfilePatch({ banner_key: null }, 'Заявка на удаление баннера отправлена на модерацию.')
   }
 
   function onLogout() {
@@ -268,7 +376,7 @@ export function SettingsPage() {
     setOldPassword('')
     setNewPassword('')
     setNewPasswordRepeat('')
-    setPasswordStatus('Пароль обновлён (мок).')
+    setPasswordStatus('Пароль обновлён.')
   }
 
   async function onBindTelegram() {
@@ -325,6 +433,8 @@ export function SettingsPage() {
           <article className="settingsCard settingsCardWide">
             <h2 className="settingsCardTitle">Публичный профиль (модерируемый)</h2>
             <p className="settingsCardHint">Изменения в публичном профиле применяются после проверки админом.</p>
+            {profilePatchStatus && <p className="settingsOk">{profilePatchStatus}</p>}
+            {profilePatchError && <p className="settingsError">{profilePatchError}</p>}
 
             <div className="settingRow settingRowColumn">
               <div className="settingText">
@@ -345,7 +455,7 @@ export function SettingsPage() {
                       setUsernameCheck({ state: 'idle' })
                     }}
                   />
-                  <button type="button" className="settingsBtn ghost" onClick={checkUsernameUnique}>
+                  <button type="button" className="settingsBtn ghost" onClick={checkUsernameUnique} disabled={profilePatchBusy}>
                     Проверить
                   </button>
                 </div>
@@ -359,9 +469,9 @@ export function SettingsPage() {
                   type="button"
                   className="settingsBtn primary"
                   onClick={submitUsernameChange}
-                  disabled={usernameCheck.state !== 'available'}
+                  disabled={usernameCheck.state !== 'available' || profilePatchBusy}
                 >
-                  Отправить на модерацию
+                  {profilePatchBusy ? 'Отправляем...' : 'Отправить на модерацию'}
                 </button>
               </div>
             </div>
@@ -380,16 +490,21 @@ export function SettingsPage() {
                   value={bioDraft}
                   onChange={(e) => setBioDraft(e.target.value)}
                 />
-                <button type="button" className="settingsBtn primary" onClick={submitBioChange} disabled={!bioDraft.trim()}>
-                  Отправить на модерацию
-                </button>
+                <div className="settingsInline">
+                  <button type="button" className="settingsBtn primary" onClick={submitBioChange} disabled={profilePatchBusy}>
+                    {profilePatchBusy ? 'Отправляем...' : 'Отправить на модерацию'}
+                  </button>
+                  <button type="button" className="settingsBtn ghost" onClick={submitBioDelete} disabled={!initialBio.trim() || profilePatchBusy}>
+                    Удалить описание
+                  </button>
+                </div>
               </div>
             </div>
 
             <div className="settingRow settingRowColumn">
               <div className="settingText">
                 <p className="settingTitle">Аватарка</p>
-                <p className="settingDescription">Загрузка в S3 (мок) с превью старой → новой. {moderationHint()}</p>
+                <p className="settingDescription">Загрузите изображение для публичного профиля. {moderationHint()}</p>
               </div>
 
               <div className="settingsControl">
@@ -411,13 +526,19 @@ export function SettingsPage() {
                       type="file"
                       accept="image/*"
                       onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                      disabled={profilePatchBusy}
                     />
                   </label>
                 </div>
 
-                <button type="button" className="settingsBtn primary" onClick={submitAvatarChange} disabled={!avatarFile}>
-                  Загрузить (на модерацию)
-                </button>
+                <div className="settingsInline">
+                  <button type="button" className="settingsBtn primary" onClick={submitAvatarChange} disabled={!avatarFile || profilePatchBusy}>
+                    {profilePatchBusy ? 'Отправляем...' : 'Загрузить (на модерацию)'}
+                  </button>
+                  <button type="button" className="settingsBtn ghost" onClick={submitAvatarDelete} disabled={!profile?.avatar_url || profilePatchBusy}>
+                    Удалить аватарку
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -446,13 +567,19 @@ export function SettingsPage() {
                       type="file"
                       accept="image/*"
                       onChange={(e) => setBannerFile(e.target.files?.[0] ?? null)}
+                      disabled={profilePatchBusy}
                     />
                   </label>
                 </div>
 
-                <button type="button" className="settingsBtn primary" onClick={submitBannerChange} disabled={!bannerFile}>
-                  Загрузить (на модерацию)
-                </button>
+                <div className="settingsInline">
+                  <button type="button" className="settingsBtn primary" onClick={submitBannerChange} disabled={!bannerFile || profilePatchBusy}>
+                    {profilePatchBusy ? 'Отправляем...' : 'Загрузить (на модерацию)'}
+                  </button>
+                  <button type="button" className="settingsBtn ghost" onClick={submitBannerDelete} disabled={!profile?.banner_url || profilePatchBusy}>
+                    Удалить баннер
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -464,11 +591,21 @@ export function SettingsPage() {
 
               <div className="settingsControl">
                 <div className="settingsInline settingsInlineWide">
-                  <p className="settingsHint">Заявок: {profileChangeRequests.length}</p>
-                  <button type="button" className="settingsBtn ghost" onClick={() => setIsModerationModalOpen(true)}>
+                  <p className="settingsHint">
+                    {isLoadingProfileModeration ? 'Загружаем заявки...' : `Заявок: ${profileChangeRequests.length}`}
+                  </p>
+                  <button
+                    type="button"
+                    className="settingsBtn ghost"
+                    onClick={() => {
+                      void refreshProfileModerationRequests()
+                      setIsModerationModalOpen(true)
+                    }}
+                  >
                     Открыть
                   </button>
                 </div>
+                {profileModerationError && <p className="settingsError">{profileModerationError}</p>}
               </div>
             </div>
           </article>
@@ -479,7 +616,7 @@ export function SettingsPage() {
             <div className="settingRow settingRowColumn">
               <div className="settingText">
                 <p className="settingTitle">Email</p>
-                <p className="settingDescription">Только чтение (MVP).</p>
+                <p className="settingDescription">Используется для входа и уведомлений.</p>
               </div>
               <div className="settingsControl">
                 <input className="settingsInput" type="email" value={currentEmail} readOnly />
@@ -534,7 +671,7 @@ export function SettingsPage() {
               <div className="settingText">
                 <p className="settingTitle">Привязка Telegram</p>
                 <p className="settingDescription">
-                  Для MVP — мок. В проде здесь будет открытие Mini App или ссылка на бота.
+                  Подключите Telegram для быстрого входа и уведомлений.
                 </p>
               </div>
 
@@ -567,12 +704,12 @@ export function SettingsPage() {
 
           <article className="settingsCard">
             <h2 className="settingsCardTitle">Настройки интерфейса (UX)</h2>
-            <p className="settingsCardHint">Особенно важно для Telegram Mini App.</p>
+            <p className="settingsCardHint">Настройте внешний вид и язык интерфейса.</p>
 
             <div className="settingRow settingRowSelect">
               <div className="settingText">
                 <p className="settingTitle">Тема оформления</p>
-                <p className="settingDescription">Светлая / Тёмная / Системная (под Telegram). Пока — мок.</p>
+                <p className="settingDescription">Выберите светлую, тёмную или системную тему.</p>
               </div>
 
               <label className="selectWrap" aria-label="Тема оформления">
@@ -587,7 +724,7 @@ export function SettingsPage() {
             <div className="settingRow settingRowSelect">
               <div className="settingText">
                 <p className="settingTitle">Язык</p>
-                <p className="settingDescription">Пока только Русский (задел на будущее).</p>
+                <p className="settingDescription">Язык интерфейса приложения.</p>
               </div>
 
               <label className="selectWrap" aria-label="Язык">
@@ -621,8 +758,7 @@ export function SettingsPage() {
               <div className="settingText">
                 <p className="settingTitle">Удаление аккаунта</p>
                 <p className="settingDescription">
-                  <strong className="settingsDangerText">Действие необратимо.</strong> В проде здесь запускается логика анонимизации
-                  (затирка данных, но сохранение рецензий). Для MVP — мок.
+                  <strong className="settingsDangerText">Действие необратимо.</strong> Профиль будет удалён, а опубликованные рецензии останутся без публичных данных автора.
                 </p>
               </div>
 
@@ -678,9 +814,9 @@ export function SettingsPage() {
             <div className="settingRow">
               <div className="settingText">
                 <p className="settingTitle">Версия приложения</p>
-                <p className="settingDescription">v1.0.0-mvp</p>
+                <p className="settingDescription">v1.0.0</p>
               </div>
-              <span className="settingsBadge">MVP</span>
+              <span className="settingsBadge">Stable</span>
             </div>
 
             <div className="settingRow">
@@ -732,7 +868,11 @@ export function SettingsPage() {
               </button>
             </div>
 
-            {profileChangeRequests.length === 0 ? (
+            {isLoadingProfileModeration ? (
+              <p className="settingsHint">Загружаем заявки...</p>
+            ) : profileModerationError ? (
+              <p className="settingsError">{profileModerationError}</p>
+            ) : profileChangeRequests.length === 0 ? (
               <p className="settingsHint">Пока нет заявок.</p>
             ) : (
               <ul className="settingsList" aria-label="Заявки на модерацию">

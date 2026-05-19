@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ReviewCard } from '../components/reviews/ReviewCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { REVIEW_MEDIA_MAX_SIZE_BYTES, REVIEW_MEDIA_MAX_SIZE_MB } from '../api/config'
-import { createReview, loadConcertById, loadReviews, uploadReviewMedia } from '../api/repository'
+import { addFavorite, getFavoritesRevision, loadUserFavorites, removeFavorite, createReview, loadConcertById, loadReviews, uploadReviewMedia } from '../api/repository'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
@@ -11,6 +11,7 @@ import { useBodyScrollLock } from '../utils/useBodyScrollLock'
 import type { Concert, ConcertStats } from '../types/concert'
 import { calculateReviewRating, getReviewConcertIdKey } from '../types/review'
 import { useQuery } from '../utils/useQuery'
+import { useAuthStore } from '../store/useAuthStore'
 
 type ScoreState = {
   performance: number
@@ -82,6 +83,8 @@ export function RateConcertPage() {
 
   const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [isFavoriteBusy, setIsFavoriteBusy] = useState(false)
+  const [favoriteError, setFavoriteError] = useState<string | null>(null)
   const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false)
   const [isConfirmSubmitOpen, setIsConfirmSubmitOpen] = useState(false)
   const [isDraftToastVisible, setIsDraftToastVisible] = useState(false)
@@ -92,6 +95,18 @@ export function RateConcertPage() {
   const [reviewSubmitError, setReviewSubmitError] = useState<string | null>(null)
   const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState<string | null>(null)
   const [isReviewSubmitting, setIsReviewSubmitting] = useState(false)
+  const authUser = useAuthStore((state) => state.user)
+  const isAuth = useAuthStore((state) => state.isAuth)
+  const favoritesUsername = useMemo(() => {
+    const raw = authUser?.username ?? ''
+    return raw.trim().replace(/^@+/, '').toLowerCase()
+  }, [authUser?.username])
+  const favoritesRevision = getFavoritesRevision()
+  const favoritesQuery = useQuery(
+    ['favorites', 'concert', favoritesUsername, favoritesRevision],
+    () => loadUserFavorites(favoritesUsername, { type: 'concert' }),
+    { enabled: Boolean(isAuth && favoritesUsername) },
+  )
 
   useBodyScrollLock(isCriteriaOpen || isConfirmClearOpen || isConfirmSubmitOpen || isMediaModalOpen)
 
@@ -153,6 +168,19 @@ export function RateConcertPage() {
     }
 
     setIsDraftReady(true)
+  }, [routeConcertId])
+
+  useEffect(() => {
+    if (!routeConcertId || !isAuth || !favoritesUsername) {
+      setIsFavorite(false)
+      return
+    }
+    const favorites = favoritesQuery.data ?? []
+    setIsFavorite(favorites.some((item) => item.target_id === routeConcertId))
+  }, [favoritesQuery.data, favoritesUsername, isAuth, routeConcertId])
+
+  useEffect(() => {
+    setFavoriteError(null)
   }, [routeConcertId])
 
   // Задание 11.4: автосохранение черновика после паузы ввода.
@@ -225,6 +253,33 @@ export function RateConcertPage() {
     }
 
     return null
+  }
+
+  const handleFavoriteToggle = async () => {
+    if (!routeConcertId) return
+    if (!isAuth || !favoritesUsername) {
+      setFavoriteError('Нужно войти, чтобы добавить в избранное.')
+      return
+    }
+    if (isFavoriteBusy) return
+
+    setIsFavoriteBusy(true)
+    setFavoriteError(null)
+
+    try {
+      if (isFavorite) {
+        await removeFavorite('concert', routeConcertId)
+        setIsFavorite(false)
+      } else {
+        await addFavorite('concert', routeConcertId)
+        setIsFavorite(true)
+      }
+      await favoritesQuery.refetch()
+    } catch (error) {
+      setFavoriteError(error instanceof Error ? error.message : 'Не удалось обновить избранное.')
+    } finally {
+      setIsFavoriteBusy(false)
+    }
   }
 
   const requestSubmitReview = () => {
@@ -318,6 +373,7 @@ export function RateConcertPage() {
     ? concert.artists.filter((artist) => artist.is_main === false)
     : []
   const visibleArtists = mainArtists.length > 0 ? mainArtists : concert?.artists.filter((artist) => artist.is_main !== false) ?? []
+  const getArtistLinkId = (artist: { id?: string | number; artist_id?: string | number }) => artist.artist_id ?? artist.id
   const userReviewStatus = concert?.user_review_status ?? null
   const reviewStatusNotice =
     userReviewStatus === 'pending'
@@ -387,22 +443,31 @@ export function RateConcertPage() {
               <button
                 type="button"
                 className={`rateHeroFavoriteBtn ${isFavorite ? 'active' : ''}`}
-                onClick={() => setIsFavorite(!isFavorite)}
+                onClick={() => void handleFavoriteToggle()}
+                disabled={isFavoriteBusy}
                 aria-label="В избранное"
-                title="Добавить в избранное"
+                title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
               >
                 {isFavorite ? '♥' : '♡'}
               </button>
             </div>
+            {favoriteError && <p className="reviewLikeError">{favoriteError}</p>}
 
             <h2 className="rateHeroTitle">{concert.title ?? 'Без названия'}</h2>
 
             <div className="rateHeroLinks">
-              {visibleArtists.map((artist) => (
-                <Link key={artist.id} to={`/artists?artistId=${artist.id}`} className="rateLinkChip">
-                  {artist.name}
-                </Link>
-              ))}
+              {visibleArtists.map((artist) => {
+                const artistLinkId = getArtistLinkId(artist)
+                return artistLinkId ? (
+                  <Link key={String(artistLinkId)} to={`/artists?artistId=${artistLinkId}`} className="rateLinkChip">
+                    {artist.name}
+                  </Link>
+                ) : (
+                  <span key={artist.name} className="rateLinkChip">
+                    {artist.name}
+                  </span>
+                )
+              })}
               {secondaryArtists.length > 0 && (
                 <button
                   type="button"
@@ -416,11 +481,18 @@ export function RateConcertPage() {
             </div>
             {secondaryArtists.length > 0 && isSecondaryArtistsOpen && (
               <div className="rateSecondaryArtists" role="list">
-                {secondaryArtists.map((artist) => (
-                  <Link key={artist.id} to={`/artists?artistId=${artist.id}`} className="rateSecondaryArtist" role="listitem">
-                    {artist.name}
-                  </Link>
-                ))}
+                {secondaryArtists.map((artist) => {
+                  const artistLinkId = getArtistLinkId(artist)
+                  return artistLinkId ? (
+                    <Link key={String(artistLinkId)} to={`/artists?artistId=${artistLinkId}`} className="rateSecondaryArtist" role="listitem">
+                      {artist.name}
+                    </Link>
+                  ) : (
+                    <span key={artist.name} className="rateSecondaryArtist" role="listitem">
+                      {artist.name}
+                    </span>
+                  )
+                })}
               </div>
             )}
 
@@ -435,7 +507,7 @@ export function RateConcertPage() {
                         { label: 'Исполнение', value: concertAvgScores.performance },
                         { label: 'Динамика / трек-лист', value: concertAvgScores.setlist },
                         { label: 'Харизма', value: concertAvgScores.crowd },
-                        { label: 'Звук', value: concertAvgScores.sound },
+                        { label: 'Звук/Визуал', value: concertAvgScores.sound },
                         { label: 'Вайб', value: concertAvgScores.vibe },
                       ]
                     : []
@@ -513,7 +585,7 @@ export function RateConcertPage() {
 
             <label className="rateSliderCard">
               <div className="rateSliderHead">
-                <span className="rateSliderLabel">Звук</span>
+                <span className="rateSliderLabel">Звук/Визуал</span>
                 <span className="rateSliderValue">{scores.sound}</span>
               </div>
               <input
@@ -676,7 +748,7 @@ export function RateConcertPage() {
                 <li><strong>Исполнение:</strong> качество музыкального исполнения, вокал.</li>
                 <li><strong>Динамика / трек-лист:</strong> структура концерта, баланс хитов и нового.</li>
                 <li><strong>Харизма:</strong> подача и энергия артиста, работа со зрителем.</li>
-                <li><strong>Звук:</strong> качество звучания в зале и работа звукорежиссуры.</li>
+                <li><strong>Звук/Визуал:</strong> качество звучания, свет, сценография и визуальная часть концерта.</li>
               </ul>
               <hr />
               <p>

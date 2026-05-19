@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
+import { FilterIcon, SearchIcon } from '../components/common/ControlIcons'
 import { loadCities, loadConcerts } from '../api/repository'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
@@ -20,12 +21,19 @@ const CONCERT_SORT_QUERY: Record<ConcertSortBy, string> = {
 export function ConcertsPage() {
   // Задание 9.1: фильтрация и сортировка списка концертов на фронтенде.
   const [search, setSearch] = useState('')
+  const [searchDraft, setSearchDraft] = useState('')
   const [cityFilter, setCityFilter] = useState('all')
   const [onlyRated, setOnlyRated] = useState(false)
   const [upcomingOnly, setUpcomingOnly] = useState(false)
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const [cityFilterDraft, setCityFilterDraft] = useState('all')
+  const [onlyRatedDraft, setOnlyRatedDraft] = useState(false)
+  const [upcomingOnlyDraft, setUpcomingOnlyDraft] = useState(false)
   // Задание 12.4: единый контрол сортировки (поле + стрелка направления).
   const [sortBy, setSortBy] = useState<ConcertSortBy>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [sortByDraft, setSortByDraft] = useState<ConcertSortBy>('date')
+  const [sortDirectionDraft, setSortDirectionDraft] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [cities, setCities] = useState<City[]>([])
 
@@ -108,6 +116,41 @@ export function ConcertsPage() {
   const pageCount = concertsQuery.data?.page_count ?? 0
   const paginationItems = useMemo(() => buildPaginationItems(currentPage, pageCount), [currentPage, pageCount])
 
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSearch(searchDraft)
+    setCurrentPage(1)
+  }
+
+  const openFilters = () => {
+    setCityFilterDraft(cityFilter)
+    setOnlyRatedDraft(onlyRated)
+    setUpcomingOnlyDraft(upcomingOnly)
+    setSortByDraft(sortBy)
+    setSortDirectionDraft(sortDirection)
+    setIsFiltersOpen(true)
+  }
+
+  const applyFilters = () => {
+    setSearch(searchDraft)
+    setCityFilter(cityFilterDraft)
+    setOnlyRated(onlyRatedDraft)
+    setUpcomingOnly(upcomingOnlyDraft)
+    setSortBy(sortByDraft)
+    setSortDirection(sortDirectionDraft)
+    setCurrentPage(1)
+    setIsFiltersOpen(false)
+  }
+
+  const resetFilterDrafts = () => {
+    setSearchDraft('')
+    setCityFilterDraft('all')
+    setOnlyRatedDraft(false)
+    setUpcomingOnlyDraft(false)
+    setSortByDraft('date')
+    setSortDirectionDraft('desc')
+  }
+
   useEffect(() => {
     if (pageCount > 0 && currentPage > pageCount) {
       setCurrentPage(pageCount)
@@ -128,71 +171,83 @@ export function ConcertsPage() {
 
       <div className="concertControls">
         <div className="concertControlsRow">
-          <input
-            className="concertSearch"
-            type="search"
-            placeholder="Поиск по концерту, артисту или площадке"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-
-          <select
-            className="concertSelect"
-            value={cityFilter}
-            onChange={(e) => setCityFilter(e.target.value)}
-          >
-            <option value="all">Все города</option>
-            {availableCities.map((city) => (
-              <option key={city} value={city}>
-                {city}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="concertSelect"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as ConcertSortBy)}
-          >
-            <option value="date">Сортировка: дата</option>
-            <option value="rating">Сортировка: оценка</option>
-            <option value="reviews">Сортировка: число рецензий</option>
-            <option value="title">Сортировка: название</option>
-          </select>
+          <form className="concertSearchGroup" onSubmit={submitSearch} role="search">
+            <input
+              className="concertSearch"
+              type="search"
+              placeholder="Поиск по концерту, артисту или площадке"
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+            />
+            <button type="submit" className="settingsBtn primary searchSubmitBtn" aria-label="Искать" title="Искать">
+              <SearchIcon />
+            </button>
+          </form>
 
           <button
             type="button"
-            className="settingsBtn ghost sortDirectionBtn"
-            onClick={() => setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-            aria-label={
-              sortDirection === 'desc'
-                ? 'Сортировка по убыванию, нажмите для возрастания'
-                : 'Сортировка по возрастанию, нажмите для убывания'
-            }
-            title={sortDirection === 'desc' ? 'По убыванию' : 'По возрастанию'}
+            className="settingsBtn ghost filterOpenBtn"
+            onClick={openFilters}
+            aria-label="Фильтры"
+            title="Фильтры"
           >
-            {sortDirection === 'desc' ? '↓' : '↑'}
-          </button>
-        </div>
-
-        <div className="concertControlsRow">
-
-          <button
-            type="button"
-            className="settingsBtn ghost"
-            onClick={() => {
-              setSearch('')
-              setCityFilter('all')
-              setOnlyRated(false)
-              setUpcomingOnly(false)
-              setSortBy('date')
-              setSortDirection('desc')
-            }}
-          >
-            Сбросить фильтры
+            <FilterIcon />
           </button>
         </div>
       </div>
+
+      {isFiltersOpen && (
+        <div className="filtersModalBackdrop" role="presentation" onClick={() => setIsFiltersOpen(false)}>
+          <div className="filtersModal" role="dialog" aria-modal="true" aria-label="Фильтры концертов" onClick={(e) => e.stopPropagation()}>
+            <div className="filtersModalHeader">
+              <h2 className="filtersModalTitle">Фильтры</h2>
+              <button type="button" className="settingsBtn ghost" onClick={() => setIsFiltersOpen(false)}>Закрыть</button>
+            </div>
+            <div className="filtersModalGrid">
+              <label className="filtersField">
+                <span>Город</span>
+                <select className="concertSelect" value={cityFilterDraft} onChange={(e) => setCityFilterDraft(e.target.value)}>
+                  <option value="all">Все города</option>
+                  {availableCities.map((city) => <option key={city} value={city}>{city}</option>)}
+                </select>
+              </label>
+              <label className="filtersField">
+                <span>Сортировка</span>
+                <select className="concertSelect" value={sortByDraft} onChange={(e) => setSortByDraft(e.target.value as ConcertSortBy)}>
+                  <option value="date">Дата</option>
+                  <option value="rating">Оценка</option>
+                  <option value="reviews">Число рецензий</option>
+                  <option value="title">Название</option>
+                </select>
+              </label>
+              <label className="filtersField">
+                <span>Направление</span>
+                <button type="button" className="settingsBtn ghost" onClick={() => setSortDirectionDraft((prev) => (prev === 'desc' ? 'asc' : 'desc'))}>
+                  {sortDirectionDraft === 'desc' ? 'По убыванию' : 'По возрастанию'}
+                </button>
+              </label>
+              <label className="concertToggle filtersToggle">
+                <input type="checkbox" checked={onlyRatedDraft} onChange={(e) => setOnlyRatedDraft(e.target.checked)} />
+                Только с оценкой
+              </label>
+              <label className="concertToggle filtersToggle">
+                <input type="checkbox" checked={upcomingOnlyDraft} onChange={(e) => setUpcomingOnlyDraft(e.target.checked)} />
+                Будущие концерты
+              </label>
+            </div>
+            <div className="filtersModalActions">
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={resetFilterDrafts}
+              >
+                Сбросить фильтры
+              </button>
+              <button type="button" className="settingsBtn primary" onClick={applyFilters}>Готово</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Задание 1: карточки концертов с пустым местом под афишу и рейтингом справа. */}
       {visibleConcerts.length > 0 ? (
