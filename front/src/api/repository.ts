@@ -16,6 +16,7 @@ import type {
   AdminConcertSuggestion,
   AdminProfileChangeRequest,
   AdminReviewModerationItem,
+  AdminAuditLogEntry,
   AdminVenue,
 } from '../types/admin'
 import type { Artist, ArtistCardItem, CreateArtistPayload, UpdateArtistPayload, AdminArtistResponse } from '../types/artist'
@@ -82,6 +83,13 @@ type AdminReviewsListParams = {
   limit?: number
   offset?: number
   status?: string
+}
+type AdminAuditLogsParams = {
+  limit?: number
+  offset?: number
+  moderator_id?: string
+  target_type?: string
+  action?: string
 }
 type AdminProfileModerationListParams = {
   limit?: number
@@ -186,6 +194,19 @@ type BatchUploadResponse = {
   }>
 }
 
+type AdminAuditLogApiResponse = {
+  id: number
+  moderator?: {
+    id?: string
+    username?: string
+  }
+  action: string
+  target_id?: string | null
+  target_type?: string | null
+  details?: Record<string, unknown> | null
+  created_at: string
+}
+
 type FavoriteApiResponse = {
   id?: number
   favorite_id?: number
@@ -267,6 +288,34 @@ type UserMeApiResponse = {
   stats?: UserStatsApiResponse | null
   reviews?: ProfileReviewApiResponse[] | null
 }
+type AdminUserStatsApiResponse = {
+  reviews_count: number
+  likes_given_count: number
+  likes_received_count: number
+}
+type AdminUserApiResponse = {
+  id: string
+  email: string
+  username: string
+  bio?: string | null
+  avatar_url?: string | null
+  banner_url?: string | null
+  telegram_id?: number | null
+  telegram_username?: string | null
+  role_id: number
+  is_email_verified?: boolean
+  is_active: boolean
+  is_banned: boolean
+  banned_by_user_id?: string | null
+  created_at: string
+  updated_at?: string
+  stats?: AdminUserStatsApiResponse | null
+}
+export type AdminUsersListParams = {
+  limit?: number
+  offset?: number
+  search?: string
+}
 type PublicProfileApiResponse = {
   id?: string | null
   username: string
@@ -345,6 +394,39 @@ function mapAdminConcertSuggestionResponse(suggestion: AdminConcertSuggestion): 
     status: suggestion.status ?? 'pending',
     suggested_by_username: suggestion.suggested_by_username ?? suggestion.user_id ?? 'unknown',
     suggested_by_displayName: suggestion.suggested_by_displayName ?? suggestion.user_id ?? 'Неизвестный пользователь',
+  }
+}
+
+function roleFromRoleId(roleId: number): AdminAccount['role'] {
+  if (roleId === 3) return 'super_admin'
+  if (roleId === 2) return 'admin'
+  return 'user'
+}
+
+function mapAdminUserResponseToAccount(user: AdminUserApiResponse): AdminAccount {
+  const displayName = user.username || user.email || user.id
+  return {
+    user_id: user.id,
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    bio: user.bio ?? null,
+    avatar_url: resolveMediaUrl(user.avatar_url),
+    banner_url: resolveMediaUrl(user.banner_url),
+    telegram_id: user.telegram_id ?? null,
+    telegram_username: user.telegram_username ?? null,
+    role_id: user.role_id,
+    displayName,
+    handle: user.username ? `@${user.username}` : user.email,
+    role: roleFromRoleId(user.role_id),
+    is_email_verified: user.is_email_verified,
+    is_active: user.is_active,
+    is_banned: user.is_banned,
+    banned_by_user_id: user.banned_by_user_id ?? null,
+    created_at: user.created_at,
+    updated_at: user.updated_at,
+    stats: user.stats ?? undefined,
+    is_current: false,
   }
 }
 
@@ -588,6 +670,18 @@ function mapReviewResponseToAdminModerationItem(review: ReviewApiResponse): Admi
       type: normalizeReviewMediaType(media.media_type, media.media_url),
       url: resolveMediaUrl(media.media_url) ?? media.media_url,
     })),
+  }
+}
+
+function mapAdminAuditLogResponse(item: AdminAuditLogApiResponse): AdminAuditLogEntry {
+  return {
+    id: item.id,
+    created_at: item.created_at,
+    moderator: item.moderator ? { id: item.moderator.id, username: item.moderator.username } : undefined,
+    action: item.action,
+    target_id: item.target_id ?? null,
+    target_type: item.target_type ?? null,
+    details: item.details ?? null,
   }
 }
 
@@ -1207,7 +1301,7 @@ export async function loadAdminData(): Promise<AdminSeedData> {
     ),
     loadAdminVenuesMapped({ include_deleted: true }),
     loadAdminConcerts({ include_deleted: true }),
-    adminRequest<ListResponse<AdminAccount>>(apiEndpoints.admin.users).then((res) => res.items),
+    loadAdminAccounts(),
   ])
 
   const adminReviews = results[0].status === 'fulfilled' ? results[0].value : []
@@ -1408,8 +1502,95 @@ export async function loadAdminAccounts(): Promise<AdminAccount[]> {
     return MOCK_ADMIN_ACCOUNTS
   }
 
-  const response = await adminRequest<ListResponse<AdminAccount>>(apiEndpoints.admin.users)
+  const response = await loadAdminAccountsPage()
   return response.items
+}
+
+export async function loadAdminAuditLogs(
+  params?: AdminAuditLogsParams,
+): Promise<PagedListResponse<AdminAuditLogEntry>> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    return { items: [], page_count: 1 }
+  }
+
+  const cleanedParams = Object.fromEntries(
+    Object.entries(params ?? {}).filter(([, value]) => value !== undefined && value !== ''),
+  ) as Record<string, string | number | boolean>
+  const query = buildQuery(cleanedParams)
+  const response = await adminRequest<PagedListResponse<AdminAuditLogApiResponse>>(`${apiEndpoints.admin.logs}${query}`)
+  return {
+    ...response,
+    items: response.items.map(mapAdminAuditLogResponse),
+  }
+}
+
+export async function loadAdminAccountsPage(params?: AdminUsersListParams): Promise<PagedListResponse<AdminAccount>> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    const search = params?.search?.trim().toLowerCase() ?? ''
+    const filtered = search
+      ? MOCK_ADMIN_ACCOUNTS.filter((account) =>
+          `${account.displayName} ${account.handle} ${account.role}`.toLowerCase().includes(search),
+        )
+      : MOCK_ADMIN_ACCOUNTS
+    const limit = params?.limit ?? filtered.length
+    const offset = params?.offset ?? 0
+    return {
+      items: filtered.slice(offset, offset + limit),
+      page_count: limit > 0 ? Math.max(1, Math.ceil(filtered.length / limit)) : 1,
+    }
+  }
+
+  const query = buildQuery(params ?? {})
+  const response = await adminRequest<PagedListResponse<AdminUserApiResponse>>(`${apiEndpoints.admin.users}${query}`)
+  return {
+    ...response,
+    items: response.items.map(mapAdminUserResponseToAccount),
+  }
+}
+
+export async function setAdminAccountBanState(userId: string | number, is_banned: boolean): Promise<AdminAccount> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    const account = MOCK_ADMIN_ACCOUNTS.find((item) => String(item.id) === String(userId))
+    if (!account) throw new Error('Account not found')
+    return { ...account, is_banned }
+  }
+
+  const response = await adminRequest<AdminUserApiResponse>(apiEndpoints.admin.banUser(String(userId)), 'POST', {
+    is_banned,
+  })
+  return mapAdminUserResponseToAccount(response)
+}
+
+export async function updateAdminAccountRole(userId: string | number, role_id: number): Promise<AdminAccount> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    const account = MOCK_ADMIN_ACCOUNTS.find((item) => String(item.id) === String(userId))
+    if (!account) throw new Error('Account not found')
+    return { ...account, role_id, role: roleFromRoleId(role_id) }
+  }
+
+  const response = await adminRequest<AdminUserApiResponse>(apiEndpoints.admin.userRole(String(userId)), 'PATCH', {
+    role_id,
+  })
+  return mapAdminUserResponseToAccount(response)
+}
+
+export async function anonymizeAdminAccount(userId: string | number): Promise<AdminAccount> {
+  if (DATA_SOURCE_MODE === 'mock') {
+    const account = MOCK_ADMIN_ACCOUNTS.find((item) => String(item.id) === String(userId))
+    if (!account) throw new Error('Account not found')
+    return {
+      ...account,
+      email: `deleted_${account.id}@concert.bot`,
+      username: `User_${String(account.id).slice(-6)}`,
+      displayName: `User_${String(account.id).slice(-6)}`,
+      handle: `User_${String(account.id).slice(-6)}`,
+      is_active: false,
+      is_banned: false,
+    }
+  }
+
+  const response = await adminRequest<AdminUserApiResponse>(apiEndpoints.admin.userById(String(userId)), 'DELETE')
+  return mapAdminUserResponseToAccount(response)
 }
 
 // Cities API functions

@@ -1,5 +1,5 @@
 :root {
-  --header-height: 56px;
+  --header-height: 72px;
 }
 
 .appHeader {
@@ -8,9 +8,11 @@
   left: 0;
   right: 0;
   height: var(--header-height);
-  background: var(--panel);
+  background: rgba(21, 21, 21, 0.72);
   border-bottom: 1px solid var(--border);
   z-index: 15;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 
   display: flex;
   align-items: center;
@@ -19,15 +21,51 @@
 }
 
 .appHeaderInner {
-  width: min(1200px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 0 12px;
+  padding: 0 24px 0 24px;
 
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 10px;
   min-width: 0;
+}
+
+.appHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.appHeaderLogo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 88px;
+  width: 88px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  flex: 0 0 auto;
+}
+
+.appHeaderLogo:hover {
+  background: transparent;
+}
+
+.appHeaderLogo:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.appHeaderLogo img {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  display: block;
 }
 
 .appHeaderSectionTitle {

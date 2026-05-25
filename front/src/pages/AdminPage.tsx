@@ -11,7 +11,8 @@ import {
   deleteAdminConcertHard,
   deleteAdminConcertSoft,
   deleteAdminConcertSuggestion,
-  loadAdminAccounts,
+  anonymizeAdminAccount,
+  loadAdminAccountsPage,
   loadAdminConcerts,
   loadAdminConcertSuggestionById,
   loadAdminConcertSuggestions as loadAdminConcertSuggestionsFromApi,
@@ -23,12 +24,16 @@ import {
   returnAdminReviewToPending,
   restoreAdminConcert,
   restoreVenue,
+  setAdminAccountBanState as setAdminAccountBanStateApi,
   updateAdminConcert,
   updateAdminConcertArtist,
+  updateAdminAccountRole,
   createArtist,
   updateArtist,
   uploadReviewMedia,
+  loadAdminAuditLogs,
 } from '../api/repository'
+import { DATA_SOURCE_MODE } from '../api/config'
 import { resolveMediaKey, resolveMediaUrl } from '../utils/mediaUrl'
 import {
   appendAuditLog,
@@ -56,6 +61,8 @@ import type {
   AdminVenue,
 } from '../types/admin'
 import type { AdminArtistResponse } from '../types/artist'
+import { useAuthStore } from '../store/useAuthStore'
+import { buildPaginationItems } from '../utils/pagination'
 
 export function AdminPage({ isAdmin }: AdminPageProps) {
   const [error, setError] = useState<string | null>(null)
@@ -84,7 +91,16 @@ type AdminSocialForm = {
   website: string
 }
 
+type AuditLogQuery = {
+  limit: number
+  offset: number
+  moderator_id: string
+  target_type: string
+  action: string
+}
+
 const DEFAULT_CITY_TIMEZONE_OFFSET = 3
+const ADMIN_ACCOUNTS_PAGE_SIZE = 20
 
 function emptySocialForm(): AdminSocialForm {
   return { vk: '', telegram: '', website: '' }
@@ -126,9 +142,31 @@ function parseUtcOffset(value: string | null | undefined): number {
 }
 
 function roleLabel(role: AdminAccountRole): string {
-  if (role === 'super-admin' || role === 'super_admin') return 'Главный админ'
-  if (role === 'admin') return 'Админ'
-  return 'Пользователь'
+  if (role === 'super-admin' || role === 'super_admin') return 'super_admin'
+  if (role === 'admin') return 'admin'
+  return 'user'
+}
+
+function auditLogTitle(entry: AdminAuditLogEntry): string {
+  if (entry.message) return entry.message
+  const action = entry.action ?? 'action'
+  const targetType = entry.target_type ?? 'target'
+  const targetId = entry.target_id ? `#${entry.target_id}` : ''
+  return `${action} ${targetType}${targetId ? ` ${targetId}` : ''}`.trim()
+}
+
+function auditLogMeta(entry: AdminAuditLogEntry): string {
+  if (entry.moderator?.username) {
+    return entry.moderator.username
+  }
+  if (entry.actor_displayName && entry.actor_role) {
+    return `${entry.actor_displayName} (${roleLabel(entry.actor_role)})`
+  }
+  return '—'
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
 function formatDateTime(value: string): string {
@@ -178,6 +216,7 @@ type AdminPageProps = {
 }
 
 function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refreshAppData: () => Promise<void> }) {
+  const authUser = useAuthStore((state) => state.user)
   // Задание 9.1: модальный выбор площадки и артистов для формы концерта.
   const [tab, setTab] = useState<AdminTab>('moderation')
   const [moderationStream, setModerationStream] = useState<ModerationStream>('pending')
@@ -245,7 +284,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
   const [accountsError, setAccountsError] = useState<string | null>(null)
-  const [hasLoadedAccounts, setHasLoadedAccounts] = useState(false)
+  const [accountsPage, setAccountsPage] = useState(1)
+  const [accountsPageCount, setAccountsPageCount] = useState(1)
+  const [accountActionError, setAccountActionError] = useState<string | null>(null)
+  const [accountActionId, setAccountActionId] = useState<string | number | null>(null)
+  const [accountListQuery, setAccountListQuery] = useState('')
   
   const [cities, setCities] = useState<AdminCity[]>([])
 
@@ -255,7 +298,25 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       adminMediaObjectUrlsRef.current = []
     }
   }, [])
-  const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>(() => loadAuditLogs())
+  const isMock = DATA_SOURCE_MODE === 'mock'
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>(() => (isMock ? loadAuditLogs() : []))
+  const [auditLogsError, setAuditLogsError] = useState<string | null>(null)
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false)
+  const [auditLogsPageCount, setAuditLogsPageCount] = useState(1)
+  const [auditLogDraft, setAuditLogDraft] = useState<AuditLogQuery>({
+    limit: 20,
+    offset: 0,
+    moderator_id: '',
+    target_type: '',
+    action: '',
+  })
+  const [auditLogQuery, setAuditLogQuery] = useState<AuditLogQuery>({
+    limit: 20,
+    offset: 0,
+    moderator_id: '',
+    target_type: '',
+    action: '',
+  })
 
   useEffect(() => {
     if (tab !== 'moderation') return
@@ -409,24 +470,39 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }, [hasLoadedSuggestions, isLoadingSuggestions, tab])
 
   useEffect(() => {
-    if (tab !== 'accounts' || hasLoadedAccounts || isLoadingAccounts) return
+    if (tab !== 'accounts') return
 
+    let isCancelled = false
     setIsLoadingAccounts(true)
     setAccountsError(null)
-    void loadAdminAccounts()
-      .then((loadedAccounts) => {
-        setAccounts(loadedAccounts)
+
+    const timer = window.setTimeout(() => {
+      void loadAdminAccountsPage({
+        limit: ADMIN_ACCOUNTS_PAGE_SIZE,
+        offset: (accountsPage - 1) * ADMIN_ACCOUNTS_PAGE_SIZE,
+        search: accountListQuery.trim() || undefined,
       })
-      .catch((error: unknown) => {
-        console.error('[AdminPage] Failed to load accounts:', error)
-        setAccountsError(error instanceof Error ? error.message : 'Failed to load accounts')
-        setAccounts([])
-      })
-      .finally(() => {
-        setIsLoadingAccounts(false)
-        setHasLoadedAccounts(true)
-      })
-  }, [hasLoadedAccounts, isLoadingAccounts, tab])
+        .then((response) => {
+          if (isCancelled) return
+          setAccounts(response.items)
+          setAccountsPageCount(response.page_count ?? 1)
+        })
+        .catch((error: unknown) => {
+          if (isCancelled) return
+          console.error('[AdminPage] Failed to load accounts:', error)
+          setAccountsError(error instanceof Error ? error.message : 'Failed to load accounts')
+          setAccounts([])
+        })
+        .finally(() => {
+          if (!isCancelled) setIsLoadingAccounts(false)
+        })
+    }, 250)
+
+    return () => {
+      isCancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [accountListQuery, accountsPage, tab])
 
   const [artistForm, setArtistForm] = useState({ id: 0, name: '', description: '', photo_url: '', social_links: emptySocialForm() })
   const [venueForm, setVenueForm] = useState({
@@ -464,7 +540,6 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [artistListQuery, setArtistListQuery] = useState('')
   const [venueListQuery, setVenueListQuery] = useState('')
   const [concertListQuery, setConcertListQuery] = useState('')
-  const [accountListQuery, setAccountListQuery] = useState('')
   const [activeModerationMedia, setActiveModerationMedia] = useState<AdminReviewModerationItem | null>(null)
   // Задание 10.4: просмотр медиа в модерации по одному элементу.
   const [activeModerationMediaIndex, setActiveModerationMediaIndex] = useState(0)
@@ -552,28 +627,88 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }, [artists, concertListQuery, concerts, venues])
   const activeModerationAttachments = activeModerationMedia?.media ?? []
   const activeModerationAttachment = activeModerationAttachments[activeModerationMediaIndex] ?? null
-  const currentAdminAccount = useMemo(() => accounts.find((account) => account.is_current) ?? null, [accounts])
-  const canGrantAdmins = currentAdminAccount?.role === 'super-admin' || currentAdminAccount?.role === 'super_admin'
-  const canViewAuditLogs = currentAdminAccount?.role === 'super-admin' || currentAdminAccount?.role === 'super_admin'
+  const currentAdminAccount = useMemo(
+    () => accounts.find((account) => isCurrentAccount(account)) ?? null,
+    [accounts, authUser?.id],
+  )
+  const currentRoleId = currentAdminAccount ? roleIdForAccount(currentAdminAccount) : authUser?.roleId ?? 0
+  const canGrantAdmins = currentRoleId === 3
+  const canViewAuditLogs = currentRoleId === 3
   const superAdminHandles = useMemo(
-    () => accounts.filter((acc) => acc.role === 'super-admin' || acc.role === 'super_admin').map((acc) => acc.handle),
+    () => accounts.filter((acc) => roleIdForAccount(acc) === 3).map((acc) => acc.handle),
     [accounts],
   )
-  const filteredAdminAccounts = useMemo(() => {
-    const base = canGrantAdmins
-      ? accounts
-      : accounts.filter((account) => account.role !== 'super-admin' && account.role !== 'super_admin')
+  const accountsPaginationItems = useMemo(() => buildPaginationItems(accountsPage, accountsPageCount), [accountsPage, accountsPageCount])
+  const auditLogPage = Math.floor(auditLogQuery.offset / auditLogQuery.limit) + 1
+  const auditLogHasPrev = auditLogPage > 1
+  const auditLogHasNext = auditLogPage < auditLogsPageCount
 
-    const normalizedQuery = accountListQuery.trim().toLowerCase()
-    if (!normalizedQuery) return base
+  useEffect(() => {
+    if (tab !== 'logs' || !canViewAuditLogs) return
 
-    return base.filter((account) =>
-      `${account.displayName} ${account.handle} ${account.role}`.toLowerCase().includes(normalizedQuery),
-    )
-  }, [accountListQuery, accounts, canGrantAdmins])
+    if (isMock) {
+      setAuditLogs(loadAuditLogs())
+      setAuditLogsPageCount(1)
+      setAuditLogsError(null)
+      return
+    }
+
+    setIsLoadingAuditLogs(true)
+    setAuditLogsError(null)
+
+    const params = {
+      ...auditLogQuery,
+      moderator_id: auditLogQuery.moderator_id.trim() || undefined,
+      target_type: auditLogQuery.target_type.trim() || undefined,
+      action: auditLogQuery.action.trim() || undefined,
+    }
+
+    void loadAdminAuditLogs(params)
+      .then((response) => {
+        setAuditLogs(response.items)
+        setAuditLogsPageCount(response.page_count ?? 1)
+      })
+      .catch((error: unknown) => {
+        console.error('[AdminPage] Failed to load audit logs:', error)
+        setAuditLogsError(error instanceof Error ? error.message : 'Не удалось загрузить логи')
+        setAuditLogs([])
+        setAuditLogsPageCount(1)
+      })
+      .finally(() => {
+        setIsLoadingAuditLogs(false)
+      })
+  }, [auditLogQuery, canViewAuditLogs, isMock, tab])
+
+  function isCurrentAccount(account: AdminAccount): boolean {
+    return account.is_current || (!!authUser?.id && String(account.user_id ?? account.id) === String(authUser.id))
+  }
+
+  function roleIdForAccount(account: AdminAccount): number {
+    if (account.role_id) return account.role_id
+    if (account.role === 'super-admin' || account.role === 'super_admin') return 3
+    if (account.role === 'admin') return 2
+    return 1
+  }
+
+  function canBanAccount(account: AdminAccount): boolean {
+    if (isCurrentAccount(account) || account.is_active === false) return false
+    const targetRoleId = roleIdForAccount(account)
+    if (currentRoleId === 3) return targetRoleId !== 3
+    if (currentRoleId === 2) return targetRoleId === 1
+    return false
+  }
+
+  function canChangeAccountRole(account: AdminAccount): boolean {
+    return canGrantAdmins && !isCurrentAccount(account) && account.is_active !== false
+  }
+
+  function canAnonymizeAccount(account: AdminAccount): boolean {
+    return canGrantAdmins && !isCurrentAccount(account)
+  }
 
   function writeAudit(message: string) {
     if (!currentAdminAccount) return
+    if (!isMock) return
 
     const entry = appendAuditLog({
       actor_displayName: currentAdminAccount.displayName,
@@ -581,6 +716,28 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       message,
     })
     setAuditLogs((prev) => [entry, ...prev])
+  }
+
+  function applyAuditLogFilters() {
+    const trimmedModeratorId = auditLogDraft.moderator_id.trim()
+    if (trimmedModeratorId && !isUuid(trimmedModeratorId)) {
+      setAuditLogsError('Moderator ID должен быть UUID')
+      return
+    }
+    setAuditLogsError(null)
+    setAuditLogQuery({ ...auditLogDraft, moderator_id: trimmedModeratorId, offset: 0 })
+  }
+
+  function resetAuditLogFilters() {
+    const next: AuditLogQuery = {
+      limit: 20,
+      offset: 0,
+      moderator_id: '',
+      target_type: '',
+      action: '',
+    }
+    setAuditLogDraft(next)
+    setAuditLogQuery(next)
   }
 
   async function markReview(id: number, status: AdminReviewStatus, rejectionReason?: string) {
@@ -1211,52 +1368,74 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
-  function setAccountBanState(id: number, is_banned: boolean) {
+  function upsertAccountRow(nextAccount: AdminAccount) {
     setAccounts((prev) =>
-      prev.map((account) => {
-        if (account.id !== id || account.is_current) return account
-        return { ...account, is_banned }
-      }),
+      prev.map((account) =>
+        String(account.user_id ?? account.id) === String(nextAccount.user_id ?? nextAccount.id)
+          ? { ...nextAccount, is_current: isCurrentAccount(nextAccount) }
+          : account,
+      ),
     )
-
-    const account = accounts.find((x) => x.id === id) ?? null
-    if (account && currentAdminAccount) {
-      writeAudit(`Админ ${currentAdminAccount.displayName} ${is_banned ? 'забанил' : 'разбанил'} пользователя ${account.handle}.`)
-    }
   }
 
-  function promoteAccountToAdmin(id: number) {
-    if (!canGrantAdmins) return
+  function setAccountBanState(id: string | number, is_banned: boolean) {
+    const account = accounts.find((x) => String(x.user_id ?? x.id) === String(id)) ?? null
+    if (!account || !canBanAccount(account)) return
 
-    setAccounts((prev) =>
-      prev.map((account) => {
-        if (account.id !== id) return account
-        if (account.role !== 'user') return account
-        return { ...account, role: 'admin' }
-      }),
-    )
-
-    const account = accounts.find((x) => x.id === id) ?? null
-    if (account && currentAdminAccount) {
-      writeAudit(`Главный админ ${currentAdminAccount.displayName} назначил администратора ${account.handle}.`)
-    }
+    setAccountActionId(id)
+    setAccountActionError(null)
+    void setAdminAccountBanStateApi(id, is_banned)
+      .then((updatedAccount) => {
+        upsertAccountRow(updatedAccount)
+        if (currentAdminAccount) {
+          writeAudit(`Админ ${currentAdminAccount.displayName} ${is_banned ? 'забанил' : 'разбанил'} пользователя ${account.handle}.`)
+        }
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to update account ban state:', error)
+        setAccountActionError(error instanceof Error ? error.message : 'Не удалось изменить статус пользователя')
+      })
+      .finally(() => setAccountActionId(null))
   }
 
-  function demoteAccountToUser(id: number) {
-    if (!canGrantAdmins) return
+  function changeAccountRole(id: string | number, role_id: number) {
+    const account = accounts.find((x) => String(x.user_id ?? x.id) === String(id)) ?? null
+    if (!account || !canChangeAccountRole(account)) return
 
-    setAccounts((prev) =>
-      prev.map((account) => {
-        if (account.id !== id) return account
-        if (account.role !== 'admin') return account
-        return { ...account, role: 'user' }
-      }),
-    )
+    setAccountActionId(id)
+    setAccountActionError(null)
+    void updateAdminAccountRole(id, role_id)
+      .then((updatedAccount) => {
+        upsertAccountRow(updatedAccount)
+        if (currentAdminAccount) {
+          writeAudit(`Super Admin ${currentAdminAccount.displayName} изменил роль ${account.handle} на ${roleLabel(updatedAccount.role)}.`)
+        }
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to update account role:', error)
+        setAccountActionError(error instanceof Error ? error.message : 'Не удалось изменить роль пользователя')
+      })
+      .finally(() => setAccountActionId(null))
+  }
 
-    const account = accounts.find((x) => x.id === id) ?? null
-    if (account && currentAdminAccount) {
-      writeAudit(`Главный админ ${currentAdminAccount.displayName} понизил пользователя ${account.handle} до роли «Пользователь».`)
-    }
+  function anonymizeAccount(id: string | number) {
+    const account = accounts.find((x) => String(x.user_id ?? x.id) === String(id)) ?? null
+    if (!account || !canAnonymizeAccount(account)) return
+
+    setAccountActionId(id)
+    setAccountActionError(null)
+    void anonymizeAdminAccount(id)
+      .then((updatedAccount) => {
+        upsertAccountRow(updatedAccount)
+        if (currentAdminAccount) {
+          writeAudit(`Super Admin ${currentAdminAccount.displayName} анонимизировал пользователя ${account.handle}.`)
+        }
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to anonymize account:', error)
+        setAccountActionError(error instanceof Error ? error.message : 'Не удалось анонимизировать пользователя')
+      })
+      .finally(() => setAccountActionId(null))
   }
 
   function getAdminPreviewSrc(value: string | null | undefined): string | null {
@@ -2607,7 +2786,10 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 className="adminInput adminListSearch"
                 placeholder="Поиск аккаунтов"
                 value={accountListQuery}
-                onChange={(e) => setAccountListQuery(e.target.value)}
+                onChange={(e) => {
+                  setAccountListQuery(e.target.value)
+                  setAccountsPage(1)
+                }}
               />
               {currentAdminAccount && (
                 <p className="adminListMeta">
@@ -2622,6 +2804,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                   Только главный админ может назначать новых админов.
                 </p>
               )}
+              {accountActionError && <p className="adminErrorText">{accountActionError}</p>}
             </div>
 
             <div className="adminScrollableList">
@@ -2631,54 +2814,115 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 <div className="adminEmpty" style={{ color: '#f44336' }}>
                   ⚠️ {accountsError}
                 </div>
-              ) : filteredAdminAccounts.length > 0 ? (
-                filteredAdminAccounts.map((account) => (
-                  <div key={account.id} className="adminListRow">
-                    <div>
-                      <p className="adminListTitle">{account.displayName}</p>
-                      <p className="adminListMeta">{account.handle}</p>
-                      <div className="adminAccountMetaRow">
-                        <span className="adminStatus">{roleLabel(account.role)}</span>
-                        {account.is_banned && <span className="adminStatus adminStatus-rejected">Заблокирован</span>}
-                        {account.is_current && <span className="adminStatus adminStatus-approved">Текущий аккаунт</span>}
-                      </div>
-                    </div>
+              ) : accounts.length > 0 ? (
+                <>
+                  <div className="adminUsersTableWrap">
+                    <table className="adminUsersTable">
+                      <thead>
+                        <tr>
+                          <th>Пользователь</th>
+                          <th>Роль</th>
+                          <th>Состояние</th>
+                          <th>Статистика</th>
+                          <th>Создан</th>
+                          <th>Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {accounts.map((account) => {
+                          const accountId = account.user_id ?? account.id
+                          const isSelf = isCurrentAccount(account)
+                          const isActionLoading = String(accountActionId) === String(accountId)
+                          const canBan = canBanAccount(account)
+                          const canChangeRole = canChangeAccountRole(account)
+                          const canDelete = canAnonymizeAccount(account)
 
-                    <div className="adminRowActions">
-                      {!account.is_current && (
-                        <button
-                          type="button"
-                          className="settingsBtn ghost"
-                          onClick={() => setAccountBanState(account.id, !account.is_banned)}
-                        >
-                          {account.is_banned ? 'Разбанить' : 'Забанить'}
-                        </button>
-                      )}
-
-                      {account.role === 'user' && (
-                        <button
-                          type="button"
-                          className="settingsBtn primary"
-                          disabled={!canGrantAdmins}
-                          onClick={() => promoteAccountToAdmin(account.id)}
-                        >
-                          Сделать админом
-                        </button>
-                      )}
-
-                      {account.role === 'admin' && !account.is_current && (
-                        <button
-                          type="button"
-                          className="settingsBtn ghost"
-                          disabled={!canGrantAdmins}
-                          onClick={() => demoteAccountToUser(account.id)}
-                        >
-                          Понизить до пользователя
-                        </button>
-                      )}
-                    </div>
+                          return (
+                            <tr key={String(accountId)}>
+                              <td>
+                                <p className="adminListTitle">{account.displayName}</p>
+                                <p className="adminListMeta">{account.email ?? account.handle}</p>
+                                {account.telegram_username && <p className="adminListMeta">@{account.telegram_username}</p>}
+                              </td>
+                              <td>
+                                {canGrantAdmins ? (
+                                  <select
+                                    className="adminInput adminRoleSelect"
+                                    value={roleIdForAccount(account)}
+                                    disabled={!canChangeRole || isActionLoading}
+                                    onChange={(event) => changeAccountRole(accountId, Number(event.target.value))}
+                                  >
+                                    <option value={1}>user</option>
+                                    <option value={2}>admin</option>
+                                    <option value={3}>super_admin</option>
+                                  </select>
+                                ) : (
+                                  <span className="adminStatus">{roleLabel(account.role)}</span>
+                                )}
+                              </td>
+                              <td>
+                                <div className="adminAccountMetaRow">
+                                  {account.is_active === false && <span className="adminStatus adminStatus-rejected">анонимизирован/удален</span>}
+                                  {account.is_banned && <span className="adminStatus adminStatus-rejected">забанен</span>}
+                                  {account.is_active !== false && !account.is_banned && <span className="adminStatus adminStatus-approved">активен</span>}
+                                  {isSelf && <span className="adminStatus adminStatus-approved">это вы</span>}
+                                </div>
+                              </td>
+                              <td>
+                                <p className="adminListMeta">Рецензии: {account.stats?.reviews_count ?? 0}</p>
+                                <p className="adminListMeta">Лайки: {account.stats?.likes_given_count ?? 0} / {account.stats?.likes_received_count ?? 0}</p>
+                              </td>
+                              <td>
+                                <span className="adminListMeta">{account.created_at ? formatDateTime(account.created_at) : '—'}</span>
+                              </td>
+                              <td>
+                                <div className="adminRowActions">
+                                  <button
+                                    type="button"
+                                    className="settingsBtn ghost"
+                                    disabled={!canBan || isActionLoading}
+                                    onClick={() => setAccountBanState(accountId, !account.is_banned)}
+                                  >
+                                    {account.is_banned ? 'Разбанить' : 'Забанить'}
+                                  </button>
+                                  {canGrantAdmins && (
+                                    <button
+                                      type="button"
+                                      className="settingsBtn ghost"
+                                      disabled={!canDelete || isActionLoading}
+                                      onClick={() => anonymizeAccount(accountId)}
+                                    >
+                                      Анонимизировать
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                ))
+                  {accountsPageCount > 1 && (
+                    <div className="pagination adminPagination" role="navigation" aria-label="Пагинация аккаунтов">
+                      {accountsPaginationItems.map((item, index) =>
+                        item === 'ellipsis' ? (
+                          <span key={`accounts-ellipsis-${index}`} className="paginationEllipsis" aria-hidden="true">…</span>
+                        ) : (
+                          <button
+                            key={item}
+                            type="button"
+                            className={item === accountsPage ? 'settingsBtn primary' : 'settingsBtn ghost'}
+                            onClick={() => setAccountsPage(item)}
+                            aria-current={item === accountsPage ? 'page' : undefined}
+                          >
+                            {item}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="adminEmpty">Аккаунты не найдены.</div>
               )}
@@ -2795,14 +3039,87 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
           <article className="adminListCard adminListCardScrollable">
             <p className="adminListMeta">Логи действий модераторов и админов.</p>
 
+            <div className="adminSocialFields" aria-label="Фильтры логов">
+              <input
+                className="adminInput"
+                placeholder="Moderator ID"
+                value={auditLogDraft.moderator_id}
+                onChange={(event) => setAuditLogDraft((prev) => ({ ...prev, moderator_id: event.target.value }))}
+                disabled={isLoadingAuditLogs}
+              />
+              <select
+                className="adminInput"
+                value={auditLogDraft.target_type}
+                onChange={(event) => setAuditLogDraft((prev) => ({ ...prev, target_type: event.target.value }))}
+                disabled={isLoadingAuditLogs}
+              >
+                <option value="">Все цели</option>
+                <option value="user">User</option>
+                <option value="review">Review</option>
+                <option value="artist">Artist</option>
+                <option value="venue">Venue</option>
+                <option value="concert">Concert</option>
+                <option value="city">City</option>
+              </select>
+              <input
+                className="adminInput"
+                placeholder="Action"
+                value={auditLogDraft.action}
+                onChange={(event) => setAuditLogDraft((prev) => ({ ...prev, action: event.target.value }))}
+                disabled={isLoadingAuditLogs}
+              />
+            </div>
+
+            <div className="adminItemActions">
+              <select
+                className="adminInput"
+                value={auditLogDraft.limit}
+                onChange={(event) =>
+                  setAuditLogDraft((prev) => ({
+                    ...prev,
+                    limit: Number(event.target.value) || 20,
+                  }))
+                }
+                disabled={isLoadingAuditLogs}
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <button
+                type="button"
+                className="settingsBtn primary"
+                onClick={applyAuditLogFilters}
+                disabled={isLoadingAuditLogs}
+              >
+                Применить
+              </button>
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={resetAuditLogFilters}
+                disabled={isLoadingAuditLogs}
+              >
+                Сбросить
+              </button>
+            </div>
+
+            {auditLogsError && (
+              <div className="adminEmpty" style={{ color: '#f44336' }}>
+                ⚠️ {auditLogsError}
+              </div>
+            )}
+
             <div className="adminScrollableList">
-              {auditLogs.length > 0 ? (
+              {isLoadingAuditLogs ? (
+                <div className="adminEmpty">Загрузка логов...</div>
+              ) : auditLogs.length > 0 ? (
                 auditLogs.map((entry) => (
                   <div key={entry.id} className="adminListRow">
                     <div>
-                      <p className="adminListTitle">{entry.message}</p>
+                      <p className="adminListTitle">{auditLogTitle(entry)}</p>
                       <p className="adminListMeta">
-                        {formatDateTime(entry.created_at)} • {entry.actor_displayName} ({roleLabel(entry.actor_role)})
+                        {formatDateTime(entry.created_at)} • {auditLogMeta(entry)}
                       </p>
                     </div>
                   </div>
@@ -2810,6 +3127,36 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               ) : (
                 <div className="adminEmpty">Пока нет записей.</div>
               )}
+            </div>
+
+            <div className="adminItemActions">
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={() =>
+                  setAuditLogQuery((prev) => ({
+                    ...prev,
+                    offset: Math.max(0, prev.offset - prev.limit),
+                  }))
+                }
+                disabled={!auditLogHasPrev || isLoadingAuditLogs}
+              >
+                Назад
+              </button>
+              <span className="adminListMeta">Стр. {auditLogPage} из {auditLogsPageCount}</span>
+              <button
+                type="button"
+                className="settingsBtn ghost"
+                onClick={() =>
+                  setAuditLogQuery((prev) => ({
+                    ...prev,
+                    offset: prev.offset + prev.limit,
+                  }))
+                }
+                disabled={!auditLogHasNext || isLoadingAuditLogs}
+              >
+                Вперед
+              </button>
             </div>
           </article>
         </section>

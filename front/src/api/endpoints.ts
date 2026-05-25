@@ -94,6 +94,7 @@ export const apiEndpoints = {
       `/admin/concerts/${encodeURIComponent(concertId)}/artists/${encodeURIComponent(String(artistId))}`,
     concertSuggestions: '/admin/concerts/suggestions',
     concertSuggestionById: (suggestionId: string) => `/admin/concerts/suggestions/${encodeURIComponent(suggestionId)}`,
+    userById: (userId: string) => `/admin/users/${encodeURIComponent(userId)}`,
     banUser: (userId: string) => `/admin/users/${encodeURIComponent(userId)}/ban`,
     userRole: (userId: string) => `/admin/users/${encodeURIComponent(userId)}/role`,
     logs: '/admin/logs',

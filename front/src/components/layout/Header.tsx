@@ -6,6 +6,7 @@ import { resolveIsAdmin } from '../../utils/adminAccess'
 import { isAdminByRole } from '../../utils/tokenDecoder'
 import { useBodyScrollLock } from '../../utils/useBodyScrollLock'
 import { useAuthStore } from '../../store/useAuthStore'
+import headerLogo from '../../assets/sgovor_logo.png'
 
 function normalizeUsername(value: string): string {
   return value.trim().replace(/^@+/, '').toLowerCase()
@@ -218,7 +219,12 @@ export function Header() {
   return (
     <header className="appHeader" aria-label="Шапка">
       <div className="appHeaderInner">
-        {sectionTitle ? <h2 className="appHeaderSectionTitle">{sectionTitle}</h2> : null}
+        <div className="appHeaderLeft">
+          <Link to="/home" className="appHeaderLogo" aria-label="На главную">
+            <img src={headerLogo} alt="" loading="lazy" decoding="async" />
+          </Link>
+          {sectionTitle ? <h2 className="appHeaderSectionTitle">{sectionTitle}</h2> : null}
+        </div>
         <button
           type="button"
           className="suggestConcertBtn"

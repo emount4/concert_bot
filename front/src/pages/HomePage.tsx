@@ -164,7 +164,7 @@ export function HomePage() {
 
   return (
     <section className="page homePage" aria-label="Главная">
-      <h1 className="pageTitle">Главная</h1>
+      {/* <h1 className="pageTitle">Главная</h1> */}
 
       <SectionErrorBoundary fallback={topsErrorFallback}>
         <section className="homeSection" aria-label="Лучшие концерты">

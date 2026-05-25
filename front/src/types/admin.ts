@@ -51,12 +51,22 @@ export type AdminCity = {
   timezone: string
 }
 
+export type AdminAuditLogTargetType = 'user' | 'review' | 'artist' | 'venue' | 'concert' | 'city'
+
 export type AdminAuditLogEntry = {
-  id: string
+  id: string | number
   created_at: string
-  actor_displayName: string
-  actor_role: AdminAccountRole
-  message: string
+  message?: string
+  actor_displayName?: string
+  actor_role?: AdminAccountRole
+  moderator?: {
+    id?: string
+    username?: string
+  }
+  action?: string
+  target_id?: string | null
+  target_type?: AdminAuditLogTargetType | string | null
+  details?: Record<string, unknown> | null
 }
 
 export type AdminReviewAttachment = {
@@ -151,13 +161,33 @@ export type AdminConcert = {
 
 export type AdminAccountRole = 'user' | 'admin' | 'super_admin' | 'super-admin'
 
+export type AdminAccountStats = {
+  reviews_count: number
+  likes_given_count: number
+  likes_received_count: number
+}
+
 export type AdminAccount = {
   user_id?: string
-  id: number
+  id: string | number
+  email?: string
+  username?: string
+  bio?: string | null
+  avatar_url?: string | null
+  banner_url?: string | null
+  telegram_id?: number | null
+  telegram_username?: string | null
+  role_id?: number
   displayName: string
   handle: string
   role: AdminAccountRole
+  is_email_verified?: boolean
+  is_active?: boolean
   is_banned: boolean
+  banned_by_user_id?: string | null
+  created_at?: string
+  updated_at?: string
+  stats?: AdminAccountStats
   is_current: boolean
 }
 
