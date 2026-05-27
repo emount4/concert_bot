@@ -26,6 +26,7 @@ export type ConcertStats = {
   avg_p3?: number | null
   avg_p4?: number | null
   avg_p5?: number | null
+  favorites_count?: number
   updated_at?: string | null
 }
 

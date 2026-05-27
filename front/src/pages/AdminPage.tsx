@@ -13,6 +13,7 @@ import {
   deleteAdminConcertSuggestion,
   anonymizeAdminAccount,
   loadAdminAccountsPage,
+  loadAdminArtists,
   loadAdminConcerts,
   loadAdminConcertSuggestionById,
   loadAdminConcertSuggestions as loadAdminConcertSuggestionsFromApi,
@@ -32,6 +33,11 @@ import {
   updateArtist,
   uploadReviewMedia,
   loadAdminAuditLogs,
+  deleteArtistHard,
+  deleteArtistSoft,
+  deleteVenueHard,
+  deleteVenueSoft,
+  restoreArtist,
 } from '../api/repository'
 import { DATA_SOURCE_MODE } from '../api/config'
 import { resolveMediaKey, resolveMediaUrl } from '../utils/mediaUrl'
@@ -43,10 +49,8 @@ import {
   setConcertSuggestionStatus,
   upsertCity,
   loadArtists,
-  removeArtist,
   loadVenues,
   upsertVenue,
-  removeVenue as apiRemoveVenue,
 } from '../data/adminStore'
 import type {
   AdminAccount,
@@ -97,6 +101,14 @@ type AuditLogQuery = {
   moderator_id: string
   target_type: string
   action: string
+}
+
+type AdminConfirmDialog = {
+  title: string
+  message: string
+  confirmLabel: string
+  variant?: 'danger' | 'warning'
+  onConfirm: () => void
 }
 
 const DEFAULT_CITY_TIMEZONE_OFFSET = 3
@@ -256,6 +268,12 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [artistDeleteError, setArtistDeleteError] = useState<string | null>(null)
   const [loadingDeleteArtistId, setLoadingDeleteArtistId] = useState<number | null>(null)
   const [hasLoadedArtists, setHasLoadedArtists] = useState(false)
+  const [artistListQuery, setArtistListQuery] = useState('')
+  const [artistSort, setArtistSort] = useState('name')
+  const [artistDirection, setArtistDirection] = useState<'ASC' | 'DESC'>('ASC')
+  const [artistReviewsFilter, setArtistReviewsFilter] = useState<'all' | 'with_reviews' | 'without_reviews'>('all')
+  const [artistStatusFilter, setArtistStatusFilter] = useState('')
+  const [artistIncludeDeleted, setArtistIncludeDeleted] = useState(true)
 
   const [isLoadingVenues, setIsLoadingVenues] = useState(false)
   const [venuesError, setVenuesError] = useState<string | null>(null)
@@ -265,6 +283,14 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [loadingRestoreVenueId, setLoadingRestoreVenueId] = useState<number | null>(null)
   const [venueDeleteError, setVenueDeleteError] = useState<string | null>(null)
   const [hasLoadedVenues, setHasLoadedVenues] = useState(false)
+  const [venueListQuery, setVenueListQuery] = useState('')
+  const [venueCityFilter, setVenueCityFilter] = useState('all')
+  const [venueSort, setVenueSort] = useState('name')
+  const [venueDirection, setVenueDirection] = useState<'ASC' | 'DESC'>('ASC')
+  const [venueCapacityFrom, setVenueCapacityFrom] = useState('')
+  const [venueCapacityTo, setVenueCapacityTo] = useState('')
+  const [venueStatusFilter, setVenueStatusFilter] = useState('')
+  const [venueIncludeDeleted, setVenueIncludeDeleted] = useState(true)
 
   const [isLoadingConcerts, setIsLoadingConcerts] = useState(false)
   const [concertsError, setConcertsError] = useState<string | null>(null)
@@ -272,7 +298,12 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [isLoadingSavingConcert, setIsLoadingSavingConcert] = useState(false)
   const [concertDeleteError, setConcertDeleteError] = useState<string | null>(null)
   const [loadingConcertActionId, setLoadingConcertActionId] = useState<string | number | null>(null)
-  const [hasLoadedConcerts, setHasLoadedConcerts] = useState(false)
+  const [concertListQuery, setConcertListQuery] = useState('')
+  const [concertCityFilter, setConcertCityFilter] = useState('all')
+  const [concertArtistFilter, setConcertArtistFilter] = useState('all')
+  const [concertSort, setConcertSort] = useState('date')
+  const [concertDirection, setConcertDirection] = useState<'ASC' | 'DESC'>('DESC')
+  const [concertIncludeDeleted, setConcertIncludeDeleted] = useState(true)
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null)
   const [hasLoadedSuggestions, setHasLoadedSuggestions] = useState(false)
@@ -368,66 +399,177 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }, [hasLoadedCities, isLoadingCities, tab])
 
   useEffect(() => {
-    if (!['artists', 'concerts'].includes(tab) || hasLoadedArtists || isLoadingArtists) return
+    if (tab === 'concerts') {
+      if (hasLoadedArtists || isLoadingArtists) return
 
+      setIsLoadingArtists(true)
+      setArtistsError(null)
+      void loadArtists()
+        .then((loadedArtists) => {
+          console.log('[AdminPage] Loaded artists:', loadedArtists)
+          setArtists(loadedArtists)
+        })
+        .catch((error: unknown) => {
+          console.error('[AdminPage] Failed to load artists:', error)
+          const errorMsg = error instanceof Error ? error.message : 'Failed to load artists'
+          setArtistsError(errorMsg)
+          setArtists([])
+        })
+        .finally(() => {
+          setIsLoadingArtists(false)
+          setHasLoadedArtists(true)
+        })
+      return
+    }
+
+    if (tab !== 'artists') return
+
+    let isCancelled = false
     setIsLoadingArtists(true)
     setArtistsError(null)
-    void loadArtists()
-      .then((loadedArtists) => {
-        console.log('[AdminPage] Loaded artists:', loadedArtists)
-        setArtists(loadedArtists)
+
+    const timer = window.setTimeout(() => {
+      void loadAdminArtists({
+        limit: 100,
+        offset: 0,
+        search: artistListQuery.trim() || undefined,
+        sort: artistSort,
+        direction: artistDirection,
+        has_reviews:
+          artistReviewsFilter === 'all' ? undefined : artistReviewsFilter === 'with_reviews',
+        status: artistStatusFilter || undefined,
+        include_deleted: artistIncludeDeleted,
       })
-      .catch((error: unknown) => {
-        console.error('[AdminPage] Failed to load artists:', error)
-        const errorMsg = error instanceof Error ? error.message : 'Failed to load artists'
-        setArtistsError(errorMsg)
-        setArtists([])
-      })
-      .finally(() => {
-        setIsLoadingArtists(false)
-        setHasLoadedArtists(true)
-      })
-  }, [hasLoadedArtists, isLoadingArtists, tab])
+        .then((loadedArtists) => {
+          if (isCancelled) return
+          setArtists(loadedArtists)
+        })
+        .catch((error: unknown) => {
+          if (isCancelled) return
+          console.error('[AdminPage] Failed to load admin artists:', error)
+          const errorMsg = error instanceof Error ? error.message : 'Failed to load artists'
+          setArtistsError(errorMsg)
+          setArtists([])
+        })
+        .finally(() => {
+          if (!isCancelled) setIsLoadingArtists(false)
+        })
+    }, 250)
+
+    return () => {
+      isCancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [
+    artistDirection,
+    artistIncludeDeleted,
+    artistListQuery,
+    artistReviewsFilter,
+    artistSort,
+    artistStatusFilter,
+    hasLoadedArtists,
+    tab,
+  ])
 
   useEffect(() => {
-    if (!['venues', 'concerts'].includes(tab) || hasLoadedVenues || isLoadingVenues) return
+    if (tab === 'concerts') {
+      if (hasLoadedVenues || isLoadingVenues) return
 
+      setIsLoadingVenues(true)
+      setVenuesError(null)
+      void loadVenues()
+        .then((loadedVenues) => {
+          setVenues(loadedVenues)
+        })
+        .catch((error: unknown) => {
+          console.error('[AdminPage] Failed to load venues:', error)
+          setVenuesError(error instanceof Error ? error.message : 'Failed to load venues')
+          setVenues([])
+        })
+        .finally(() => {
+          setIsLoadingVenues(false)
+          setHasLoadedVenues(true)
+        })
+      return
+    }
+
+    if (tab !== 'venues') return
+
+    let isCancelled = false
     setIsLoadingVenues(true)
     setVenuesError(null)
-    void loadVenues()
-      .then((loadedVenues) => {
-        setVenues(loadedVenues)
-      })
-      .catch((error: unknown) => {
-        console.error('[AdminPage] Failed to load venues:', error)
-        setVenuesError(error instanceof Error ? error.message : 'Failed to load venues')
-        setVenues([])
-      })
-      .finally(() => {
-        setIsLoadingVenues(false)
-        setHasLoadedVenues(true)
-      })
-  }, [hasLoadedVenues, isLoadingVenues, tab])
+
+    const timer = window.setTimeout(() => {
+      void loadVisibleAdminVenues()
+        .then((loadedVenues) => {
+          if (isCancelled) return
+          setVenues(loadedVenues)
+        })
+        .catch((error: unknown) => {
+          if (isCancelled) return
+          console.error('[AdminPage] Failed to load admin venues:', error)
+          setVenuesError(error instanceof Error ? error.message : 'Failed to load venues')
+          setVenues([])
+        })
+        .finally(() => {
+          if (!isCancelled) setIsLoadingVenues(false)
+        })
+    }, 250)
+
+    return () => {
+      isCancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [
+    hasLoadedVenues,
+    tab,
+    venueCapacityFrom,
+    venueCapacityTo,
+    venueCityFilter,
+    venueDirection,
+    venueIncludeDeleted,
+    venueListQuery,
+    venueSort,
+    venueStatusFilter,
+  ])
 
   useEffect(() => {
-    if (tab !== 'concerts' || hasLoadedConcerts || isLoadingConcerts) return
+    if (tab !== 'concerts') return
 
+    let isCancelled = false
     setIsLoadingConcerts(true)
     setConcertsError(null)
-    void loadAdminConcerts({ include_deleted: true })
-      .then((loadedConcerts) => {
-        setConcerts(loadedConcerts)
-      })
-      .catch((error: unknown) => {
-        console.error('[AdminPage] Failed to load concerts:', error)
-        setConcertsError(error instanceof Error ? error.message : 'Failed to load concerts')
-        setConcerts([])
-      })
-      .finally(() => {
-        setIsLoadingConcerts(false)
-        setHasLoadedConcerts(true)
-      })
-  }, [hasLoadedConcerts, isLoadingConcerts, tab])
+
+    const timer = window.setTimeout(() => {
+      void loadVisibleAdminConcerts()
+        .then((loadedConcerts) => {
+          if (isCancelled) return
+          setConcerts(loadedConcerts)
+        })
+        .catch((error: unknown) => {
+          if (isCancelled) return
+          console.error('[AdminPage] Failed to load concerts:', error)
+          setConcertsError(error instanceof Error ? error.message : 'Failed to load concerts')
+          setConcerts([])
+        })
+        .finally(() => {
+          if (!isCancelled) setIsLoadingConcerts(false)
+        })
+    }, 250)
+
+    return () => {
+      isCancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [
+    concertArtistFilter,
+    concertCityFilter,
+    concertDirection,
+    concertIncludeDeleted,
+    concertListQuery,
+    concertSort,
+    tab,
+  ])
 
   useEffect(() => {
     if (tab !== 'queue' || hasLoadedProfileChanges || isLoadingProfileChanges) return
@@ -537,9 +679,6 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [isArtistsModalOpen, setIsArtistsModalOpen] = useState(false)
   const [venueSearchQuery, setVenueSearchQuery] = useState('')
   const [artistSearchQuery, setArtistSearchQuery] = useState('')
-  const [artistListQuery, setArtistListQuery] = useState('')
-  const [venueListQuery, setVenueListQuery] = useState('')
-  const [concertListQuery, setConcertListQuery] = useState('')
   const [activeModerationMedia, setActiveModerationMedia] = useState<AdminReviewModerationItem | null>(null)
   // Задание 10.4: просмотр медиа в модерации по одному элементу.
   const [activeModerationMediaIndex, setActiveModerationMediaIndex] = useState(0)
@@ -554,8 +693,9 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   const [rejectDraftReason, setRejectDraftReason] = useState('')
   const [rejectDraftError, setRejectDraftError] = useState<string | null>(null)
   const [isRejectingReview, setIsRejectingReview] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<AdminConfirmDialog | null>(null)
 
-  useBodyScrollLock(Boolean(activeModerationMedia || approveDraftReview || rejectDraftReview || isVenueModalOpen || isArtistsModalOpen))
+  useBodyScrollLock(Boolean(activeModerationMedia || approveDraftReview || rejectDraftReview || confirmDialog || isVenueModalOpen || isArtistsModalOpen))
 
   const pending_count = useMemo(
     () => reviews.filter((review) => review.status === 'pending').length,
@@ -627,6 +767,48 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }, [artists, concertListQuery, concerts, venues])
   const activeModerationAttachments = activeModerationMedia?.media ?? []
   const activeModerationAttachment = activeModerationAttachments[activeModerationMediaIndex] ?? null
+  const isRejectDraftHide = rejectDraftReview?.status === 'approved'
+  function loadVisibleAdminArtists() {
+    return loadAdminArtists({
+      limit: 100,
+      offset: 0,
+      search: artistListQuery.trim() || undefined,
+      sort: artistSort,
+      direction: artistDirection,
+      has_reviews: artistReviewsFilter === 'all' ? undefined : artistReviewsFilter === 'with_reviews',
+      status: artistStatusFilter || undefined,
+      include_deleted: artistIncludeDeleted,
+    })
+  }
+  function loadVisibleAdminVenues() {
+    const capacityFrom = venueCapacityFrom.trim() ? Number(venueCapacityFrom) : undefined
+    const capacityTo = venueCapacityTo.trim() ? Number(venueCapacityTo) : undefined
+
+    return loadAdminVenues({
+      limit: 100,
+      offset: 0,
+      city_id: venueCityFilter === 'all' ? undefined : Number(venueCityFilter),
+      search: venueListQuery.trim() || undefined,
+      sort: venueSort,
+      direction: venueDirection,
+      capacity_from: Number.isFinite(capacityFrom) ? capacityFrom : undefined,
+      capacity_to: Number.isFinite(capacityTo) ? capacityTo : undefined,
+      status: venueStatusFilter || undefined,
+      include_deleted: venueIncludeDeleted,
+    })
+  }
+  function loadVisibleAdminConcerts() {
+    return loadAdminConcerts({
+      limit: 100,
+      offset: 0,
+      city_id: concertCityFilter === 'all' ? undefined : Number(concertCityFilter),
+      artist_id: concertArtistFilter === 'all' ? undefined : Number(concertArtistFilter),
+      search: concertListQuery.trim() || undefined,
+      sort: concertSort,
+      direction: concertDirection,
+      include_deleted: concertIncludeDeleted,
+    })
+  }
   const currentAdminAccount = useMemo(
     () => accounts.find((account) => isCurrentAccount(account)) ?? null,
     [accounts, authUser?.id],
@@ -716,6 +898,20 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       message,
     })
     setAuditLogs((prev) => [entry, ...prev])
+  }
+
+  function requestAdminConfirm(dialog: AdminConfirmDialog) {
+    setConfirmDialog(dialog)
+  }
+
+  function closeAdminConfirm() {
+    setConfirmDialog(null)
+  }
+
+  function confirmAdminAction() {
+    const action = confirmDialog?.onConfirm
+    setConfirmDialog(null)
+    action?.()
   }
 
   function applyAuditLogFilters() {
@@ -889,9 +1085,20 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     }
   }
 
-  async function approveProfileChange(requestId: string) {
+  async function approveProfileChange(requestId: string, confirmed = false) {
     const request = profileChanges.find((x) => x.id === requestId) ?? null
     if (!request) return
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Одобрить изменение профиля?',
+        message: `Изменение профиля для @${request.requested_by_username} будет применено.`,
+        confirmLabel: 'Одобрить',
+        variant: 'warning',
+        onConfirm: () => void approveProfileChange(requestId, true),
+      })
+      return
+    }
 
     setProfileChangeActionId(requestId)
     setProfileChangeActionError(null)
@@ -912,9 +1119,20 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     }
   }
 
-  async function rejectProfileChange(requestId: string) {
+  async function rejectProfileChange(requestId: string, confirmed = false) {
     const request = profileChanges.find((x) => x.id === requestId) ?? null
     if (!request) return
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Отклонить заявку?',
+        message: `Изменение профиля для @${request.requested_by_username} будет отклонено.`,
+        confirmLabel: 'Отклонить',
+        variant: 'warning',
+        onConfirm: () => void rejectProfileChange(requestId, true),
+      })
+      return
+    }
 
     setProfileChangeActionId(requestId)
     setProfileChangeActionError(null)
@@ -969,7 +1187,20 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     setTab('concerts')
   }
 
-  function removeConcertSuggestion(suggestionId: string) {
+  function removeConcertSuggestion(suggestionId: string, confirmed = false) {
+    const suggestion = concertSuggestions.find((x) => x.id === suggestionId) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Удалить предложение?',
+        message: `Предложение${suggestion ? ` «${suggestion.artist_name}»` : ''} будет удалено из очереди.`,
+        confirmLabel: 'Удалить',
+        variant: 'danger',
+        onConfirm: () => removeConcertSuggestion(suggestionId, true),
+      })
+      return
+    }
+
     setSuggestionsError(null)
 
     void deleteAdminConcertSuggestion(suggestionId)
@@ -1018,8 +1249,19 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
-  function deleteCity(id: number) {
+  function deleteCity(id: number, confirmed = false) {
     const city = cities.find((x) => x.id === id) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Удалить город?',
+        message: `Город${city ? ` «${city.name}»` : ''} будет удален. Это может повлиять на связанные площадки.`,
+        confirmLabel: 'Удалить',
+        variant: 'danger',
+        onConfirm: () => deleteCity(id, true),
+      })
+      return
+    }
     
     setLoadingDeleteCityId(id)
     setCityDeleteError(null)
@@ -1070,7 +1312,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
     void request
       .then((next) => {
-        return loadArtists().then((updatedArtists) => {
+        return loadVisibleAdminArtists().then((updatedArtists) => {
           setArtists(updatedArtists)
 
           if (currentAdminAccount) {
@@ -1110,7 +1352,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       social_links: socialLinksFromForm(venueForm.social_links),
     })
       .then((next) => {
-        return loadVenues().then((loadedVenues) => {
+        return loadVisibleAdminVenues().then((loadedVenues) => {
           setVenues(loadedVenues)
 
           if (currentAdminAccount) {
@@ -1146,7 +1388,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
   }
 
   async function reloadAdminConcerts() {
-    const loadedConcerts = await loadAdminConcerts({ include_deleted: true })
+    const loadedConcerts = await loadVisibleAdminConcerts()
     setConcerts(loadedConcerts)
     return loadedConcerts
   }
@@ -1232,19 +1474,32 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
-  function deleteArtistFromAdmin(id: number) {
+  function deleteArtistFromAdmin(id: number, hardDelete = false, confirmed = false) {
     const artist = artists.find((x) => x.id === id) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: hardDelete ? 'Удалить артиста навсегда?' : 'Удалить артиста?',
+        message: hardDelete
+          ? `Артист${artist ? ` «${artist.name}»` : ''} будет удален без возможности восстановления.`
+          : `Артист${artist ? ` «${artist.name}»` : ''} будет скрыт из публичных списков.`,
+        confirmLabel: hardDelete ? 'Удалить навсегда' : 'Удалить',
+        variant: 'danger',
+        onConfirm: () => deleteArtistFromAdmin(id, hardDelete, true),
+      })
+      return
+    }
     
     setLoadingDeleteArtistId(id)
     setArtistDeleteError(null)
 
-    void removeArtist(id)
+    void (hardDelete ? deleteArtistHard(id) : deleteArtistSoft(id))
       .then(() => {
-        return loadArtists().then((updatedArtists) => {
+        return loadVisibleAdminArtists().then((updatedArtists) => {
           setArtists(updatedArtists)
 
           if (artist && currentAdminAccount) {
-            writeAudit(`Админ ${currentAdminAccount.displayName} удалил артиста «${artist.name}».`)
+            writeAudit(`Админ ${currentAdminAccount.displayName} ${hardDelete ? 'удалил навсегда' : 'скрыл'} артиста «${artist.name}».`)
           }
           
           setArtistDeleteError(null)
@@ -1260,19 +1515,71 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
-  function deleteVenueFromAdmin(id: number) {
+  function restoreArtistFromAdmin(id: number, confirmed = false) {
+    const artist = artists.find((x) => x.id === id) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Восстановить артиста?',
+        message: `Артист${artist ? ` «${artist.name}»` : ''} снова появится в публичных списках.`,
+        confirmLabel: 'Восстановить',
+        variant: 'warning',
+        onConfirm: () => restoreArtistFromAdmin(id, true),
+      })
+      return
+    }
+
+    setLoadingDeleteArtistId(id)
+    setArtistDeleteError(null)
+
+    void restoreArtist(id)
+      .then(() => {
+        return loadVisibleAdminArtists().then((updatedArtists) => {
+          setArtists(updatedArtists)
+
+          if (artist && currentAdminAccount) {
+            writeAudit(`Админ ${currentAdminAccount.displayName} восстановил артиста «${artist.name}».`)
+          }
+
+          setArtistDeleteError(null)
+        })
+      })
+      .catch((error) => {
+        console.error('[AdminPage] Failed to restore artist:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Ошибка при восстановлении артиста'
+        setArtistDeleteError(errorMsg)
+      })
+      .finally(() => {
+        setLoadingDeleteArtistId(null)
+      })
+  }
+
+  function deleteVenueFromAdmin(id: number, hardDelete = false, confirmed = false) {
     const venue = venues.find((x) => x.id === id) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: hardDelete ? 'Удалить площадку навсегда?' : 'Удалить площадку?',
+        message: hardDelete
+          ? `Площадка${venue ? ` «${venue.name}»` : ''} будет удалена без возможности восстановления.`
+          : `Площадка${venue ? ` «${venue.name}»` : ''} будет скрыта из публичных списков.`,
+        confirmLabel: hardDelete ? 'Удалить навсегда' : 'Удалить',
+        variant: 'danger',
+        onConfirm: () => deleteVenueFromAdmin(id, hardDelete, true),
+      })
+      return
+    }
 
     setLoadingDeleteVenueId(id)
     setVenueDeleteError(null)
 
-    void apiRemoveVenue(id)
+    void (hardDelete ? deleteVenueHard(id) : deleteVenueSoft(id))
       .then(() => {
-        return loadVenues().then((loadedVenues) => {
+        return loadVisibleAdminVenues().then((loadedVenues) => {
           setVenues(loadedVenues)
 
           if (venue && currentAdminAccount) {
-            writeAudit(`Админ ${currentAdminAccount.displayName} удалил площадку «${venue.name}».`)
+            writeAudit(`Админ ${currentAdminAccount.displayName} ${hardDelete ? 'удалил навсегда' : 'скрыл'} площадку «${venue.name}».`)
           }
 
           setVenueDeleteError(null)
@@ -1287,14 +1594,25 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
-  function restoreVenueFromAdmin(id: number) {
+  function restoreVenueFromAdmin(id: number, confirmed = false) {
     const venue = venues.find((x) => x.id === id) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Восстановить площадку?',
+        message: `Площадка${venue ? ` «${venue.name}»` : ''} снова станет доступна.`,
+        confirmLabel: 'Восстановить',
+        variant: 'warning',
+        onConfirm: () => restoreVenueFromAdmin(id, true),
+      })
+      return
+    }
 
     setLoadingRestoreVenueId(id)
     setVenueDeleteError(null)
 
     void restoreVenue(id)
-      .then(() => loadAdminVenues({ include_deleted: true }))
+      .then(() => loadVisibleAdminVenues())
       .then((loadedVenues) => {
         setVenues(loadedVenues)
 
@@ -1311,11 +1629,23 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
-  function removeConcert(id: string | number) {
+  function removeConcert(id: string | number, confirmed = false) {
+    const concert = concerts.find((x) => x.id === id) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Удалить концерт?',
+        message: `Концерт${concert ? ` «${concert.title}»` : ''} будет скрыт из публичной части.`,
+        confirmLabel: 'Удалить',
+        variant: 'danger',
+        onConfirm: () => removeConcert(id, true),
+      })
+      return
+    }
+
     setLoadingConcertActionId(id)
     setConcertDeleteError(null)
 
-    const concert = concerts.find((x) => x.id === id) ?? null
     void deleteAdminConcertSoft(id)
       .then(() => reloadAdminConcerts())
       .then(() => {
@@ -1331,14 +1661,22 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       .finally(() => {
         setLoadingConcertActionId(null)
       })
-    return
-    if (concert && currentAdminAccount && Date.now() < 0) {
-      // @ts-expect-error unreachable legacy audit branch
-      writeAudit(`Админ ${currentAdminAccount.displayName} удалил концерт «${concert.title}».`)
-    }
   }
 
-  function hardRemoveConcert(id: string | number) {
+  function hardRemoveConcert(id: string | number, confirmed = false) {
+    const concert = concerts.find((x) => x.id === id) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Удалить концерт навсегда?',
+        message: `Концерт${concert ? ` «${concert.title}»` : ''} будет удален без восстановления.`,
+        confirmLabel: 'Удалить навсегда',
+        variant: 'danger',
+        onConfirm: () => hardRemoveConcert(id, true),
+      })
+      return
+    }
+
     setLoadingConcertActionId(id)
     setConcertDeleteError(null)
 
@@ -1353,7 +1691,20 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       })
   }
 
-  function restoreConcertFromAdmin(id: string | number) {
+  function restoreConcertFromAdmin(id: string | number, confirmed = false) {
+    const concert = concerts.find((x) => x.id === id) ?? null
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Восстановить концерт?',
+        message: `Концерт${concert ? ` «${concert.title}»` : ''} снова станет доступен.`,
+        confirmLabel: 'Восстановить',
+        variant: 'warning',
+        onConfirm: () => restoreConcertFromAdmin(id, true),
+      })
+      return
+    }
+
     setLoadingConcertActionId(id)
     setConcertDeleteError(null)
 
@@ -1378,9 +1729,22 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     )
   }
 
-  function setAccountBanState(id: string | number, is_banned: boolean) {
+  function setAccountBanState(id: string | number, is_banned: boolean, confirmed = false) {
     const account = accounts.find((x) => String(x.user_id ?? x.id) === String(id)) ?? null
     if (!account || !canBanAccount(account)) return
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: is_banned ? 'Забанить пользователя?' : 'Разбанить пользователя?',
+        message: is_banned
+          ? `${account.handle} потеряет доступ к аккаунту, активные сессии будут сброшены.`
+          : `${account.handle} снова получит доступ к аккаунту.`,
+        confirmLabel: is_banned ? 'Забанить' : 'Разбанить',
+        variant: is_banned ? 'danger' : 'warning',
+        onConfirm: () => setAccountBanState(id, is_banned, true),
+      })
+      return
+    }
 
     setAccountActionId(id)
     setAccountActionError(null)
@@ -1398,9 +1762,20 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       .finally(() => setAccountActionId(null))
   }
 
-  function changeAccountRole(id: string | number, role_id: number) {
+  function changeAccountRole(id: string | number, role_id: number, confirmed = false) {
     const account = accounts.find((x) => String(x.user_id ?? x.id) === String(id)) ?? null
     if (!account || !canChangeAccountRole(account)) return
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Изменить роль?',
+        message: `${account.handle} получит роль ${role_id === 3 ? 'super_admin' : role_id === 2 ? 'admin' : 'user'}, сессии пользователя будут сброшены.`,
+        confirmLabel: 'Изменить роль',
+        variant: role_id === 1 ? 'warning' : 'danger',
+        onConfirm: () => changeAccountRole(id, role_id, true),
+      })
+      return
+    }
 
     setAccountActionId(id)
     setAccountActionError(null)
@@ -1418,9 +1793,20 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
       .finally(() => setAccountActionId(null))
   }
 
-  function anonymizeAccount(id: string | number) {
+  function anonymizeAccount(id: string | number, confirmed = false) {
     const account = accounts.find((x) => String(x.user_id ?? x.id) === String(id)) ?? null
     if (!account || !canAnonymizeAccount(account)) return
+
+    if (!confirmed) {
+      requestAdminConfirm({
+        title: 'Анонимизировать аккаунт?',
+        message: `Персональные данные ${account.handle} будут очищены, аккаунт станет неактивным, сессии будут сброшены.`,
+        confirmLabel: 'Анонимизировать',
+        variant: 'danger',
+        onConfirm: () => anonymizeAccount(id, true),
+      })
+      return
+    }
 
     setAccountActionId(id)
     setAccountActionError(null)
@@ -1601,6 +1987,40 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
           </button>
         )}
       </div>
+
+      {confirmDialog && (
+        <div className="adminModalBackdrop adminConfirmBackdrop" onClick={closeAdminConfirm}>
+          <article
+            className="adminModalCard adminConfirmCard"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="adminModalHeader">
+              <h3 id="admin-confirm-title" className="adminModalTitle">{confirmDialog.title}</h3>
+              <button type="button" className="settingsBtn ghost" onClick={closeAdminConfirm}>
+                Закрыть
+              </button>
+            </div>
+
+            <p className="adminConfirmText">{confirmDialog.message}</p>
+
+            <div className="adminItemActions adminConfirmActions">
+              <button
+                type="button"
+                className={confirmDialog.variant === 'danger' ? 'settingsBtn primary adminDangerBtn' : 'settingsBtn primary'}
+                onClick={confirmAdminAction}
+              >
+                {confirmDialog.confirmLabel}
+              </button>
+              <button type="button" className="settingsBtn ghost" onClick={closeAdminConfirm}>
+                Отмена
+              </button>
+            </div>
+          </article>
+        </div>
+      )}
 
       {tab === 'queue' && (
         <section className="adminSection">
@@ -1832,7 +2252,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 </div>
 
                 <p className="adminItemMeta">
-                  <Link to={`/users/${encodeURIComponent(review.author_username ?? review.author_name)}`}>{review.author_name}</Link> • {formatDateTime(review.created_at)} • {review.rating_total}
+                  {review.author_is_deleted ? (
+                    <span>Удаленный аккаунт</span>
+                  ) : (
+                    <Link to={`/users/${encodeURIComponent(review.author_username ?? review.author_name)}`}>{review.author_name}</Link>
+                  )} • {formatDateTime(review.created_at)} • {review.rating_total}
                 </p>
                 {review.title && <p className="adminItemTitle">{review.title}</p>}
                 <p className="adminItemPreview">{readableAdminReviewText(review.text)}</p>
@@ -1854,29 +2278,51 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    className="settingsBtn primary"
-                    onClick={() => openApproveDraft(review)}
-                    disabled={isApprovingReview}
-                  >
-                    Одобрить
-                  </button>
-                  <button
-                    type="button"
-                    className="settingsBtn ghost"
-                    onClick={() => openRejectDraft(review)}
-                    disabled={isRejectingReview}
-                  >
-                    Отклонить
-                  </button>
-                  <button
-                    type="button"
-                    className="settingsBtn ghost"
-                    onClick={() => markReview(review.id, 'pending')}
-                  >
-                    Вернуть в pending
-                  </button>
+                  {review.status === 'approved' ? (
+                    <button
+                      type="button"
+                      className="settingsBtn ghost"
+                      onClick={() => openRejectDraft(review)}
+                      disabled={isRejectingReview}
+                    >
+                      Скрыть
+                    </button>
+                  ) : review.status === 'rejected' ? (
+                    <button
+                      type="button"
+                      className="settingsBtn primary"
+                      onClick={() => openApproveDraft(review)}
+                      disabled={isApprovingReview}
+                    >
+                      Одобрить
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="settingsBtn primary"
+                        onClick={() => openApproveDraft(review)}
+                        disabled={isApprovingReview}
+                      >
+                        Одобрить
+                      </button>
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        onClick={() => openRejectDraft(review)}
+                        disabled={isRejectingReview}
+                      >
+                        Отклонить
+                      </button>
+                      <button
+                        type="button"
+                        className="settingsBtn ghost"
+                        onClick={() => markReview(review.id, 'pending')}
+                      >
+                        Вернуть в pending
+                      </button>
+                    </>
+                  )}
                 </div>
               </article>
             ))
@@ -1956,7 +2402,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
             <div className="adminModalBackdrop" onClick={closeRejectDraft}>
               <article className="adminModalCard" onClick={(event) => event.stopPropagation()}>
                 <div className="adminModalHeader">
-                  <h3 className="adminModalTitle">Причина отказа</h3>
+                  <h3 className="adminModalTitle">{isRejectDraftHide ? 'Причина скрытия' : 'Причина отказа'}</h3>
                   <button type="button" className="settingsBtn ghost" onClick={closeRejectDraft} disabled={isRejectingReview}>
                     Закрыть
                   </button>
@@ -1973,7 +2419,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                     setRejectDraftReason(event.target.value)
                     setRejectDraftError(null)
                   }}
-                  placeholder="Напишите причину отказа"
+                  placeholder={isRejectDraftHide ? 'Напишите причину скрытия' : 'Напишите причину отказа'}
                   minLength={5}
                   maxLength={500}
                   disabled={isRejectingReview}
@@ -1988,7 +2434,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                     onClick={applyRejectDraft}
                     disabled={isRejectingReview || rejectDraftReason.trim().length < 5 || rejectDraftReason.trim().length > 500}
                   >
-                    {isRejectingReview ? 'Отклонение...' : 'Отклонить'}
+                    {isRejectingReview ? (isRejectDraftHide ? 'Скрытие...' : 'Отклонение...') : isRejectDraftHide ? 'Скрыть' : 'Отклонить'}
                   </button>
                   <button type="button" className="settingsBtn ghost" onClick={closeRejectDraft} disabled={isRejectingReview}>
                     Отмена
@@ -2175,13 +2621,68 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
           </article>
 
           <article className="adminListCard adminListCardScrollable">
-            <input
-              className="adminInput adminListSearch"
-              placeholder="Поиск артистов"
-              value={artistListQuery}
-              onChange={(e) => setArtistListQuery(e.target.value)}
-              disabled={isLoadingArtists}
-            />
+            <div className="adminListControls adminArtistListControls">
+              <input
+                className="adminInput adminListSearch"
+                placeholder="Поиск артистов"
+                value={artistListQuery}
+                onChange={(e) => setArtistListQuery(e.target.value)}
+                disabled={isLoadingArtists}
+              />
+              <div className="adminSocialFields" aria-label="Фильтры артистов">
+                <select
+                  className="adminInput"
+                  value={artistSort}
+                  onChange={(event) => setArtistSort(event.target.value)}
+                  disabled={isLoadingArtists}
+                >
+                  <option value="name">Имя</option>
+                  <option value="rating">Рейтинг</option>
+                  <option value="reviews">Рецензии</option>
+                  <option value="concerts">Концерты</option>
+                </select>
+                <select
+                  className="adminInput"
+                  value={artistDirection}
+                  onChange={(event) => setArtistDirection(event.target.value as 'ASC' | 'DESC')}
+                  disabled={isLoadingArtists}
+                >
+                  <option value="ASC">По возрастанию</option>
+                  <option value="DESC">По убыванию</option>
+                </select>
+                <select
+                  className="adminInput"
+                  value={artistReviewsFilter}
+                  onChange={(event) => setArtistReviewsFilter(event.target.value as typeof artistReviewsFilter)}
+                  disabled={isLoadingArtists}
+                >
+                  <option value="all">Все по рецензиям</option>
+                  <option value="with_reviews">С рецензиями</option>
+                  <option value="without_reviews">Без рецензий</option>
+                </select>
+              </div>
+              <div className="adminSocialFields" aria-label="Статус артистов">
+                <select
+                  className="adminInput"
+                  value={artistStatusFilter}
+                  onChange={(event) => setArtistStatusFilter(event.target.value)}
+                  disabled={isLoadingArtists}
+                >
+                  <option value="">Любой статус</option>
+                  <option value="active">Активные</option>
+                  <option value="deleted">Удаленные</option>
+                </select>
+                <label className="concertToggle filtersToggle">
+                  <input
+                    type="checkbox"
+                    checked={artistIncludeDeleted}
+                    onChange={(event) => setArtistIncludeDeleted(event.target.checked)}
+                    disabled={isLoadingArtists}
+                  />
+                  Показывать удаленных
+                </label>
+              </div>
+            </div>
 
             <div className="adminScrollableList">
               {isLoadingArtists ? (
@@ -2199,21 +2700,12 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                   <div key={artist.id} className="adminListRow">
                     <div>
                       <p className="adminListTitle">{artist.name}</p>
+                      {(artist.is_deleted || artist.deleted_at || artist.status === 'deleted') && (
+                        <span className="adminStatus adminStatus-rejected">удален</span>
+                      )}
                       <p className="adminListMeta">{artist.description}</p>
                     </div>
                     <div className="adminRowActions">
-                      <button
-                        type="button"
-                        className="settingsBtn ghost"
-                        onClick={() => {
-                          if (currentAdminAccount) {
-                            writeAudit(`Админ ${currentAdminAccount.displayName} пересчитал статистику артиста «${artist.name}».`)
-                          }
-                        }}
-                        disabled={loadingDeleteArtistId === artist.id}
-                      >
-                        Пересчитать
-                      </button>
                       <button
                         type="button"
                         className="settingsBtn ghost"
@@ -2230,14 +2722,45 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                       >
                         Изменить
                       </button>
-                      <button 
-                        type="button" 
-                        className="settingsBtn ghost" 
-                        onClick={() => deleteArtistFromAdmin(artist.id)}
-                        disabled={loadingDeleteArtistId === artist.id}
-                      >
-                        {loadingDeleteArtistId === artist.id ? 'Удаление...' : 'Удалить'}
-                      </button>
+                      {artist.is_deleted || artist.deleted_at || artist.status === 'deleted' ? (
+                        <>
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            onClick={() => restoreArtistFromAdmin(artist.id)}
+                            disabled={loadingDeleteArtistId === artist.id}
+                          >
+                            Восстановить
+                          </button>
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            onClick={() => deleteArtistFromAdmin(artist.id, true)}
+                            disabled={loadingDeleteArtistId === artist.id}
+                          >
+                            {loadingDeleteArtistId === artist.id ? 'Удаление...' : 'Удалить навсегда'}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            onClick={() => deleteArtistFromAdmin(artist.id)}
+                            disabled={loadingDeleteArtistId === artist.id}
+                          >
+                            {loadingDeleteArtistId === artist.id ? 'Удаление...' : 'Мягко удалить'}
+                          </button>
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            onClick={() => deleteArtistFromAdmin(artist.id, true)}
+                            disabled={loadingDeleteArtistId === artist.id}
+                          >
+                            {loadingDeleteArtistId === artist.id ? 'Удаление...' : 'Удалить навсегда'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))
@@ -2360,12 +2883,86 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
           </article>
 
           <article className="adminListCard adminListCardScrollable">
-            <input
-              className="adminInput adminListSearch"
-              placeholder="Поиск площадок"
-              value={venueListQuery}
-              onChange={(e) => setVenueListQuery(e.target.value)}
-            />
+            <div className="adminListControls adminVenueListControls">
+              <input
+                className="adminInput adminListSearch"
+                placeholder="Поиск площадок"
+                value={venueListQuery}
+                onChange={(e) => setVenueListQuery(e.target.value)}
+                disabled={isLoadingVenues}
+              />
+              <div className="adminSocialFields" aria-label="Фильтры площадок">
+                <select
+                  className="adminInput"
+                  value={venueCityFilter}
+                  onChange={(event) => setVenueCityFilter(event.target.value)}
+                  disabled={isLoadingVenues}
+                >
+                  <option value="all">Все города</option>
+                  {cities.map((city) => (
+                    <option key={city.id} value={city.id}>{city.name}</option>
+                  ))}
+                </select>
+                <select
+                  className="adminInput"
+                  value={venueSort}
+                  onChange={(event) => setVenueSort(event.target.value)}
+                  disabled={isLoadingVenues}
+                >
+                  <option value="name">Название</option>
+                  <option value="rating">Рейтинг</option>
+                  <option value="capacity">Вместимость</option>
+                </select>
+                <select
+                  className="adminInput"
+                  value={venueDirection}
+                  onChange={(event) => setVenueDirection(event.target.value as 'ASC' | 'DESC')}
+                  disabled={isLoadingVenues}
+                >
+                  <option value="ASC">По возрастанию</option>
+                  <option value="DESC">По убыванию</option>
+                </select>
+              </div>
+              <div className="adminSocialFields" aria-label="Статус и вместимость площадок">
+                <input
+                  className="adminInput"
+                  type="number"
+                  min="0"
+                  placeholder="Вместимость от"
+                  value={venueCapacityFrom}
+                  onChange={(event) => setVenueCapacityFrom(event.target.value)}
+                  disabled={isLoadingVenues}
+                />
+                <input
+                  className="adminInput"
+                  type="number"
+                  min="0"
+                  placeholder="Вместимость до"
+                  value={venueCapacityTo}
+                  onChange={(event) => setVenueCapacityTo(event.target.value)}
+                  disabled={isLoadingVenues}
+                />
+                <select
+                  className="adminInput"
+                  value={venueStatusFilter}
+                  onChange={(event) => setVenueStatusFilter(event.target.value)}
+                  disabled={isLoadingVenues}
+                >
+                  <option value="">Любой статус</option>
+                  <option value="active">Активные</option>
+                  <option value="deleted">Удаленные</option>
+                </select>
+              </div>
+              <label className="concertToggle filtersToggle">
+                <input
+                  type="checkbox"
+                  checked={venueIncludeDeleted}
+                  onChange={(event) => setVenueIncludeDeleted(event.target.checked)}
+                  disabled={isLoadingVenues}
+                />
+                Показывать удаленные
+              </label>
+            </div>
             {venueDeleteError && (
               <div className="adminEmpty" style={{ color: '#f44336' }}>
                 ⚠️ {venueDeleteError}
@@ -2384,6 +2981,9 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                   <div key={venue.id} className="adminListRow">
                     <div>
                       <p className="adminListTitle">{venue.name}</p>
+                      {(venue.is_deleted || venue.deleted_at || venue.status === 'deleted') && (
+                        <span className="adminStatus adminStatus-rejected">удалена</span>
+                      )}
                       <p className="adminListMeta">
                         {venue.city} • {venue.capacity} чел
                         {venue.status && ` • ${venue.status}`}
@@ -2396,14 +2996,6 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                       </p>
                     </div>
                     <div className="adminRowActions">
-                      <button
-                        type="button"
-                        className="settingsBtn ghost"
-                        onClick={() => restoreVenueFromAdmin(venue.id)}
-                        disabled={loadingRestoreVenueId === venue.id}
-                      >
-                        {loadingRestoreVenueId === venue.id ? 'Восстановление...' : 'Восстановить'}
-                      </button>
                       <button
                         type="button"
                         className="settingsBtn ghost"
@@ -2423,14 +3015,45 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                       >
                         Изменить
                       </button>
-                      <button
-                        type="button"
-                        className="settingsBtn ghost"
-                        onClick={() => deleteVenueFromAdmin(venue.id)}
-                        disabled={loadingDeleteVenueId === venue.id}
-                      >
-                        {loadingDeleteVenueId === venue.id ? 'Удаление...' : 'Удалить'}
-                      </button>
+                      {venue.is_deleted || venue.deleted_at || venue.status === 'deleted' ? (
+                        <>
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            onClick={() => restoreVenueFromAdmin(venue.id)}
+                            disabled={loadingRestoreVenueId === venue.id}
+                          >
+                            {loadingRestoreVenueId === venue.id ? 'Восстановление...' : 'Восстановить'}
+                          </button>
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            onClick={() => deleteVenueFromAdmin(venue.id, true)}
+                            disabled={loadingDeleteVenueId === venue.id}
+                          >
+                            {loadingDeleteVenueId === venue.id ? 'Удаление...' : 'Удалить навсегда'}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            onClick={() => deleteVenueFromAdmin(venue.id)}
+                            disabled={loadingDeleteVenueId === venue.id}
+                          >
+                            {loadingDeleteVenueId === venue.id ? 'Удаление...' : 'Мягко удалить'}
+                          </button>
+                          <button
+                            type="button"
+                            className="settingsBtn ghost"
+                            onClick={() => deleteVenueFromAdmin(venue.id, true)}
+                            disabled={loadingDeleteVenueId === venue.id}
+                          >
+                            {loadingDeleteVenueId === venue.id ? 'Удаление...' : 'Удалить навсегда'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))
@@ -2596,12 +3219,73 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
           </article>
 
           <article className="adminListCard adminListCardScrollable">
-            <input
-              className="adminInput adminListSearch"
-              placeholder="Поиск концертов"
-              value={concertListQuery}
-              onChange={(e) => setConcertListQuery(e.target.value)}
-            />
+            <div className="adminListControls adminConcertListControls">
+              <input
+                className="adminInput adminListSearch"
+                placeholder="Поиск концертов"
+                value={concertListQuery}
+                onChange={(e) => setConcertListQuery(e.target.value)}
+              />
+              <div className="adminSocialFields">
+                <select
+                  className="adminInput"
+                  value={concertCityFilter}
+                  onChange={(event) => setConcertCityFilter(event.target.value)}
+                  disabled={isLoadingConcerts}
+                >
+                  <option value="all">Все города</option>
+                  {cities.map((city) => (
+                    <option key={city.id} value={city.id}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="adminInput"
+                  value={concertArtistFilter}
+                  onChange={(event) => setConcertArtistFilter(event.target.value)}
+                  disabled={isLoadingConcerts}
+                >
+                  <option value="all">Все артисты</option>
+                  {artists.map((artist) => (
+                    <option key={artist.id} value={artist.id}>
+                      {artist.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="adminSocialFields">
+                <select
+                  className="adminInput"
+                  value={concertSort}
+                  onChange={(event) => setConcertSort(event.target.value)}
+                  disabled={isLoadingConcerts}
+                >
+                  <option value="date">По дате</option>
+                  <option value="title">По названию</option>
+                  <option value="venue_id">По площадке</option>
+                  <option value="created_at">По созданию</option>
+                </select>
+                <select
+                  className="adminInput"
+                  value={concertDirection}
+                  onChange={(event) => setConcertDirection(event.target.value as 'ASC' | 'DESC')}
+                  disabled={isLoadingConcerts}
+                >
+                  <option value="DESC">Сначала новые</option>
+                  <option value="ASC">Сначала старые</option>
+                </select>
+              </div>
+              <label className="concertToggle filtersToggle">
+                <input
+                  type="checkbox"
+                  checked={concertIncludeDeleted}
+                  onChange={(event) => setConcertIncludeDeleted(event.target.checked)}
+                  disabled={isLoadingConcerts}
+                />
+                Показывать удаленные
+              </label>
+            </div>
             {concertDeleteError && <p className="settingsError">{concertDeleteError}</p>}
 
             <div className="adminScrollableList">
@@ -2652,33 +3336,45 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                         >
                           Изменить
                         </button>
-                        {concert.deleted_at && (
-                          <button
-                            type="button"
-                            className="settingsBtn ghost"
-                            disabled={loadingConcertActionId === concert.id}
-                            onClick={() => restoreConcertFromAdmin(concert.id)}
-                          >
-                            Восстановить
-                          </button>
+                        {concert.deleted_at ? (
+                          <>
+                            <button
+                              type="button"
+                              className="settingsBtn ghost"
+                              disabled={loadingConcertActionId === concert.id}
+                              onClick={() => restoreConcertFromAdmin(concert.id)}
+                            >
+                              Восстановить
+                            </button>
+                            <button
+                              type="button"
+                              className="settingsBtn ghost"
+                              disabled={loadingConcertActionId === concert.id}
+                              onClick={() => hardRemoveConcert(concert.id)}
+                            >
+                              Удалить навсегда
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="settingsBtn ghost"
+                              disabled={loadingConcertActionId === concert.id}
+                              onClick={() => removeConcert(concert.id)}
+                            >
+                              Мягко удалить
+                            </button>
+                            <button
+                              type="button"
+                              className="settingsBtn ghost"
+                              disabled={loadingConcertActionId === concert.id}
+                              onClick={() => hardRemoveConcert(concert.id)}
+                            >
+                              Удалить навсегда
+                            </button>
+                          </>
                         )}
-                        <button
-                          type="button"
-                          className="settingsBtn ghost"
-                          disabled={loadingConcertActionId === concert.id}
-                          onClick={() => hardRemoveConcert(concert.id)}
-                        >
-                          Удалить навсегда
-                        </button>
-                        <button
-                          type="button"
-                          className="settingsBtn ghost"
-                          disabled={loadingConcertActionId === concert.id || Boolean(concert.deleted_at)}
-                          onClick={() => removeConcert(concert.id)}
-                        >
-                          {/* soft delete */}
-                          Удалить
-                        </button>
                       </div>
                     </div>
                   )
@@ -3036,7 +3732,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
 
       {tab === 'logs' && canViewAuditLogs && (
         <section className="adminSection">
-          <article className="adminListCard adminListCardScrollable">
+          <article className="adminListCard adminLogsCard">
             <p className="adminListMeta">Логи действий модераторов и админов.</p>
 
             <div className="adminSocialFields" aria-label="Фильтры логов">

@@ -8,6 +8,7 @@ export type ArtistCardItem = {
   avg_rating_total: number | null
   reviews_count?: number
   concerts_count?: number
+  favorites_count?: number
   social_links?: ArtistSocialLinks | null
 }
 

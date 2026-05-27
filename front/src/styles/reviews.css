@@ -1,12 +1,21 @@
 .reviewGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(var(--review-grid-columns, 3), minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.reviewGridColumn {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
 .reviewGrid .reviewCard {
-  height: 100%;
-  align-self: stretch;
+  width: 100%;
+  min-height: 300px;
+  display: inline-flex;
 }
 
 .reviewGrid .reviewBody {
@@ -24,22 +33,187 @@
   min-height: calc(100vh - var(--header-height, 56px) - 120px);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 24px 12px;
-  gap: 14px;
+  gap: 22px;
 }
 
 .reviewDetailCardWrap {
-  width: min(740px, 100%);
+  width: min(800px, 100%);
+  margin: 0 auto;
 }
 
-.reviewConcertHero {
-  width: min(980px, 100%);
+.reviewDetailHero {
+  min-height: 310px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.05), transparent 44%),
+    var(--panel);
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
+  gap: 32px;
 }
 
-.reviewConcertHeroPoster {
+.reviewDetailHeroPoster {
+  position: relative;
+  min-width: 0;
+  align-self: start;
   color: inherit;
   text-decoration: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.reviewDetailHeroPoster .rateHeroPosterMedia {
+  border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.reviewDetailHeroPoster img,
+.reviewDetailHeroPoster .rateHeroPosterFallback {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.reviewDetailHeroPoster img {
+  object-fit: cover;
+}
+
+.reviewDetailHeroPoster .photoSource {
+  padding: 6px 0 0;
+  font-size: 10px;
+}
+
+.reviewDetailHeroContent {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.reviewDetailHeroTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reviewDetailHeroType,
+.reviewDetailHeroReviews,
+.reviewDetailHeroOpen {
+  width: fit-content;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 10px 14px;
+}
+
+.reviewDetailHeroReviews:hover,
+.reviewDetailHeroOpen:hover {
+  background: var(--hover);
+}
+
+.reviewDetailHeroTitle {
+  color: var(--fg);
+  text-decoration: none;
+  font-size: clamp(36px, 5vw, 52px);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.reviewDetailHeroTitle:hover {
+  text-decoration: underline;
+}
+
+.reviewDetailHeroMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reviewDetailHeroArtist,
+.reviewDetailHeroDate,
+.reviewDetailHeroVenue {
+  color: inherit;
+  text-decoration: none;
+  padding: 2px 16px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.reviewDetailHeroArtist {
+  padding-left: 0;
+}
+
+.reviewDetailHeroDate,
+.reviewDetailHeroVenue {
+  border-left: 1px solid var(--border);
+}
+
+.reviewDetailHeroArtist:hover,
+.reviewDetailHeroVenue:hover {
+  text-decoration: underline;
+}
+
+.reviewDetailHeroBottom {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.reviewDetailHeroScores {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reviewDetailHeroScores .rateHeroAverageBadge {
+  margin-top: 0;
+  align-self: center;
+}
+
+.reviewDetailHeroUserScore {
+  width: 50px;
+  height: 50px;
+  border-radius: 999px;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.reviewDetailBackLink {
+  width: fit-content;
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 4px 2px;
+}
+
+.reviewDetailBackLink:hover {
+  text-decoration: underline;
 }
 
 .reviewConcertHeroTitle {
@@ -50,21 +224,6 @@
 
 .reviewConcertHeroTitle:hover {
   text-decoration: underline;
-}
-
-.reviewConcertHeroStats {
-  margin-top: auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  padding-top: 18px;
-}
-
-.reviewConcertHeroReviewCount {
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 700;
 }
 
 .reviewCard {

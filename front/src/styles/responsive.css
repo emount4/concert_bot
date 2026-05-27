@@ -16,6 +16,10 @@
     gap: 14px;
   }
 
+  .reviewGridColumn {
+    gap: 14px;
+  }
+
   .detailReviewItem {
     flex-basis: calc((100% - 12px) / 2);
     min-width: 300px;
@@ -41,7 +45,7 @@
   }
 
   .reviewGrid {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    --review-grid-columns: 2;
   }
 
   .adminTabs,
@@ -212,6 +216,15 @@
 }
 
 @media (min-width: 641px) and (max-width: 1024px) {
+  .page:not(.homePage) .concertGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .page:not(.homePage) .concertCard {
+    min-height: 340px;
+  }
+
   .rateHero {
     padding: 12px;
   }
@@ -270,6 +283,10 @@
 }
 
 @media (max-width: 640px) {
+  :root {
+    --mobile-concert-card-width: calc((100vw - 34px) / 2);
+  }
+
   .main {
     padding-left: 12px;
     padding-right: 12px;
@@ -381,8 +398,15 @@
     gap: 10px;
   }
 
+  .homeCarouselItem.homeConcertCompact,
+  .homeCarouselTop5 .homeCarouselItem {
+    flex: 0 0 var(--mobile-concert-card-width);
+    min-width: var(--mobile-concert-card-width);
+  }
+
   .page:not(.homePage) .concertCard,
-  .detailConcertItem .concertCard {
+  .detailConcertItem .concertCard,
+  .homeConcertCompact .concertCard {
     min-height: 260px;
   }
 
@@ -396,7 +420,22 @@
     font-size: 11px;
   }
 
+  .homeConcertCompact .concertBottom {
+    padding: 8px;
+  }
+
+  .homeConcertCompact .concertMeta {
+    font-size: 11px;
+  }
+
   .ratingCircle:not(.reviewRatingCircle) {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    font-size: 15px;
+  }
+
+  .homeConcertCompact .ratingCircle:not(.reviewRatingCircle) {
     width: 42px;
     height: 42px;
     flex-basis: 42px;
@@ -405,27 +444,94 @@
 
   .concert_title,
   .concertTitle,
-  .metaText {
-    white-space: normal;
-    overflow-wrap: break-word;
+  .homeConcertCompact .concert_title {
+    display: block;
+    min-height: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    line-clamp: initial;
+    -webkit-line-clamp: initial;
   }
 
-  .concert_title,
-  .concertTitle {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
+  .metaText {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+  }
+
+  .desktopMetaText {
+    display: none;
+  }
+
+  .mobileMetaText {
+    display: inline;
+  }
+
+  .metaTextDate {
+    white-space: nowrap;
   }
 
   .reviewGrid {
-    grid-template-columns: 1fr;
+    --review-grid-columns: 1;
     gap: 10px;
+  }
+
+  .reviewGridColumn {
+    gap: 10px;
+  }
+
+  .reviewGrid .reviewCard {
+    min-height: 0;
   }
 
   .reviewDetailPage {
     min-height: auto;
-    align-items: center;
-    padding: 14px 0;
+    align-items: stretch;
+    padding: 0;
+    gap: 14px;
+  }
+
+  .reviewDetailHero {
+    min-height: 0;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 12px;
+  }
+
+  .reviewDetailHeroPoster {
+    width: min(280px, 100%);
+    justify-self: center;
+  }
+
+  .reviewDetailHeroContent {
+    gap: 14px;
+  }
+
+  .reviewDetailHeroTop {
+    align-items: flex-start;
+  }
+
+  .reviewDetailHeroTitle {
+    font-size: 32px;
+  }
+
+  .reviewDetailHeroMeta {
+    gap: 8px;
+  }
+
+  .reviewDetailHeroArtist,
+  .reviewDetailHeroDate,
+  .reviewDetailHeroVenue {
+    min-height: 0;
+    border-left: 0;
+    padding: 0;
+  }
+
+  .reviewDetailHeroBottom {
+    gap: 14px;
   }
 
   .reviewConcertTitle {
@@ -486,56 +592,136 @@
     font-size: 22px;
   }
 
-  .artistDetailHero {
+  .artistDetailHero,
+  .venueDetailHero {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    align-items: center;
+    gap: 14px;
     overflow: hidden;
-    padding-bottom: 82px;
+    padding: 12px;
+    text-align: center;
+    background:
+      radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.07), transparent 42%),
+      var(--panel);
   }
 
-  .artistDetailHero .detailHeroMedia {
-    width: min(100%, 420px);
+  .artistDetailHero {
+    padding-bottom: 12px;
+  }
+
+  .artistDetailHero .detailHeroMedia,
+  .venueDetailHero .detailHeroMedia {
+    width: min(250px, 76vw);
     align-self: center;
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .artistDetailHero .artistPhoto,
+  .venueDetailHero .venuePhoto {
+    background: transparent;
+  }
+
+  .artistDetailHero .artistPhotoMedia,
+  .venueDetailHero .venuePhotoMedia {
+    border: 0;
+    border-radius: 10px;
     overflow: hidden;
   }
 
-  .artistDetailHero .detailHeroBody {
+  .artistDetailHero .photoSource,
+  .venueDetailHero .photoSource {
+    display: block;
+    padding: 5px 0 0;
+    text-align: left;
+    font-size: 9px;
+    opacity: 0.85;
+  }
+
+  .artistDetailHero .detailHeroBody,
+  .venueDetailHero .detailHeroBody {
+    width: 100%;
     position: static;
     padding: 0;
+    align-items: center;
+    text-align: center;
     gap: 12px;
   }
 
-  .artistDetailHero .detailHeroTitleRow {
+  .artistDetailHero .detailHeroTitleRow,
+  .venueDetailHero .detailHeroTitleRow {
     display: block;
-    padding-right: 58px;
+    padding-right: 0;
   }
 
-  .artistDetailHero .detailFavoriteBtn {
+  .artistDetailHero .detailFavoriteBtn,
+  .venueDetailHero .detailFavoriteBtn {
     position: absolute;
     top: 18px;
-    right: 18px;
+    right: calc(50% - min(125px, 38vw) - 16px);
     z-index: 3;
+    width: auto;
+    min-width: 48px;
+    height: 48px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(18, 18, 18, 0.72);
+    backdrop-filter: blur(8px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    font-size: 24px;
+    color: var(--fg);
     margin-left: 0;
   }
 
-  .artistDetailHero .detailStatsRow {
+  .artistDetailHero .detailHeroTitle,
+  .venueDetailHero .detailHeroTitle {
+    max-width: min(300px, 100%);
+    font-size: 28px;
+    line-height: 1.05;
+    font-weight: 900;
+  }
+
+  .artistDetailHero .detailStatsRow,
+  .venueDetailHero .detailStatsRow {
     margin-top: 0;
+    justify-content: center;
+    gap: 8px;
   }
 
-  .artistDetailHero .ratingCircle.detailRatingCircle {
-    position: absolute;
-    right: 18px;
-    bottom: 18px;
-    align-self: auto;
+  .artistDetailHero .detailStatItem,
+  .venueDetailHero .detailStatItem {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.05);
   }
 
-  .artistDetailHero .artistSocialLinks {
+  .artistDetailHero .ratingCircle.detailRatingCircle,
+  .venueDetailHero .ratingCircle.detailRatingCircle {
     position: static;
-    justify-content: flex-start;
+    align-self: center;
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+    font-size: 19px;
+  }
+
+  .artistDetailHero .artistSocialLinks,
+  .venueDetailHero .artistSocialLinks {
+    position: static;
+    justify-content: center;
     margin-top: 0;
+    padding-top: 0;
   }
 
   .artistSocialLinks {
@@ -545,11 +731,12 @@
   }
 
   .detailConcertItem {
-    width: min(86vw, 240px);
+    width: var(--mobile-concert-card-width);
   }
 
   .detailConcertScroll {
-    grid-auto-columns: min(86vw, 240px);
+    grid-auto-columns: var(--mobile-concert-card-width);
+    gap: 10px;
   }
 
   .detailReviewItem {
@@ -605,8 +792,264 @@
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
+  .rateHero {
+    position: relative;
+    overflow: hidden;
+    align-items: center;
+    text-align: center;
+    background:
+      radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.07), transparent 42%),
+      var(--panel);
+  }
+
+  .rateHeroMain {
+    width: 100%;
+    justify-items: center;
+    gap: 14px;
+  }
+
+  .rateHeroContent {
+    width: 100%;
+    display: contents;
+  }
+
+  .rateHeroPosterWrapper {
+    order: 1;
+    width: min(250px, 76vw);
+    justify-self: center;
+  }
+
+  .rateHeroPoster {
+    border: 0;
+    background: transparent;
+  }
+
+  .rateHeroPosterMedia {
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
+  }
+
+  .rateHero .photoSource {
+    display: block;
+    padding: 5px 0 0;
+    text-align: left;
+    font-size: 9px;
+    opacity: 0.85;
+  }
+
+  .rateHeroTitle {
+    order: 2;
+    margin-top: 0;
+    max-width: min(280px, 100%);
+    justify-self: center;
+    text-align: center;
+    font-size: 26px;
+    line-height: 1.05;
+    font-weight: 900;
+  }
+
+  .rateHeroLinks {
+    order: 3;
+    justify-content: center;
+    margin-top: 0;
+  }
+
+  .rateHeroInfoRow {
+    order: 4;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    position: static;
+  }
+
+  .rateHeroTags {
+    justify-content: center;
+    padding-right: 0;
+  }
+
+  .rateHeroTag,
+  .rateLinkChip {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .rateHeroFavoriteBtn {
+    position: absolute;
+    top: 18px;
+    right: calc(50% - min(125px, 38vw) - 16px);
+    z-index: 3;
+    width: auto;
+    min-width: 48px;
+    height: 48px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(18, 18, 18, 0.72);
+    backdrop-filter: blur(8px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    font-size: 24px;
+    color: var(--fg);
+  }
+
+  .rateSecondaryArtists {
+    order: 5;
+    justify-content: center;
+    margin-top: 0;
+  }
+
+  .rateHeroAverageBadge {
+    order: 6;
+    margin-top: 4px;
+    align-self: center;
+    justify-self: center;
+    width: 48px;
+    height: 48px;
+    font-size: 19px;
+  }
+
   .rateSliderTopRow {
     grid-template-columns: 1fr;
+  }
+
+  .rateFormSection:not(.rateReviewStatusSection) {
+    padding: 8px;
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px 8px;
+  }
+
+  .rateFormSection:not(.rateReviewStatusSection) > .rateSectionTitle {
+    display: none;
+  }
+
+  .rateScorePanel,
+  .rateTextWrap,
+  .rateFormSection:not(.rateReviewStatusSection) > .settingsError,
+  .rateFormSection:not(.rateReviewStatusSection) > .settingsOk {
+    grid-column: 1 / -1;
+  }
+
+  .rateScorePanel {
+    margin-top: 0;
+    padding: 10px;
+  }
+
+  .rateTextWrap {
+    margin-top: 0;
+    gap: 0;
+  }
+
+  .rateTextWrap .rateSliderLabel {
+    display: none;
+  }
+
+  .rateTitleInput,
+  .rateTextarea {
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .rateTextarea {
+    min-height: 140px;
+  }
+
+  .rateUtilityRow {
+    grid-column: 1;
+    margin-top: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: flex-start;
+    gap: 8px 10px;
+  }
+
+  .rateUtilityRow > .rateUtilityBtn:first-child {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  .rateUtilityBtn,
+  .rateMediaBtn {
+    min-height: 40px;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .rateUtilityBtn.secondary {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+    max-width: 180px;
+    text-align: left;
+    color: var(--fg);
+  }
+
+  .rateUtilityRight {
+    display: contents;
+  }
+
+  .rateMediaBtn {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: start;
+    width: fit-content;
+    max-width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .rateCharCount {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: start;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--muted);
+  }
+
+  .rateActions {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-content: stretch;
+    column-gap: 12px;
+  }
+
+  .rateSubmitMeta {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    align-items: flex-start;
+  }
+
+  .rateSubmitButton {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    width: 64px;
+    height: 64px;
+    font-size: 34px;
   }
 
   .rateScoreBottom {
@@ -625,17 +1068,17 @@
   }
 
   .rateUtilityRow {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .rateUtilityRight {
-    width: 100%;
-    justify-content: space-between;
-    margin-left: 0;
+    width: auto;
+    justify-content: initial;
+    margin-left: initial;
   }
 
   .rateMediaBtn {
-    flex: 1;
+    flex: 0 0 auto;
   }
 
   .rateMediaItem {
@@ -649,10 +1092,10 @@
 
   .rateActions {
     display: grid;
-    grid-template-columns: auto auto;
-    justify-content: end;
-    align-items: end;
-    column-gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-content: stretch;
+    align-items: center;
+    column-gap: 12px;
   }
 
   .rateOverallValue {
@@ -720,6 +1163,10 @@
 }
 
 @media (max-width: 460px) {
+  :root {
+    --mobile-concert-card-width: calc((100vw - 30px) / 2);
+  }
+
   .main {
     padding-left: 10px;
     padding-right: 10px;
@@ -735,21 +1182,27 @@
   }
 
   .rateHeroTitle {
-    font-size: 18px;
+    font-size: 24px;
   }
 
   .rateHeroTags {
     gap: 6px;
-    padding-right: 34px;
+    padding-right: 0;
   }
 
   .rateHeroTag,
   .rateLinkChip {
-    padding: 6px 8px;
+    min-height: 32px;
+    padding: 7px 10px;
     font-size: 12px;
   }
 
   .rateHeroFavoriteBtn {
+    top: 16px;
+    right: calc(50% - min(125px, 38vw) - 12px);
+    width: auto;
+    min-width: 44px;
+    height: 44px;
     font-size: 22px;
   }
 

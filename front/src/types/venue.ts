@@ -11,6 +11,7 @@ export type VenueCardItem = {
   photo_url: string | null
   photo_source?: string | null
   avg_rating_total: number | null
+  favorites_count?: number
   social_links?: VenueSocialLinks | null
 }
 
@@ -121,6 +122,12 @@ export type PublicVenuesListParams = {
 export type AdminVenuesListParams = {
   limit?: number
   offset?: number
+  city_id?: number
+  search?: string
+  sort?: 'name' | 'rating' | 'capacity' | string
+  direction?: 'ASC' | 'DESC'
+  capacity_from?: number
+  capacity_to?: number
   include_deleted?: boolean
   status?: string
 }
@@ -143,6 +150,12 @@ export function buildAdminVenuesQuery(params: AdminVenuesListParams): string {
   const q = new URLSearchParams()
   if (params.limit !== undefined) q.set('limit', String(params.limit))
   if (params.offset !== undefined) q.set('offset', String(params.offset))
+  if (params.city_id !== undefined) q.set('city_id', String(params.city_id))
+  if (params.search !== undefined && params.search.trim()) q.set('search', params.search.trim())
+  if (params.sort) q.set('sort', params.sort)
+  if (params.direction) q.set('direction', params.direction)
+  if (params.capacity_from !== undefined) q.set('capacity_from', String(params.capacity_from))
+  if (params.capacity_to !== undefined) q.set('capacity_to', String(params.capacity_to))
   if (params.include_deleted !== undefined) q.set('include_deleted', String(params.include_deleted))
   if (params.status) q.set('status', params.status)
   const s = q.toString()
@@ -164,6 +177,7 @@ export function mapVenueResponseToCardItem(venue: VenueResponse, cityNameById: M
     capacity: venue.capacity,
     photo_url: resolveMediaUrl(venue.photo_url),
     avg_rating_total,
+    favorites_count: stats?.favorites_count ?? 0,
     social_links: venue.social_links ?? null,
   }
 }

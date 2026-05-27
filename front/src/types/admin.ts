@@ -80,6 +80,7 @@ export type AdminReviewModerationItem = {
   id: number
   author_name: string
   author_username?: string
+  author_is_deleted?: boolean
   concert_title: string
   title?: string
   created_at: string
@@ -190,4 +191,3 @@ export type AdminAccount = {
   stats?: AdminAccountStats
   is_current: boolean
 }
-

@@ -123,11 +123,60 @@
 .adminListCardScrollable {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
   min-height: 420px;
+}
+
+.adminLogsCard {
+  display: block;
+  min-height: 0;
+}
+
+.adminLogsCard .adminSocialFields {
+  align-items: start;
+}
+
+.adminLogsCard .adminInput {
+  min-height: 0;
 }
 
 .adminListSearch {
   margin-top: 0;
+}
+
+.adminListControls {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.adminListControls .adminInput {
+  min-height: 38px;
+  margin-top: 0;
+}
+
+.adminListControls .adminSocialFields {
+  min-width: 0;
+  align-items: stretch;
+}
+
+.adminListControls .concertToggle {
+  min-height: 38px;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.adminArtistListControls {
+  min-height: 130px;
+}
+
+.adminVenueListControls {
+  min-height: 176px;
+}
+
+.adminConcertListControls {
+  min-height: 168px;
 }
 
 .adminScrollableList {
@@ -135,6 +184,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: auto;
+  min-height: 0;
   max-height: min(60vh, 640px);
   padding: 0 10px;
 }
@@ -313,6 +363,21 @@
   padding: 8px 10px;
   font-size: 13px;
   margin-top: 8px;
+}
+
+select.adminInput {
+  color-scheme: dark;
+  background-color: #171717;
+}
+
+select.adminInput option {
+  background-color: #171717;
+  color: var(--fg);
+}
+
+select.adminInput option:checked {
+  background-color: var(--hover);
+  color: var(--fg);
 }
 
 .adminTextarea {
@@ -576,6 +641,35 @@
   padding: 12px;
   display: grid;
   gap: 10px;
+}
+
+.adminConfirmBackdrop {
+  z-index: 130;
+}
+
+.adminConfirmCard {
+  width: min(460px, 100%);
+}
+
+.adminConfirmText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.adminConfirmActions {
+  justify-content: flex-end;
+}
+
+.adminDangerBtn {
+  background: #7f1d1d;
+  border-color: #991b1b;
+}
+
+.adminDangerBtn:hover:not(:disabled) {
+  background: #991b1b;
+  border-color: #b91c1c;
 }
 
 .adminApproveModalCard {

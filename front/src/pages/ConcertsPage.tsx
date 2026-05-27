@@ -7,6 +7,8 @@ import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
 import type { City } from '../types/city'
 import { useQuery } from '../utils/useQuery'
+import { ErrorState } from '../components/ui/ErrorState'
+import { SkeletonGrid } from '../components/ui/Skeletons'
 
 type ConcertSortBy = 'date' | 'rating' | 'reviews' | 'title'
 type SortDirection = 'desc' | 'asc'
@@ -158,11 +160,22 @@ export function ConcertsPage() {
   }, [currentPage, pageCount])
 
   if (concertsQuery.isLoading) {
-    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+    return <SkeletonGrid title="Концерты" variant="concert" count={8} />
   }
 
   if (concertsQuery.error) {
-    return <section className="page"><div className="placeholder">{concertsQuery.error}</div></section>
+    return (
+      <section className="page errorPage">
+        <ErrorState
+          title="Не получилось загрузить концерты"
+          text={concertsQuery.error}
+          actions={[
+            { label: 'Повторить', onClick: () => concertsQuery.refetch(), variant: 'primary' },
+            { label: 'На главную', to: '/home', variant: 'ghost' },
+          ]}
+        />
+      </section>
+    )
   }
 
   return (

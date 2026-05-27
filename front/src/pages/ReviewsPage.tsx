@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ReviewCard } from '../components/reviews/ReviewCard'
+import { ReviewGrid } from '../components/reviews/ReviewGrid'
 import { loadReviews } from '../api/repository'
 import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
 import { useQuery } from '../utils/useQuery'
+import { ErrorState } from '../components/ui/ErrorState'
+import { SkeletonGrid } from '../components/ui/Skeletons'
 
 const REVIEWS_PAGE_SIZE = 18
 
@@ -29,11 +32,22 @@ export function ReviewsPage() {
   }, [currentPage, pageCount])
 
   if (reviewsQuery.isLoading) {
-    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+    return <SkeletonGrid title="Рецензии" variant="review" count={6} />
   }
 
   if (reviewsQuery.error) {
-    return <section className="page"><div className="placeholder">{reviewsQuery.error}</div></section>
+    return (
+      <section className="page errorPage">
+        <ErrorState
+          title="Не получилось загрузить рецензии"
+          text={reviewsQuery.error}
+          actions={[
+            { label: 'Повторить', onClick: () => reviewsQuery.refetch(), variant: 'primary' },
+            { label: 'На главную', to: '/home', variant: 'ghost' },
+          ]}
+        />
+      </section>
+    )
   }
 
   return (
@@ -43,11 +57,11 @@ export function ReviewsPage() {
       {/* Задание 5.3: карточки рецензий с компактным заголовком и разворачиваемым текстом. */}
       {reviews.length > 0 ? (
         <>
-          <div className="reviewGrid">
+          <ReviewGrid>
             {reviews.map((review) => (
               <ReviewCard key={`${review.review_id ?? review.id}-${review.concertId}`} review={review} />
             ))}
-          </div>
+          </ReviewGrid>
 
           {pageCount > 1 && (
             <div className="pagination" role="navigation" aria-label="Пагинация рецензий">

@@ -33,6 +33,7 @@ export type ReviewCardItem = {
   author_name: string
   author_username?: string
   author_avatar_url: string | null
+  author_is_deleted?: boolean
   concert_title: string
   title?: string
   concert_artist: string

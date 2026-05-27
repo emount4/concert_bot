@@ -13,6 +13,7 @@ import type { FavoriteItem } from '../types/favorite'
 import { resolveIsAdmin } from '../utils/adminAccess'
 import { useQuery } from '../utils/useQuery'
 import { ReviewCard } from '../components/reviews/ReviewCard'
+import { ErrorState } from '../components/ui/ErrorState'
 
 type ProfileScreenProps =
   | {
@@ -126,8 +127,9 @@ function mapProfileReviewToVm(item: ProfileReviewItem, author: ProfileReviewAuth
       concert_id: item.concert_id,
       concertId: item.concert_id ?? '',
       author_name,
-      author_username: author.username,
+      author_username: author.isActive ? author.username : undefined,
       author_avatar_url: author.isActive ? author.avatarUrl : null,
+      author_is_deleted: !author.isActive,
       concert_title: item.concert_title,
       title: item.title,
       concert_artist: item.concert_artist ?? '',
@@ -459,9 +461,16 @@ export function ProfileScreen(props: ProfileScreenProps) {
   const error = appError ?? profileQuery.error
   if (error) {
     return (
-      <section className="page">
+      <section className="page errorPage">
         <h1 className="pageTitle">{title}</h1>
-        <div className="placeholder">{error}</div>
+        <ErrorState
+          title="Не получилось загрузить профиль"
+          text={error}
+          actions={[
+            { label: 'Повторить', onClick: () => profileQuery.refetch(), variant: 'primary' },
+            { label: 'На главную', to: '/home', variant: 'ghost' },
+          ]}
+        />
       </section>
     )
   }
@@ -469,9 +478,25 @@ export function ProfileScreen(props: ProfileScreenProps) {
   const bundle = profileQuery.data
   if (!bundle || !username) {
     return (
-      <section className="page">
+      <section className="page errorPage">
         <h1 className="pageTitle">{title}</h1>
-        <div className="placeholder">Пользователь не найден</div>
+        <ErrorState
+          code="404"
+          title="Пользователь не найден"
+          text="Профиль удален, переименован или ссылка ведет не туда."
+        />
+      </section>
+    )
+  }
+
+  if (!bundle.is_active && !bundle.isOwn) {
+    return (
+      <section className="page errorPage">
+        <h1 className="pageTitle">{title}</h1>
+        <ErrorState
+          title="Пользователь удален"
+          text="Этот аккаунт был удален или анонимизирован. Публичный профиль больше недоступен."
+        />
       </section>
     )
   }

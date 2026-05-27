@@ -9,6 +9,7 @@ import { getMockUserByDisplayName, getMockUserByUsername } from '../../data/mock
 type ReviewCardProps = {
   review: ReviewCardItem
   textMode?: 'collapsible' | 'expanded'
+  showDetailLink?: boolean
   moderation?: {
     status: 'pending' | 'rejected'
     title: string
@@ -135,7 +136,7 @@ function DetailIcon() {
   )
 }
 
-export function ReviewCard({ review, textMode = 'collapsible', moderation }: ReviewCardProps) {
+export function ReviewCard({ review, textMode = 'collapsible', showDetailLink, moderation }: ReviewCardProps) {
   // Задание 10.2: сворачивание текста и просмотр прикрепленных медиа в карточке рецензии.
   const [expanded, setExpanded] = useState(textMode === 'expanded')
   const [isMediaOpen, setIsMediaOpen] = useState(false)
@@ -150,11 +151,15 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const media = review.media ?? []
   const currentMedia = media[currentMediaIndex] ?? null
+  const authorIsDeleted = review.author_is_deleted ?? false
+  const authorDisplayName = authorIsDeleted ? 'Удаленный аккаунт' : review.author_name
+  const authorAvatarUrl = authorIsDeleted ? null : review.author_avatar_url
   const authorLinkParam = encodeURIComponent(review.author_username ?? review.author_name)
   const reviewKey = review.review_id ?? String(review.id)
   const concertHref = `/concerts/${encodeURIComponent(String(review.concert_id ?? review.concertId))}/rate`
 
   const allowTextToggle = textMode === 'collapsible'
+  const shouldShowDetailLink = showDetailLink ?? allowTextToggle
 
   useEffect(() => {
     if (textMode === 'expanded') {
@@ -260,11 +265,49 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
   }, [baseLikes])
 
   const showModeration = Boolean(moderation)
+  const authorContent = (
+    <>
+      <div className="reviewAvatar" aria-hidden="true">
+        {authorAvatarUrl ? (
+          <img
+            className="reviewAvatarImg"
+            src={authorAvatarUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <svg className="reviewAvatarFallback" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 12.2a4.2 4.2 0 1 0-4.2-4.2A4.2 4.2 0 0 0 12 12.2Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            <path
+              d="M5 20.5a7 7 0 0 1 14 0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+      </div>
+      <p className="reviewAuthorName">{authorDisplayName}</p>
+    </>
+  )
 
   return (
     <article className="reviewCard">
       <header className="reviewHeader">
-        <Link to={`/users/${authorLinkParam}`} className="reviewAuthor reviewAuthorLink">
+        {authorIsDeleted ? (
+          <div className="reviewAuthor reviewAuthorDeleted">
+            {authorContent}
+          </div>
+        ) : (
+          <Link to={`/users/${authorLinkParam}`} className="reviewAuthor reviewAuthorLink">
           {/* Задание 10.4: маленькая афиша и аватар пользователя в карточке рецензии. */}
           <div className="reviewAvatar" aria-hidden="true">
             {review.author_avatar_url ? (
@@ -295,7 +338,8 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
             )}
           </div>
           <p className="reviewAuthorName">{review.author_name}</p>
-        </Link>
+          </Link>
+        )}
 
         <div className="reviewScoreWrap">
           <div className="ratingCircle reviewRatingCircle">{review.rating_total ?? '—'}</div>
@@ -388,7 +432,7 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
           </div>
           {likeError && <p className="reviewLikeError">{likeError}</p>}
 
-          {(showModeration || allowTextToggle) && (
+          {(showModeration || shouldShowDetailLink || allowTextToggle) && (
             <div className="reviewFooterRight">
               {showModeration && moderation && (
                 <button
@@ -406,16 +450,19 @@ export function ReviewCard({ review, textMode = 'collapsible', moderation }: Rev
                 </button>
               )}
 
+              {shouldShowDetailLink && (
+                <Link
+                  to={`/reviews/${encodeURIComponent(reviewKey)}`}
+                  className="reviewExpandBtn reviewDetailLink"
+                  aria-label="Открыть отдельную страницу рецензии"
+                  title="Открыть отдельную страницу рецензии"
+                >
+                  <DetailIcon />
+                </Link>
+              )}
+
               {allowTextToggle && (
                 <>
-                  <Link
-                    to={`/reviews/${encodeURIComponent(reviewKey)}`}
-                    className="reviewExpandBtn reviewDetailLink"
-                    aria-label="Открыть отдельную страницу рецензии"
-                    title="Открыть отдельную страницу рецензии"
-                  >
-                    <DetailIcon />
-                  </Link>
                   <button
                     type="button"
                     className="reviewExpandBtn"

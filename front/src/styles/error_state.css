@@ -1,0 +1,80 @@
+.errorPage {
+  min-height: min(620px, calc(100svh - var(--header-height) - 80px));
+  display: grid;
+  place-items: center;
+}
+
+.errorState {
+  width: min(560px, 100%);
+  margin: 28px auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 28px 24px;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.errorStateCode {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.errorStateMark {
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.errorStateMark svg {
+  width: 28px;
+  height: 28px;
+}
+
+.errorStateTitle {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.errorStateText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 420px;
+}
+
+.errorStateActions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767px) {
+  .errorPage {
+    min-height: calc(100svh - var(--header-height) - var(--bottom-tab-height) - 64px);
+  }
+
+  .errorState {
+    margin: 14px auto;
+    padding: 22px 16px;
+  }
+
+  .errorStateTitle {
+    font-size: 21px;
+  }
+}

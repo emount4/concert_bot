@@ -1,17 +1,20 @@
 .appFooter {
-  margin-top: 22px;
+  margin-top: 34px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 42%),
+    #050505;
 }
 
 .appFooterDivider {
   height: 1px;
-  background: var(--border);
-  opacity: 0.1;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  opacity: 1;
 }
 
 .appFooterInner {
-  width: min(1200px, 100%);
+  width: min(1240px, 100%);
   margin: 0 auto;
-  padding: 18px 12px 24px;
+  padding: 28px 24px 30px;
 }
 
 .footerDesktop {
@@ -24,8 +27,8 @@
 
 .footerGrid {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
-  gap: 18px 24px;
+  grid-template-columns: minmax(260px, 1.35fr) minmax(130px, 0.7fr) minmax(260px, 0.9fr) minmax(190px, 0.7fr);
+  gap: 22px 42px;
   align-items: start;
 }
 
@@ -33,26 +36,34 @@
   min-width: 0;
 }
 
+.footerCol:not(:first-child) {
+  padding-top: 4px;
+}
+
 .footerBrandRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 
 .footerLogo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 34px;
-  min-width: 74px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: var(--fg);
+  height: 52px;
+  min-width: 0;
+  padding: 0 10px 0 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+}
+
+.footerLogo img {
+  display: block;
+  height: 42px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  opacity: 0.92;
 }
 
 .footerAgeBadge {
@@ -63,70 +74,109 @@
   min-width: 52px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    var(--panel);
   font-size: 16px;
   font-weight: 800;
   color: var(--fg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .footerSlogan {
-  margin: 10px 0 0;
+  margin: 14px 0 0;
+  max-width: 280px;
   font-size: 13px;
-  color: var(--muted);
+  line-height: 1.45;
+  color: rgba(245, 245, 245, 0.7);
 }
 
 .footerCopyright {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(245, 245, 245, 0.48);
 }
 
 .footerTitle {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--fg);
+  letter-spacing: 0;
 }
 
 .footerLinks {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
 }
 
 .footerLink {
-  color: var(--muted);
+  color: rgba(245, 245, 245, 0.68);
   text-decoration: none;
   font-size: 13px;
   line-height: 1.25;
+  width: fit-content;
+  transition:
+    color 140ms ease,
+    transform 140ms ease;
 }
 
 .footerLink:hover {
   color: var(--fg);
-  text-decoration: underline;
+  text-decoration: none;
+  transform: translateX(2px);
 }
 
 .footerContact {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.footerContactMail {
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.25;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.footerContactMail:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .footerSocialLink {
   width: 38px;
   height: 38px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    var(--panel);
   display: grid;
   place-items: center;
   color: var(--fg);
   text-decoration: none;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
 }
 
 .footerSocialLink:hover {
   background: var(--hover);
+  border-color: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
 }
 
 .footerSocialIcon {

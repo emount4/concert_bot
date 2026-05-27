@@ -12,6 +12,8 @@ import type { Concert, ConcertStats } from '../types/concert'
 import { calculateReviewRating, getReviewConcertIdKey } from '../types/review'
 import { useQuery } from '../utils/useQuery'
 import { useAuthStore } from '../store/useAuthStore'
+import { ErrorState } from '../components/ui/ErrorState'
+import { DetailSkeleton } from '../components/ui/Skeletons'
 
 type ScoreState = {
   performance: number
@@ -83,6 +85,7 @@ export function RateConcertPage() {
 
   const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [favoriteCount, setFavoriteCount] = useState(0)
   const [isFavoriteBusy, setIsFavoriteBusy] = useState(false)
   const [favoriteError, setFavoriteError] = useState<string | null>(null)
   const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false)
@@ -183,6 +186,10 @@ export function RateConcertPage() {
     setFavoriteError(null)
   }, [routeConcertId])
 
+  useEffect(() => {
+    setFavoriteCount(concert?.stats.favorites_count ?? 0)
+  }, [concert?.concert_id, concert?.id, concert?.stats.favorites_count])
+
   // Задание 11.4: автосохранение черновика после паузы ввода.
   useEffect(() => {
     if (!routeConcertId || !isDraftReady || !isTextDirty) return
@@ -270,9 +277,11 @@ export function RateConcertPage() {
       if (isFavorite) {
         await removeFavorite('concert', routeConcertId)
         setIsFavorite(false)
+        setFavoriteCount((prev) => Math.max(0, prev - 1))
       } else {
         await addFavorite('concert', routeConcertId)
         setIsFavorite(true)
+        setFavoriteCount((prev) => prev + 1)
       }
       await favoritesQuery.refetch()
     } catch (error) {
@@ -389,35 +398,52 @@ export function RateConcertPage() {
         : null
 
   if (concertQuery.isLoading || reviewsQuery.isLoading) {
-    return (
-      <section className="page">
-        <h1 className="pageTitle">Оценивание концерта</h1>
-        <div className="placeholder">Загрузка данных...</div>
-      </section>
-    )
+    return <DetailSkeleton title="Оценивание концерта" media="poster" />
   }
 
   if (concertQuery.error || reviewsQuery.error) {
     return (
-      <section className="page">
+      <section className="page errorPage">
         <h1 className="pageTitle">Оценивание концерта</h1>
-        <div className="placeholder">{concertQuery.error ?? reviewsQuery.error}</div>
+        <ErrorState
+          title="Не получилось загрузить концерт"
+          text={concertQuery.error ?? reviewsQuery.error ?? undefined}
+          actions={[
+            {
+              label: 'Повторить',
+              onClick: () => {
+                void concertQuery.refetch()
+                void reviewsQuery.refetch()
+              },
+              variant: 'primary',
+            },
+            { label: 'К концертам', to: '/concerts', variant: 'ghost' },
+          ]}
+        />
       </section>
     )
   }
 
   if (!concert) {
     return (
-      <section className="page">
+      <section className="page errorPage">
         <h1 className="pageTitle">Оценивание концерта</h1>
-        <div className="placeholder">Концерт не найден</div>
+        <ErrorState
+          code="404"
+          title="Концерт не найден"
+          text="Он мог быть удален, скрыт модерацией или ссылка устарела."
+          actions={[
+            { label: 'К концертам', to: '/concerts', variant: 'primary' },
+            { label: 'На главную', to: '/home', variant: 'ghost' },
+          ]}
+        />
       </section>
     )
   }
 
   return (
     <section className="page">
-      <h1 className="pageTitle">Оценивание концерта</h1>
+      <h1 className="pageTitle mobilePageTitle">Оценивание концерта</h1>
 
       <article className="rateHero">
         <div className="rateHeroMain">
@@ -448,7 +474,8 @@ export function RateConcertPage() {
                 aria-label="В избранное"
                 title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
               >
-                {isFavorite ? '♥' : '♡'}
+                <span className="favoriteBtnMark" aria-hidden="true">{isFavorite ? '♥' : '♡'}</span>
+                {favoriteCount > 0 && <span className="favoriteBtnCount">{favoriteCount}</span>}
               </button>
             </div>
             {favoriteError && <p className="reviewLikeError">{favoriteError}</p>}
@@ -705,7 +732,7 @@ export function RateConcertPage() {
             <div className="rateReviewList">
               {pagedConcertReviews.map((review) => (
                 <div key={review.id} className="rateReviewItem">
-                  <ReviewCard review={review} textMode="expanded" />
+                  <ReviewCard review={review} textMode="expanded" showDetailLink />
                 </div>
               ))}
             </div>

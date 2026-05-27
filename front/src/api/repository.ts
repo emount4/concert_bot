@@ -45,6 +45,9 @@ type PagedListResponse<T> = ListResponse<T> & { page_count?: number }
 type AdminConcertListParams = {
   limit?: number
   offset?: number
+  city_id?: number
+  artist_id?: number
+  search?: string
   sort?: string
   direction?: string
   include_deleted?: boolean
@@ -73,6 +76,16 @@ type PublicArtistsListParams = {
   direction?: string
   search?: string
   reviews_filter?: string
+}
+type AdminArtistsListParams = {
+  limit?: number
+  offset?: number
+  search?: string
+  sort?: string
+  direction?: string
+  has_reviews?: boolean
+  status?: string
+  include_deleted?: boolean
 }
 type AdminConcertSuggestionsParams = {
   limit?: number
@@ -163,6 +176,7 @@ type ReviewApiResponse = {
     id?: string
     username?: string
     avatar_url?: string | null
+    is_deleted?: boolean
   } | null
   concert_title?: string | null
   concert?: {
@@ -195,7 +209,9 @@ type BatchUploadResponse = {
 }
 
 type AdminAuditLogApiResponse = {
-  id: number
+  id?: number
+  log_id?: number
+  moderator_user_id?: string | null
   moderator?: {
     id?: string
     username?: string
@@ -334,7 +350,9 @@ export type UpdateMyProfilePayload = {
 }
 type ProfileModerationApiStatus = 'pending' | 'approved' | 'rejected'
 type ProfileModerationApiItem = {
-  id: number | string
+  id?: number | string
+  moderation_id?: number | string
+  user_id?: string | null
   user?: {
     id?: string
     username?: string
@@ -443,6 +461,7 @@ function mapArtistResponseToCardItem(artist: Artist): ArtistCardItem {
     avg_rating_total,
     reviews_count: reviewsCount,
     concerts_count: artist.stats?.concerts_count ?? 0,
+    favorites_count: artist.stats?.favorites_count ?? 0,
     social_links: artist.social_links ?? null,
   }
 }
@@ -474,7 +493,8 @@ function mapReviewResponseToCardItem(review: ReviewApiResponse, concerts: Concer
   const reviewConcert = review.concert ?? null
   const reviewConcertId = reviewConcert?.id ?? review.concert_id
   const reviewConcertArtists = reviewConcert?.artists?.map((artist) => artist.name).join(', ')
-  const authorName = review.author?.username ?? 'unknown'
+  const authorIsDeleted = review.author?.is_deleted ?? false
+  const authorName = authorIsDeleted ? 'Удаленный аккаунт' : review.author?.username ?? 'unknown'
   const localRating = calculateReviewRating(Number(review.p1) || 0, Number(review.p2) || 0, Number(review.p3) || 0, Number(review.p4) || 0, Number(review.p5) || 0)
   return {
     id: numericIdFromString(review.review_id),
@@ -483,8 +503,9 @@ function mapReviewResponseToCardItem(review: ReviewApiResponse, concerts: Concer
     concertId: reviewConcertId,
     author_id: review.author?.id ?? review.user_id,
     author_name: authorName,
-    author_username: review.author?.username,
-    author_avatar_url: resolveMediaUrl(review.author?.avatar_url),
+    author_username: authorIsDeleted ? undefined : review.author?.username,
+    author_avatar_url: authorIsDeleted ? null : resolveMediaUrl(review.author?.avatar_url),
+    author_is_deleted: authorIsDeleted,
     concert_title: review.concert_title ?? concert?.title ?? 'Концерт',
     title: review.title ?? undefined,
     concert_artist: reviewConcertArtists ?? concert?.artists.map((artist) => artist.name).join(', ') ?? '',
@@ -608,10 +629,11 @@ function profileModerationFieldToType(fieldName: string): AdminProfileChangeRequ
 
 function mapProfileModerationResponse(item: ProfileModerationApiItem, profile?: UserProfile | null): AdminProfileChangeRequest {
   const type = profileModerationFieldToType(item.field_name)
-  const apiUsername = item.user?.username ?? ''
+  const apiUsername = item.user?.username ?? item.user_id ?? ''
   const displayName = profile?.displayName ?? apiUsername
+  const moderationId = item.id ?? item.moderation_id
   const base = {
-    id: String(item.id),
+    id: moderationId == null ? '' : String(moderationId),
     created_at: item.created_at,
     requested_by_username: profile?.handle ? normalizeUsername(profile.handle) : apiUsername,
     requested_by_displayName: displayName,
@@ -651,13 +673,15 @@ function mapProfileModerationResponse(item: ProfileModerationApiItem, profile?: 
 }
 
 function mapReviewResponseToAdminModerationItem(review: ReviewApiResponse): AdminReviewModerationItem {
-  const authorName = review.author?.username ?? review.user_id ?? 'unknown'
+  const authorIsDeleted = review.author?.is_deleted ?? false
+  const authorName = authorIsDeleted ? 'Удаленный аккаунт' : review.author?.username ?? review.user_id ?? 'unknown'
   const localRating = calculateReviewRating(Number(review.p1) || 0, Number(review.p2) || 0, Number(review.p3) || 0, Number(review.p4) || 0, Number(review.p5) || 0)
   return {
     id: numericIdFromString(review.review_id),
     review_id: review.review_id,
     author_name: authorName,
-    author_username: review.author?.username,
+    author_username: authorIsDeleted ? undefined : review.author?.username,
+    author_is_deleted: authorIsDeleted,
     concert_title: review.concert_title ?? 'Концерт',
     title: review.title ?? '',
     created_at: review.created_at ?? '',
@@ -675,9 +699,13 @@ function mapReviewResponseToAdminModerationItem(review: ReviewApiResponse): Admi
 
 function mapAdminAuditLogResponse(item: AdminAuditLogApiResponse): AdminAuditLogEntry {
   return {
-    id: item.id,
+    id: item.id ?? item.log_id ?? item.created_at,
     created_at: item.created_at,
-    moderator: item.moderator ? { id: item.moderator.id, username: item.moderator.username } : undefined,
+    moderator: item.moderator
+      ? { id: item.moderator.id, username: item.moderator.username }
+      : item.moderator_user_id
+        ? { id: item.moderator_user_id }
+        : undefined,
     action: item.action,
     target_id: item.target_id ?? null,
     target_type: item.target_type ?? null,
@@ -908,7 +936,7 @@ export async function loadAdminProfileModerationRequests(
   })
   const response = await adminRequest<ProfileModerationApiResponse>(`${apiEndpoints.admin.pendingProfiles}${query}`)
   return {
-    items: response.items.map((item) => mapProfileModerationResponse(item)),
+    items: response.items.map((item) => mapProfileModerationResponse(item)).filter((item) => item.id),
     page_count: response.page_count ?? 0,
   }
 }
@@ -1904,23 +1932,15 @@ export async function restoreArtist(artistId: number | string): Promise<Artist> 
   return mapArtistResponseToArtist(response)
 }
 
-export async function loadAdminArtists(
-  params?: { include_deleted?: boolean; status?: string; limit?: number; offset?: number },
-): Promise<AdminArtistResponse[]> {
+export async function loadAdminArtists(params?: AdminArtistsListParams): Promise<AdminArtistResponse[]> {
   if (DATA_SOURCE_MODE === 'mock') {
     console.log('[loadAdminArtists] Mock mode - returning MOCK_ADMIN_ARTISTS')
     return MOCK_ADMIN_ARTISTS as AdminArtistResponse[]
   }
 
   console.log('[loadAdminArtists] Loading admin artists from API...', params)
-  const queryParams = new URLSearchParams()
-  if (params?.include_deleted !== undefined) queryParams.append('include_deleted', String(params.include_deleted))
-  if (params?.status) queryParams.append('status', params.status)
-  if (params?.limit) queryParams.append('limit', String(params.limit))
-  if (params?.offset) queryParams.append('offset', String(params.offset))
-
-  const query = queryParams.toString()
-  const url = query ? `${apiEndpoints.admin.artists}?${query}` : apiEndpoints.admin.artists
+  const query = buildQuery(params ?? {})
+  const url = `${apiEndpoints.admin.artists}${query}`
   const response = await adminRequest<ListResponse<AdminArtistResponse>>(url)
   return response.items.map(mapAdminArtistResponseToAdminArtist)
 }

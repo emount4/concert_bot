@@ -19,6 +19,19 @@ function formatConcertDate(value: string): string {
   }).format(date)
 }
 
+function formatConcertMobileDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
 function ReviewsIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -91,7 +104,10 @@ export function ConcertCard({ concert }: ConcertCardProps) {
 
           <p className="concertMeta">
             <InfoIcon kind="date" />
-            <span className="metaText">{formatConcertDate(concert.date)}</span>
+            <span className="metaText metaTextDate">
+              <span className="desktopMetaText">{formatConcertDate(concert.date)}</span>
+              <span className="mobileMetaText">{formatConcertMobileDate(concert.date)}</span>
+            </span>
           </p>
 
           <p className="concertMeta">

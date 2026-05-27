@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ConcertCard } from '../components/concerts/ConcertCard'
 import { ReviewCard } from '../components/reviews/ReviewCard'
+import { ReviewGrid } from '../components/reviews/ReviewGrid'
 import {
   SCORE_OPTIONS,
   fetchBestConcerts,
@@ -12,6 +13,7 @@ import {
   fetchPopularConcerts,
   type ScoreKey,
 } from '../api/home'
+import { InlineConcertSkeletonRow, InlineReviewSkeletonGrid, InlineStatsSkeleton } from '../components/ui/Skeletons'
 
 type ErrorBoundaryProps = {
   children: ReactNode
@@ -164,7 +166,7 @@ export function HomePage() {
 
   return (
     <section className="page homePage" aria-label="Главная">
-      {/* <h1 className="pageTitle">Главная</h1> */}
+      {/* <h1 className="pageTitle mobilePageTitle">Главная</h1> */}
 
       <SectionErrorBoundary fallback={topsErrorFallback}>
         <section className="homeSection" aria-label="Лучшие концерты">
@@ -175,7 +177,7 @@ export function HomePage() {
             </Link>
           </div>
 
-          {bestConcertsQuery.isLoading && <div className="placeholder">Загрузка рейтинга...</div>}
+          {bestConcertsQuery.isLoading && <InlineConcertSkeletonRow />}
           {bestConcertsQuery.error && <div className="placeholder">Рейтинг не загрузился</div>}
 
           {!bestConcertsQuery.isLoading && !bestConcertsQuery.error && (
@@ -205,7 +207,7 @@ export function HomePage() {
             </Link>
           </div>
 
-          {popularConcertsQuery.isLoading && <div className="placeholder">Загрузка рейтинга...</div>}
+          {popularConcertsQuery.isLoading && <InlineConcertSkeletonRow />}
           {popularConcertsQuery.error && <div className="placeholder">Рейтинг не загрузился</div>}
 
           {!popularConcertsQuery.isLoading && !popularConcertsQuery.error && (
@@ -244,7 +246,7 @@ export function HomePage() {
             </select>
           </div>
 
-          {concertTopsQuery.isLoading && <div className="placeholder">Загрузка...</div>}
+          {concertTopsQuery.isLoading && <InlineConcertSkeletonRow />}
           {concertTopsQuery.error && <div className="placeholder">Не удалось загрузить</div>}
 
           {concertTopsQuery.data && (
@@ -278,15 +280,15 @@ export function HomePage() {
         <div ref={feedAnchorRef} />
 
         {!feedInView && <div className="placeholder">Прокрутите ниже, чтобы загрузить ленту</div>}
-        {feedInView && freshReviewsQuery.isLoading && <div className="placeholder">Загрузка ленты...</div>}
+        {feedInView && freshReviewsQuery.isLoading && <InlineReviewSkeletonGrid />}
         {feedInView && freshReviewsQuery.error && <div className="placeholder">Лента не загрузилась</div>}
 
         {freshReviewsQuery.data && (
-          <div className="reviewGrid" aria-label="Последние рецензии">
+          <ReviewGrid ariaLabel="Последние рецензии">
             {freshReviewsQuery.data.map((review) => (
               <ReviewCard key={review.id} review={review} />
             ))}
-          </div>
+          </ReviewGrid>
         )}
       </section>
 
@@ -298,7 +300,7 @@ export function HomePage() {
         <div ref={statsAnchorRef} />
 
         {!statsInView && <div className="placeholder">Прокрутите ниже, чтобы загрузить статистику</div>}
-        {statsInView && socialProofQuery.isLoading && <div className="placeholder">Загрузка статистики...</div>}
+        {statsInView && socialProofQuery.isLoading && <InlineStatsSkeleton />}
         {statsInView && socialProofQuery.error && <div className="placeholder">Статистика не загрузилась</div>}
 
         {socialProofQuery.data && (

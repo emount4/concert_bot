@@ -5,7 +5,6 @@ import { ReviewCard } from '../components/reviews/ReviewCard'
 import { VenueCard } from '../components/venues/VenueCard'
 import { RatingBreakdownBadge } from '../components/ratings/RatingBreakdownBadge'
 import { FilterIcon, SearchIcon } from '../components/common/ControlIcons'
-import { DATA_SOURCE_MODE } from '../api/config'
 import { addFavorite, getFavoritesRevision, loadUserFavorites, removeFavorite, loadConcerts, loadReviews, loadVenueById, loadCities, loadVenuesList } from '../api/repository'
 import { mapVenueResponseToCardItem } from '../types/venue'
 import { computeAvgScoresFromReviews } from '../utils/reviewAverages'
@@ -13,10 +12,10 @@ import { buildPaginationItems } from '../utils/pagination'
 import { scrollToTop } from '../utils/scrollToTop'
 import { getConcertIdKey } from '../types/concert'
 import { getReviewConcertIdKey } from '../types/review'
-import type { City } from '../types/city'
-import type { VenueCardItem } from '../types/venue'
 import { useQuery } from '../utils/useQuery'
 import { useAuthStore } from '../store/useAuthStore'
+import { ErrorState } from '../components/ui/ErrorState'
+import { DetailSkeleton, SkeletonGrid } from '../components/ui/Skeletons'
 
 type VenueSortBy = 'capacity' | 'rating' | 'alphabet'
 type SortDirection = 'desc' | 'asc'
@@ -100,13 +99,18 @@ export function VenuesPage() {
   const [sortDirectionDraft, setSortDirectionDraft] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [favoriteCount, setFavoriteCount] = useState(0)
   const [isFavoriteBusy, setIsFavoriteBusy] = useState(false)
   const [favoriteError, setFavoriteError] = useState<string | null>(null)
-  const [cities, setCities] = useState<City[]>([])
-  const [detailVenue, setDetailVenue] = useState<VenueCardItem | null>(null)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const authUser = useAuthStore((state) => state.user)
   const isAuth = useAuthStore((state) => state.isAuth)
+  const [searchParams] = useSearchParams()
+  const venueIdParam = searchParams.get('venue_id')
+  const venue_id = Number(venueIdParam)
+  const isDetailMode = Number.isFinite(venue_id) && venue_id > 0
+  const citiesQuery = useQuery(['cities'], () => loadCities(), { enabled: !isDetailMode })
+  const cities = citiesQuery.data ?? []
 
   const selectedCityId = useMemo(() => {
     if (cityFilter === 'all') return undefined
@@ -128,22 +132,29 @@ export function VenuesPage() {
       ...res,
       items: res.items.map((venue) => mapVenueResponseToCardItem(venue, cityMap)),
     }
-  }), { enabled: cities.length > 0 })
-  const concertsQuery = useQuery(['venues', 'concerts'], () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items))
+  }), { enabled: !isDetailMode && !citiesQuery.isLoading })
+  const detailVenueQuery = useQuery(
+    ['venues', 'detail', venue_id],
+    () => loadVenueById(venue_id).then((venue) => mapVenueResponseToCardItem(venue, new Map())),
+    { enabled: isDetailMode },
+  )
+  const concertsQuery = useQuery(
+    ['venues', 'concerts', isDetailMode ? venue_id : 'list'],
+    () => loadConcerts({ limit: 20, offset: 0 }).then((res) => res.items),
+    { enabled: isDetailMode },
+  )
   const reviewsQuery = useQuery(['venues', 'reviews'], () =>
     loadReviews({ limit: 20, offset: 0, sort: 'created_at', direction: 'DESC' }).then((res) => res.items),
+    { enabled: isDetailMode },
   )
   const venues = venuesQuery.data?.items ?? []
   const concerts = concertsQuery.data ?? []
   const reviews = reviewsQuery.data ?? []
 
-  const [searchParams] = useSearchParams()
-  const venue_id = Number(searchParams.get('venue_id'))
-
   const selectedVenue = useMemo(() => {
-    if (!Number.isFinite(venue_id) || venue_id <= 0) return null
-    return venues.find((item) => item.id === venue_id) ?? detailVenue
-  }, [venue_id, venues, detailVenue])
+    if (!isDetailMode) return null
+    return detailVenueQuery.data ?? null
+  }, [detailVenueQuery.data, isDetailMode])
   const favoritesUsername = useMemo(() => {
     const raw = authUser?.username ?? ''
     return raw.trim().replace(/^@+/, '').toLowerCase()
@@ -152,36 +163,8 @@ export function VenuesPage() {
   const favoritesQuery = useQuery(
     ['favorites', 'venue', favoritesUsername, favoritesRevision],
     () => loadUserFavorites(favoritesUsername, { type: 'venue' }),
-    { enabled: Boolean(isAuth && favoritesUsername) },
+    { enabled: Boolean(isDetailMode && selectedVenue && isAuth && favoritesUsername) },
   )
-
-  useEffect(() => {
-    let cancelled = false
-    if (!Number.isFinite(venue_id) || venue_id <= 0) {
-      setDetailVenue(null)
-      return
-    }
-    if (venues.some((v) => v.id === venue_id)) {
-      setDetailVenue(null)
-      return
-    }
-    if (DATA_SOURCE_MODE === 'mock') {
-      setDetailVenue(null)
-      return
-    }
-    void Promise.all([loadVenueById(venue_id), loadCities().catch(() => [] as City[])])
-      .then(([venueRes, loadedCities]) => {
-        if (cancelled) return
-        const cityMap = new Map(loadedCities.map((c) => [c.city_id, c.name]))
-        setDetailVenue(mapVenueResponseToCardItem(venueRes, cityMap))
-      })
-      .catch(() => {
-        if (!cancelled) setDetailVenue(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [venue_id, venues])
 
   useEffect(() => {
     if (!selectedVenue || !isAuth || !favoritesUsername) {
@@ -198,13 +181,8 @@ export function VenuesPage() {
   }, [selectedVenue?.id])
 
   useEffect(() => {
-    loadCities().then((loadedCities) => {
-      setCities(loadedCities)
-    }).catch((error) => {
-      console.error('[VenuesPage] Failed to load cities:', error)
-      setCities([])
-    })
-  }, [])
+    setFavoriteCount(selectedVenue?.favorites_count ?? 0)
+  }, [selectedVenue?.id, selectedVenue?.favorites_count])
 
   const availableCities = useMemo(() => {
     if (cities.length > 0) {
@@ -309,9 +287,11 @@ export function VenuesPage() {
       if (isFavorite) {
         await removeFavorite('venue', targetId)
         setIsFavorite(false)
+        setFavoriteCount((prev) => Math.max(0, prev - 1))
       } else {
         await addFavorite('venue', targetId)
         setIsFavorite(true)
+        setFavoriteCount((prev) => prev + 1)
       }
       await favoritesQuery.refetch()
     } catch (error) {
@@ -321,20 +301,67 @@ export function VenuesPage() {
     }
   }
 
-  if (venuesQuery.isLoading || concertsQuery.isLoading || reviewsQuery.isLoading) {
-    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+  if (isDetailMode) {
+    if (detailVenueQuery.isLoading || concertsQuery.isLoading || reviewsQuery.isLoading) {
+      return <DetailSkeleton title="Площадка" media="wide" />
+    }
+  } else if (citiesQuery.isLoading || venuesQuery.isLoading) {
+    return <SkeletonGrid title="Площадки" variant="concert" count={8} />
   }
 
-  const pageError = venuesQuery.error ?? concertsQuery.error ?? reviewsQuery.error
+  const pageError = isDetailMode
+    ? detailVenueQuery.error ?? concertsQuery.error ?? reviewsQuery.error
+    : citiesQuery.error ?? venuesQuery.error
   if (pageError) {
-    return <section className="page"><div className="placeholder">{pageError}</div></section>
+    return (
+      <section className="page errorPage">
+        <ErrorState
+          title={isDetailMode ? 'Не получилось загрузить площадку' : 'Не получилось загрузить площадки'}
+          text={pageError}
+          actions={[
+            {
+              label: 'Повторить',
+              onClick: () => {
+                if (isDetailMode) {
+                  void detailVenueQuery.refetch()
+                  void concertsQuery.refetch()
+                  void reviewsQuery.refetch()
+                } else {
+                  void citiesQuery.refetch()
+                  void venuesQuery.refetch()
+                }
+              },
+              variant: 'primary',
+            },
+            { label: 'На главную', to: '/home', variant: 'ghost' },
+          ]}
+        />
+      </section>
+    )
+  }
+
+  if (isDetailMode && !selectedVenue) {
+    return (
+      <section className="page errorPage">
+        <ErrorState
+          code="404"
+          title="Площадка не найдена"
+          text="Площадка удалена, скрыта или ссылка устарела."
+          actions={[
+            { label: 'К площадкам', to: '/venues', variant: 'primary' },
+            { label: 'На главную', to: '/home', variant: 'ghost' },
+          ]}
+        />
+      </section>
+    )
   }
 
   if (selectedVenue) {
     const venueConcerts = concerts
       .filter(
         (concert) =>
-          concert.venue.name === selectedVenue.name && concert.venue.city === selectedVenue.city,
+          String(concert.venue.id) === String(selectedVenue.id) ||
+          (concert.venue.name === selectedVenue.name && (!selectedVenue.city || concert.venue.city === selectedVenue.city)),
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     const venueConcertIds = new Set(venueConcerts.map((concert) => getConcertIdKey(concert)))
@@ -386,12 +413,13 @@ export function VenuesPage() {
                 aria-label="В избранное"
                 title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
               >
-                {isFavorite ? '♥' : '♡'}
+                <span className="favoriteBtnMark" aria-hidden="true">{isFavorite ? '♥' : '♡'}</span>
+                {favoriteCount > 0 && <span className="favoriteBtnCount">{favoriteCount}</span>}
               </button>
             </div>
             <div className="detailStatsRow">
               <p className="detailStatItem">
-                Город: <strong>{selectedVenue.city}</strong>
+                Город: <strong>{selectedVenue.city || '—'}</strong>
               </p>
               <p className="detailStatItem">
                 Вместимость: <strong>{formatCapacity(selectedVenue.capacity)} чел</strong>
@@ -602,4 +630,3 @@ export function VenuesPage() {
     </section>
   )
 }
-

@@ -13,6 +13,8 @@ import { getConcertIdKey } from '../types/concert'
 import { getReviewConcertIdKey } from '../types/review'
 import { useQuery } from '../utils/useQuery'
 import { useAuthStore } from '../store/useAuthStore'
+import { ErrorState } from '../components/ui/ErrorState'
+import { DetailSkeleton, SkeletonGrid } from '../components/ui/Skeletons'
 
 type SortDirection = 'desc' | 'asc'
 type ArtistSortBy = 'rating' | 'alphabet'
@@ -102,6 +104,7 @@ export function ArtistsPage() {
   const [sortDirectionDraft, setSortDirectionDraft] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [favoriteCount, setFavoriteCount] = useState(0)
   const [isFavoriteBusy, setIsFavoriteBusy] = useState(false)
   const [favoriteError, setFavoriteError] = useState<string | null>(null)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
@@ -171,6 +174,17 @@ export function ArtistsPage() {
   useEffect(() => {
     setFavoriteError(null)
   }, [selectedArtistIdKey])
+
+  useEffect(() => {
+    if (!selectedArtist) {
+      setFavoriteCount(0)
+      return
+    }
+
+    const cardFavoritesCount = 'favorites_count' in selectedArtist ? selectedArtist.favorites_count : undefined
+    const statsFavoritesCount = 'stats' in selectedArtist ? selectedArtist.stats?.favorites_count : undefined
+    setFavoriteCount(cardFavoritesCount ?? statsFavoritesCount ?? 0)
+  }, [selectedArtist])
 
   const artistStats = useMemo(() => {
     const out = new Map<number, { concertsCount: number; reviews_count: number }>()
@@ -265,9 +279,11 @@ export function ArtistsPage() {
       if (isFavorite) {
         await removeFavorite('artist', selectedArtistIdKey)
         setIsFavorite(false)
+        setFavoriteCount((prev) => Math.max(0, prev - 1))
       } else {
         await addFavorite('artist', selectedArtistIdKey)
         setIsFavorite(true)
+        setFavoriteCount((prev) => prev + 1)
       }
       await favoritesQuery.refetch()
     } catch (error) {
@@ -282,14 +298,36 @@ export function ArtistsPage() {
     (artistIdParam && !selectedArtist && selectedArtistQuery.isLoading) ||
     (shouldLoadArtistDetails && (concertsQuery.isLoading || reviewsQuery.isLoading))
   ) {
-    return <section className="page"><div className="placeholder">Загрузка данных...</div></section>
+    return artistIdParam
+      ? <DetailSkeleton title="Артист" media="square" />
+      : <SkeletonGrid title="Артисты" variant="artist" count={8} />
   }
 
   const pageError = artistIdParam
     ? selectedArtistQuery.error ?? (shouldLoadArtistDetails ? concertsQuery.error ?? reviewsQuery.error : null)
     : artistsQuery.error
   if (pageError) {
-    return <section className="page"><div className="placeholder">{pageError}</div></section>
+    return (
+      <section className="page errorPage">
+        <ErrorState
+          title="Не получилось загрузить артистов"
+          text={pageError}
+          actions={[
+            {
+              label: 'Повторить',
+              onClick: () => {
+                void artistsQuery.refetch()
+                void selectedArtistQuery.refetch()
+                void concertsQuery.refetch()
+                void reviewsQuery.refetch()
+              },
+              variant: 'primary',
+            },
+            { label: 'На главную', to: '/home', variant: 'ghost' },
+          ]}
+        />
+      </section>
+    )
   }
 
   if (selectedArtist) {
@@ -349,7 +387,8 @@ export function ArtistsPage() {
                 aria-label="В избранное"
                 title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
               >
-                {isFavorite ? '♥' : '♡'}
+                <span className="favoriteBtnMark" aria-hidden="true">{isFavorite ? '♥' : '♡'}</span>
+                {favoriteCount > 0 && <span className="favoriteBtnCount">{favoriteCount}</span>}
               </button>
             </div>
             <div className="detailStatsRow">

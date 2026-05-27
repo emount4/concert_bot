@@ -389,6 +389,10 @@
   line-height: 1.3;
 }
 
+.mobileMetaText {
+  display: none;
+}
+
 .ratingPanel {
   display: flex;
   flex-direction: column;

@@ -22,6 +22,7 @@ import { resolveIsAdmin } from './utils/adminAccess'
 import { isAdminByRole } from './utils/tokenDecoder'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { refresh, tgLogin } from './api/services/authService'
 import { useAuthStore } from './store/useAuthStore'
 import './App.css'
@@ -343,7 +344,14 @@ function App() {
             }
           />
 
-          <Route path="*" element={<Navigate to={isAuth ? '/home' : '/login'} replace />} />
+          <Route
+            path="*"
+            element={
+              <GuardedRoute>
+                <NotFoundPage />
+              </GuardedRoute>
+            }
+          />
         </Routes>
       </main>
 

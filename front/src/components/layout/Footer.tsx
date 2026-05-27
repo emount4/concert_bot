@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import footerLogo from '../../assets/sgovor_logo.png'
 
 function TelegramIcon() {
   return (
@@ -31,15 +32,15 @@ export function Footer() {
           <div className="footerGrid">
             <section className="footerCol" aria-label="Брендинг и право">
               <div className="footerBrandRow">
-                <div className="footerLogo" aria-label="Логотип (заглушка)">
-                  LOGO
+                <div className="footerLogo" aria-label="Логотип проекта">
+                  <img src={footerLogo} alt="Логотип проекта" loading="lazy" decoding="async" />
                 </div>
                 <div className="footerAgeBadge" aria-label="Возрастное ограничение 18+">
                   18+
                 </div>
               </div>
-              <p className="footerSlogan">«Твое мнение о живом звуке».</p>
-              <p className="footerCopyright">© 2026 Название проекта. Все права защищены.</p>
+              <p className="footerSlogan">Независимый архив концертных оценок и рецензий.</p>
+              <p className="footerCopyright">© 2026 SGOVOR. Все права защищены.</p>
             </section>
 
             <nav className="footerCol" aria-label="Разделы">
@@ -78,7 +79,7 @@ export function Footer() {
             <section className="footerCol" aria-label="Связь">
               <h3 className="footerTitle">Связь</h3>
               <div className="footerContact">
-                <a className="footerLink" href="mailto:abuse@emount.music">
+                <a className="footerContactMail" href="mailto:abuse@emount.music">
                   abuse@emount.music
                 </a>
 
@@ -114,7 +115,7 @@ export function Footer() {
             <span className="footerAgeBadge" aria-label="Возрастное ограничение 18+">
               18+
             </span>
-            <span className="footerMobileCopy">© 2026 Название проекта</span>
+            <span className="footerMobileCopy">© 2026 SGOVOR</span>
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppData } from '../../api/AppDataProvider'
 import { createConcertSuggestion } from '../../api/repository'
@@ -318,9 +319,9 @@ export function Header() {
         </div>
       </div>
 
-      {isSuggestOpen && (
+      {isSuggestOpen && createPortal(
         <div
-          className="settingsModalBackdrop"
+          className="settingsModalBackdrop suggestModalBackdrop"
           role="presentation"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeSuggestModal()
@@ -413,7 +414,8 @@ export function Header() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </header>
   )

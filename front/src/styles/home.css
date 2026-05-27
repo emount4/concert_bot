@@ -390,12 +390,12 @@
 
 @media (max-width: 1024px) {
   .homeCarouselItem {
-    flex-basis: calc((100% - var(--home-gap)) / 2);
+    flex-basis: calc((100% - (2 * var(--home-gap))) / 3);
   }
 
   .homeCarouselTop5 .homeCarouselItem {
-    flex-basis: calc((100% - var(--home-gap)) / 2);
-    min-width: 220px;
+    flex-basis: calc((100% - (2 * var(--home-gap))) / 3);
+    min-width: 0;
   }
 
   .homeTopsGrid {
@@ -432,7 +432,7 @@
 
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .homeCarouselItem {
     flex-basis: 100%;
   }

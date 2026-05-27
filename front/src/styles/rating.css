@@ -20,6 +20,9 @@
   padding: 0;
   align-self: start;
   justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .rateHeroFavoriteBtn:hover {
@@ -28,6 +31,25 @@
 
 .rateHeroFavoriteBtn.active {
   color: #ff5252;
+}
+
+.favoriteBtnMark {
+  line-height: 1;
+}
+
+.favoriteBtnCount {
+  min-width: 18px;
+  min-height: 18px;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .rateHeroMain {
