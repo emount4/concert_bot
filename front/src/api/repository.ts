@@ -1,5 +1,5 @@
 import { adminRequest, apiRequest } from './client'
-import { DATA_SOURCE_MODE } from './config'
+import { DATA_SOURCE_MODE, REVIEW_MEDIA_MAX_SIZE_BYTES } from './config'
 import { apiEndpoints } from './endpoints'
 import { MOCK_ADMIN_ACCOUNTS, MOCK_ADMIN_ARTISTS, MOCK_ADMIN_CONCERTS, MOCK_ADMIN_REVIEWS, MOCK_ADMIN_VENUES } from '../data/mockAdmin'
 import { MOCK_ARTISTS } from '../data/mockArtists'
@@ -206,6 +206,19 @@ type BatchUploadResponse = {
     upload_url: string
     upload_form?: Record<string, string> | null
   }>
+}
+export type MediaUploadPurpose =
+  | 'avatar'
+  | 'banner'
+  | 'review_media'
+  | 'artist_photo'
+  | 'venue_photo'
+  | 'concert_poster'
+
+type MediaUploadFileMeta = {
+  filename: string
+  file_size: number
+  content_type: string
 }
 
 type AdminAuditLogApiResponse = {
@@ -1206,7 +1219,92 @@ export async function createReview(payload: CreateReviewPayload): Promise<Review
   return mapReviewResponseToCardItem(response)
 }
 
-async function uploadFileWithTicket(file: File, ticket: BatchUploadResponse['items'][number]): Promise<void> {
+const MEDIA_PURPOSE_CONFIG: Record<MediaUploadPurpose, { maxSizeBytes: number; allowedContentTypes: string[]; mockPrefix: string }> = {
+  avatar: {
+    maxSizeBytes: 5 * 1024 * 1024,
+    allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    mockPrefix: 'avatars',
+  },
+  banner: {
+    maxSizeBytes: 10 * 1024 * 1024,
+    allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    mockPrefix: 'banners',
+  },
+  review_media: {
+    maxSizeBytes: REVIEW_MEDIA_MAX_SIZE_BYTES,
+    allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'],
+    mockPrefix: 'reviews',
+  },
+  artist_photo: {
+    maxSizeBytes: 10 * 1024 * 1024,
+    allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    mockPrefix: 'artists',
+  },
+  venue_photo: {
+    maxSizeBytes: 10 * 1024 * 1024,
+    allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    mockPrefix: 'venues',
+  },
+  concert_poster: {
+    maxSizeBytes: 10 * 1024 * 1024,
+    allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    mockPrefix: 'concerts',
+  },
+}
+
+const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  mp4: 'video/mp4',
+}
+
+function formatMegabytes(bytes: number): string {
+  return `${Math.floor(bytes / 1024 / 1024)} MB`
+}
+
+function getFileExtension(filename: string): string {
+  return filename.split('.').pop()?.trim().toLowerCase() ?? ''
+}
+
+function getUploadContentType(file: File, purpose: MediaUploadPurpose): string {
+  const expectedContentType = CONTENT_TYPE_BY_EXTENSION[getFileExtension(file.name)]
+  if (!expectedContentType) {
+    throw new Error(`Файл ${file.name}: неподдерживаемое расширение.`)
+  }
+
+  const declaredContentType = file.type.trim().toLowerCase()
+  if (declaredContentType && declaredContentType !== expectedContentType) {
+    throw new Error(`Файл ${file.name}: content_type не совпадает с расширением.`)
+  }
+
+  if (!MEDIA_PURPOSE_CONFIG[purpose].allowedContentTypes.includes(expectedContentType)) {
+    throw new Error(`Файл ${file.name}: этот тип нельзя загружать для ${purpose}.`)
+  }
+
+  return expectedContentType
+}
+
+function buildUploadFileMeta(file: File, purpose: MediaUploadPurpose): MediaUploadFileMeta {
+  const config = MEDIA_PURPOSE_CONFIG[purpose]
+  if (file.size > config.maxSizeBytes) {
+    throw new Error(`Файл ${file.name} больше лимита ${formatMegabytes(config.maxSizeBytes)}.`)
+  }
+
+  return {
+    filename: file.name,
+    file_size: file.size,
+    content_type: getUploadContentType(file, purpose),
+  }
+}
+
+async function uploadFileWithTicket(
+  file: File,
+  ticket: BatchUploadResponse['items'][number],
+  contentType: string,
+): Promise<void> {
   if (ticket.upload_form && Object.keys(ticket.upload_form).length > 0) {
     const form = new FormData()
     Object.entries(ticket.upload_form).forEach(([key, value]) => {
@@ -1228,7 +1326,7 @@ async function uploadFileWithTicket(file: File, ticket: BatchUploadResponse['ite
 
   const response = await fetch(ticket.upload_url, {
     method: 'PUT',
-    headers: file.type ? { 'Content-Type': file.type } : undefined,
+    headers: { 'Content-Type': contentType },
     body: file,
   })
   if (!response.ok) {
@@ -1236,26 +1334,37 @@ async function uploadFileWithTicket(file: File, ticket: BatchUploadResponse['ite
   }
 }
 
-export async function uploadReviewMedia(files: File[]): Promise<string[]> {
+export async function uploadMediaFiles(purpose: MediaUploadPurpose, files: File[]): Promise<string[]> {
   if (files.length === 0) return []
+  const fileMetas = files.map((file) => buildUploadFileMeta(file, purpose))
 
   if (DATA_SOURCE_MODE === 'mock') {
-    return files.map((file) => `uploads/${file.name}`)
+    return files.map((file) => `${MEDIA_PURPOSE_CONFIG[purpose].mockPrefix}/${file.name}`)
   }
 
   const response = await apiRequest<BatchUploadResponse>(apiEndpoints.reviews.presignUpload, 'POST', {
-    files: files.map((file) => ({
-      filename: file.name,
-      file_size: file.size,
-    })),
+    purpose,
+    files: fileMetas,
   })
 
   if (response.items.length !== files.length) {
     throw new Error('Сервис загрузки вернул неверное количество ссылок.')
   }
 
-  await Promise.all(response.items.map((ticket, index) => uploadFileWithTicket(files[index], ticket)))
+  await Promise.all(response.items.map((ticket, index) => uploadFileWithTicket(files[index], ticket, fileMetas[index].content_type)))
   return response.items.map((item) => item.file_key)
+}
+
+export async function uploadReviewMedia(files: File[]): Promise<string[]> {
+  return uploadMediaFiles('review_media', files)
+}
+
+export async function uploadAvatarMedia(files: File[]): Promise<string[]> {
+  return uploadMediaFiles('avatar', files)
+}
+
+export async function uploadBannerMedia(files: File[]): Promise<string[]> {
+  return uploadMediaFiles('banner', files)
 }
 
 export async function loadConcerts(params?: PublicConcertListParams): Promise<PagedListResponse<Concert>> {

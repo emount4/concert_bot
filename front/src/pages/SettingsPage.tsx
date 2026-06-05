@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppData } from '../api/AppDataProvider'
 import { DATA_SOURCE_MODE } from '../api/config'
-import { loadMyProfileModerationRequests, updateMyProfile, uploadReviewMedia } from '../api/repository'
+import { loadMyProfileModerationRequests, updateMyProfile, uploadAvatarMedia, uploadBannerMedia } from '../api/repository'
 import { enqueueProfileChangeRequest, loadProfileChangeRequests } from '../data/adminStore'
 import type { AdminProfileChangeRequest } from '../types/admin'
 import { changePasswordMock, deleteAccountMock, getCurrentUserEmail } from '../utils/authMock'
@@ -291,7 +291,7 @@ export function SettingsPage() {
     setProfilePatchError(null)
     setProfilePatchStatus(null)
     try {
-      const [avatarKey] = await uploadReviewMedia([avatarFile])
+      const [avatarKey] = await uploadAvatarMedia([avatarFile])
       if (!avatarKey) throw new Error('Сервис загрузки не вернул ключ аватарки.')
       await updateMyProfile({ avatar_key: avatarKey })
       await refresh()
@@ -333,7 +333,7 @@ export function SettingsPage() {
     setProfilePatchError(null)
     setProfilePatchStatus(null)
     try {
-      const [bannerKey] = await uploadReviewMedia([bannerFile])
+      const [bannerKey] = await uploadBannerMedia([bannerFile])
       if (!bannerKey) throw new Error('Сервис загрузки не вернул ключ баннера.')
       await updateMyProfile({ banner_key: bannerKey })
       await refresh()

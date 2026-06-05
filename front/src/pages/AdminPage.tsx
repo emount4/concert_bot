@@ -31,7 +31,7 @@ import {
   updateAdminAccountRole,
   createArtist,
   updateArtist,
-  uploadReviewMedia,
+  uploadMediaFiles,
   loadAdminAuditLogs,
   deleteArtistHard,
   deleteArtistSoft,
@@ -39,6 +39,7 @@ import {
   deleteVenueSoft,
   restoreArtist,
 } from '../api/repository'
+import type { MediaUploadPurpose } from '../api/repository'
 import { DATA_SOURCE_MODE } from '../api/config'
 import { resolveMediaKey, resolveMediaUrl } from '../utils/mediaUrl'
 import {
@@ -1829,7 +1830,11 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     return adminMediaPreviewUrls[value] ?? resolveMediaUrl(value) ?? value
   }
 
-  function onMediaPick(event: React.ChangeEvent<HTMLInputElement>, onSet: (value: string) => void) {
+  function onMediaPick(
+    event: React.ChangeEvent<HTMLInputElement>,
+    purpose: MediaUploadPurpose,
+    onSet: (value: string) => void,
+  ) {
     const file = event.target.files?.[0]
     if (!file) return
     const localPreviewUrl = URL.createObjectURL(file)
@@ -1837,7 +1842,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
     setIsUploadingAdminMedia(true)
     setAdminMediaUploadError(null)
 
-    void uploadReviewMedia([file])
+    void uploadMediaFiles(purpose, [file])
       .then(([fileKey]) => {
         if (!fileKey) {
           throw new Error('Сервис загрузки не вернул ключ файла.')
@@ -2582,7 +2587,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => onMediaPick(e, (value) => setArtistForm((prev) => ({ ...prev, photo_url: value })))}
+                onChange={(e) => onMediaPick(e, 'artist_photo', (value) => setArtistForm((prev) => ({ ...prev, photo_url: value })))}
                 disabled={isLoadingSavingArtist || isUploadingAdminMedia}
               />
             </label>
@@ -2845,7 +2850,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => onMediaPick(e, (value) => setVenueForm((prev) => ({ ...prev, photo_url: value })))}
+                onChange={(e) => onMediaPick(e, 'venue_photo', (value) => setVenueForm((prev) => ({ ...prev, photo_url: value })))}
                 disabled={isLoadingVenues || isLoadingSavingVenue || isUploadingAdminMedia}
               />
             </label>
@@ -3179,7 +3184,7 @@ function AdminPageContent({ isAdmin, refreshAppData }: AdminPageProps & { refres
                 type="file"
                 accept="image/*"
                 onChange={(e) =>
-                  onMediaPick(e, (value) => setConcertForm((prev) => ({ ...prev, poster_url: value })))
+                  onMediaPick(e, 'concert_poster', (value) => setConcertForm((prev) => ({ ...prev, poster_url: value })))
                 }
                 disabled={isLoadingSavingConcert || isUploadingAdminMedia}
               />
